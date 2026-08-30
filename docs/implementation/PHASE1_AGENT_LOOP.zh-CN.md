@@ -139,13 +139,15 @@ Demo 会先完成两次 AgentDojo Read，然后在包含两个 Effect 的 Calend
 3 个 AgentDojo Read Adapter Test 覆盖恶意邮件内容、Calendar Provenance、
 Snapshot Purity，以及排除有状态的未读邮件工具。加上此前 Action 与 Lifecycle
 Suite，另有 2 个 Model-level Test 会拒绝不可信 Instruction Authority 和被篡改
-的 Observation Digest。Voren 当前共有 36 个通过的测试。
+的 Observation Digest。这个切片的 Checkpoint 共有 36 个通过的测试。后续
+[Responses Model Adapter 与 CLI](PHASE1_MODEL_ADAPTER_CLI.zh-CN.md) 将当前完整
+Suite 增加到 47 个测试。
 
 ## Phase 1 剩余边界
 
-Provider-neutral Contract 当前只有 `ScriptedModelAdapter`。Phase 1 还需要一个
-真实 Model Adapter、CLI Wiring，以及可复现的黄金任务和 Injection Run；其中
-模型行为与 Runtime Enforcement 必须分别度量。
+在这个切片的 Checkpoint，Provider-neutral Contract 只有
+`ScriptedModelAdapter`。后续 Responses/CLI 切片增加了 API-capable Adapter；
+有记录的 Live Golden Run 与 Injection Evaluation 仍待完成。
 
 Loop Transcript 当前只存在于进程内。Run 和 Approval Pause 已经持久化，但进程
 在连续 Read 期间死亡后，还不能恢复完全相同的模型 Transcript。真实 Provider

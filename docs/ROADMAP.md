@@ -44,7 +44,9 @@ Status: **in progress**. The action core, durable approval lifecycle, and
 scripted provenance-aware loop are complete; see
 [Phase 1 Action Core](implementation/PHASE1_ACTION_CORE.md),
 [Phase 1 Run Lifecycle](implementation/PHASE1_RUN_LIFECYCLE.md), and
-[Phase 1 Agent Loop](implementation/PHASE1_AGENT_LOOP.md).
+[Phase 1 Agent Loop](implementation/PHASE1_AGENT_LOOP.md). The API-capable
+provider and CLI are described in
+[Phase 1 Model Adapter and CLI](implementation/PHASE1_MODEL_ADAPTER_CLI.md).
 
 Implement only what the golden workflow needs:
 
@@ -75,12 +77,17 @@ Completed in the action-core sub-slice:
 - provenance-labelled AgentDojo email, calendar, and contact reads;
 - snapshot-enforced read purity and exclusion of stateful unread-email reads;
 - a hard proposal-and-pause boundary for every external action; and
-- a credential-free AgentDojo `user_task_18` loop demonstration.
+- a credential-free AgentDojo `user_task_18` loop demonstration;
+- an HTTPS Responses API adapter with provider-output replay;
+- API-key and endpoint handling that excludes secrets from traces;
+- an installed `voren agentdojo` command; and
+- terminal-only exact-effect approval with no auto-approval option.
 
-Still pending in Phase 1: one real model adapter, CLI wiring, durable mid-loop
-transcript recovery, and reproducible model-behavior runs for the golden and
-prompt-injection cases. The scripted adapter proves orchestration, not model
-planning or injection resistance.
+Still pending in Phase 1: one recorded live-model golden run, durable encrypted
+mid-loop transcript recovery, provider cancellation/token accounting, and
+reproducible model-behavior runs for prompt-injection cases. Contract tests
+prove translation and orchestration, not live model planning or injection
+resistance.
 
 Exit criteria:
 
@@ -263,12 +270,10 @@ small forever.
 The AgentDojo version and task subset are now resolved above. The remaining
 questions are:
 
-1. Does the first model adapter target the OpenAI Responses API or a narrower
-   OpenAI-compatible tool-calling contract?
-2. Which run and event fields require encrypted storage rather than redaction?
-3. What is the smallest approval UI that clearly presents multiple related
+1. Which run and event fields require encrypted storage rather than redaction?
+2. What is the smallest approval UI that clearly presents multiple related
    effects?
-4. Should the initial scheduling preference be a profile rule, a skill input,
+3. Should the initial scheduling preference be a profile rule, a skill input,
    or both with explicit precedence?
-5. What minimum paired sample and uncertainty rule should move a candidate from
+4. What minimum paired sample and uncertainty rule should move a candidate from
    `needs_evidence` to `active`?

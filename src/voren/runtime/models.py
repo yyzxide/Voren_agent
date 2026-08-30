@@ -94,3 +94,4 @@ class RuntimeResult(FrozenModel):
     model_steps: int = Field(ge=0)
     tool_calls: int = Field(ge=0)
     error_code: str | None = None
+    error_detail_code: str | None = None

@@ -99,12 +99,26 @@ class AgentLoop:
                 )
                 response = ModelResponse.model_validate(raw_response)
             except Exception as error:
+                provider_code = getattr(error, "code", None)
+                safe_provider_code = (
+                    provider_code
+                    if isinstance(provider_code, str) and len(provider_code) <= 80
+                    else None
+                )
                 return self._fail(
                     run_id=run.run_id,
                     step=step,
                     tool_calls=tool_call_count,
                     error_code="model_adapter_failed",
-                    details={"error_type": type(error).__name__},
+                    error_detail_code=safe_provider_code,
+                    details={
+                        "error_type": type(error).__name__,
+                        **(
+                            {"provider_code": safe_provider_code}
+                            if safe_provider_code is not None
+                            else {}
+                        ),
+                    },
                 )
 
             self._record_model_response(run.run_id, step, response)
@@ -376,6 +390,7 @@ class AgentLoop:
         step: int,
         tool_calls: int,
         error_code: str,
+        error_detail_code: str | None = None,
         details: dict | None = None,
     ) -> RuntimeResult:
         self._run_manager.fail_runtime(
@@ -389,6 +404,7 @@ class AgentLoop:
             model_steps=step,
             tool_calls=tool_calls,
             error_code=error_code,
+            error_detail_code=error_detail_code,
         )
 
     @staticmethod

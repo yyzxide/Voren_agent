@@ -100,9 +100,11 @@ can be added later through an adapter if it serves a demonstrated need.
 The current Phase 1 implementation includes provider-neutral messages and tool
 definitions, a synchronous model protocol, hard limits for model steps, total
 and repeated calls, and observation bytes, plus structured boundary events.
-It deliberately stops after producing one external-action proposal. Provider
-timeouts, cancellation propagation, token accounting, compaction, a real model
-adapter, and durable mid-loop transcript recovery remain pending.
+It deliberately stops after producing one external-action proposal. An HTTPS
+Responses API adapter and interactive AgentDojo CLI now implement the provider
+boundary; a recorded live-model run has not yet been performed. Provider
+timeout cancellation, token accounting, compaction, and durable mid-loop
+transcript recovery remain pending.
 
 ### 4.3 Action Gateway
 
@@ -322,13 +324,15 @@ rollback claim.
 - Python 3.12;
 - `uv` for environment and dependency management;
 - Pydantic v2 for domain and tool contracts;
-- `asyncio` for cancellation-aware runtime operations;
+- a synchronous first runtime, with `asyncio` deferred until cancellation is
+  implemented end to end;
 - SQLite for the first durable event, operation, and version ledgers;
-- pytest for unit, state-machine, fault-injection, and integration tests;
-- one OpenAI-compatible model adapter first; and
+- standard-library `unittest` for unit, fault-injection, and integration tests;
+- one Responses-compatible HTTPS model adapter behind the local protocol; and
 - AgentDojo pinned behind a Voren-owned adapter.
 
-FastAPI and a browser UI are deferred until the CLI vertical slice is stable.
+FastAPI and a browser UI are deferred until the CLI vertical slice passes live
+model and injection evaluation.
 
 ## 8. Proposed package boundaries
 

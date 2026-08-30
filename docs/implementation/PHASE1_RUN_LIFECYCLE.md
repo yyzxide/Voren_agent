@@ -116,7 +116,8 @@ Eight lifecycle tests cover:
 Together with the action and AgentDojo suites, Voren had 23 passing tests at
 this slice's checkpoint. The later
 [Phase 1 Agent Loop](PHASE1_AGENT_LOOP.md) extends the event vocabulary and
-brings the current suite to 36 tests.
+brought its checkpoint to 36 tests; the subsequent model-adapter/CLI slice
+brings the current suite to 47 tests.
 
 ## Remaining boundary
 

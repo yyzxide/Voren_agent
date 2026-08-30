@@ -109,7 +109,8 @@ Demo 会在 Run 等待 Approval 时刻意关闭并重新打开 SQLite 组件。
 
 在这个切片的 Checkpoint，加上 Action 与 AgentDojo 测试共有 23 个通过的测试。
 后续 [Phase 1 Agent Loop](PHASE1_AGENT_LOOP.zh-CN.md) 扩展了 Event Vocabulary，
-当前完整 Suite 增加到 36 个测试。
+并将当时的 Checkpoint 增加到 36 个测试；再之后的 Model Adapter/CLI 切片将
+当前完整 Suite 增加到 47 个测试。
 
 ## 剩余边界
 

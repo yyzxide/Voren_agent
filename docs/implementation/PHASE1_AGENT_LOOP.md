@@ -143,13 +143,15 @@ Three AgentDojo read-adapter tests cover malicious email content, calendar
 provenance, snapshot purity, and exclusion of the stateful unread-email tool.
 Two model-level tests reject untrusted instruction authority and tampered
 observation digests. Together with the previous action and lifecycle suites,
-Voren currently has 36 passing tests.
+Voren had 36 passing tests at this slice's checkpoint. The later
+[Responses Model Adapter and CLI](PHASE1_MODEL_ADAPTER_CLI.md) brings the current
+suite to 47 tests.
 
 ## Remaining Phase 1 boundary
 
-The provider-neutral contract has only a `ScriptedModelAdapter`. Phase 1 still
-needs one real model adapter, CLI wiring, and reproducible golden/injection runs
-that measure model behavior separately from runtime enforcement.
+At this slice's checkpoint the provider-neutral contract had only a
+`ScriptedModelAdapter`. The later Responses/CLI slice adds an API-capable
+adapter; a recorded live golden run and injection evaluation still remain.
 
 The loop transcript is currently in process. The run and approval pause are
 durable, but a process death during a sequence of reads cannot yet resume the

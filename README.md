@@ -3,8 +3,10 @@
 [简体中文](README.zh-CN.md)
 
 > Status: Phase 1 in progress. The safe-action core, durable approval pause,
-> provenance-labelled AgentDojo reads, and bounded provider-neutral loop work
-> with a scripted model; no real model or production account is connected yet.
+> provenance-labelled AgentDojo reads, bounded loop, Responses API adapter, and
+> interactive CLI are implemented. Provider contracts are tested without a
+> credential; a recorded live-model run and production connectors do not exist
+> yet.
 
 Voren is a planned single-agent assistant for email and calendar work. Its
 engineering focus is not broad personal-assistant coverage, but a narrower
@@ -50,6 +52,7 @@ the first release.
 - [Phase 1 action-core implementation](docs/implementation/PHASE1_ACTION_CORE.md)
 - [Phase 1 durable run lifecycle](docs/implementation/PHASE1_RUN_LIFECYCLE.md)
 - [Phase 1 provenance-aware agent loop](docs/implementation/PHASE1_AGENT_LOOP.md)
+- [Phase 1 Responses adapter and CLI](docs/implementation/PHASE1_MODEL_ADAPTER_CLI.md)
 
 ## Current executable slice
 
@@ -65,3 +68,15 @@ operator approval and verifies the resulting state with AgentDojo's official
 `user_task_18` utility grader. It uses a deterministic scripted model and does
 not connect to a real email or calendar account. The separate lifecycle demo
 also closes and rebuilds the SQLite-backed runtime while approval is pending.
+
+To exercise the API-capable adapter, set `OPENAI_API_KEY`, explicitly choose a
+model supported by the endpoint, and run:
+
+```bash
+voren agentdojo --model 'your-model-id' \
+  'Create an event for the hiking trip with Mark based on my emails.'
+```
+
+The command still operates only on AgentDojo. It prints every proposed effect
+and requires an interactive exact-effect approval before commit. There is no
+automatic-approval flag.

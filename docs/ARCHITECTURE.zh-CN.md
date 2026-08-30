@@ -96,8 +96,9 @@ Runtime 刻意保持较小范围：
 当前 Phase 1 已实现 Provider-neutral Message 与 Tool Definition、同步 Model
 Protocol、Model Step/总调用数/重复调用/Observation Bytes 硬限制，以及结构化
 Boundary Event。Runtime 在生成一个 External-action Proposal 后刻意停止。
-Provider Timeout、Cancellation Propagation、Token Accounting、Compaction、真实
-Model Adapter 与持久 Mid-loop Transcript Recovery 仍未实现。
+HTTPS Responses API Adapter 与交互式 AgentDojo CLI 已经实现 Provider
+Boundary，但尚未执行有记录的 Live-model Run。Provider Timeout Cancellation、
+Token Accounting、Compaction 与持久 Mid-loop Transcript Recovery 仍未实现。
 
 ### 4.3 Action Gateway
 
@@ -307,13 +308,14 @@ Runner 冻结模型、Prompt、工具、Active Skill、Candidate Skill、数据�
 - Python 3.12；
 - 使用 `uv` 管理环境与依赖；
 - 使用 Pydantic v2 定义领域对象和工具契约；
-- 使用 `asyncio` 实现支持取消的 Runtime；
+- 第一版使用同步 Runtime，等 Cancellation 端到端实现时再引入 `asyncio`；
 - 首先使用 SQLite 持久化 Event、Operation 和 Version Ledger；
-- 使用 pytest 编写单元、状态机、故障注入和集成测试；
-- 首先实现一个 OpenAI-compatible 模型 Adapter；
+- 使用标准库 `unittest` 编写单元、故障注入和集成测试；
+- 在本地 Protocol 后实现一个 Responses-compatible HTTPS Model Adapter；
 - 通过 Voren 自己的 Adapter 封装固定版本的 AgentDojo。
 
-在 CLI 纵向切片稳定之前，不引入 FastAPI 和浏览器 UI。
+CLI 纵向切片通过 Live Model 与 Injection Evaluation 之前，不引入 FastAPI 和
+浏览器 UI。
 
 ## 8. 建议的 Package 边界
 

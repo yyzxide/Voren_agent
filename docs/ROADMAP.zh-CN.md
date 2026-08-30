@@ -44,7 +44,9 @@ Voren 按照一系列可执行纵向切片构建。只有通过可观察的验�
 Model 的 Provenance-aware Loop 已完成，详见
 [Phase 1 安全动作核心](implementation/PHASE1_ACTION_CORE.zh-CN.md)、
 [Phase 1 Run Lifecycle](implementation/PHASE1_RUN_LIFECYCLE.zh-CN.md) 和
-[Phase 1 Agent Loop](implementation/PHASE1_AGENT_LOOP.zh-CN.md)。
+[Phase 1 Agent Loop](implementation/PHASE1_AGENT_LOOP.zh-CN.md)。API-capable
+Provider 与 CLI 详见
+[Phase 1 Model Adapter 与 CLI](implementation/PHASE1_MODEL_ADAPTER_CLI.zh-CN.md)。
 
 只实现黄金工作流需要的部分：
 
@@ -75,11 +77,16 @@ Action Core 子切片已完成：
 - 带 Provenance Label 的 AgentDojo Email、Calendar 与 Contact Read；
 - 通过 Snapshot 强制 Read Purity，并排除有状态的 Unread Email Read；
 - 每个外部动作都必须经过 Proposal-and-pause 边界；
-- 无 Credential 的 AgentDojo `user_task_18` Loop Demo。
+- 无 Credential 的 AgentDojo `user_task_18` Loop Demo；
+- 带 Provider Output Replay 的 HTTPS Responses API Adapter；
+- 不把 Secret 写入 Trace 的 API Key 与 Endpoint Handling；
+- 安装后的 `voren agentdojo` Command；
+- 只能在终端进行的 Exact-effect Approval，且没有 Auto Approval Option。
 
-Phase 1 仍待完成：一个真实 Model Adapter、CLI Wiring、持久 Mid-loop Transcript
-Recovery，以及针对黄金任务和 Prompt Injection Case 的可复现模型行为 Run。
-Scripted Adapter 只能证明 Orchestration，不能证明模型规划能力或抗注入能力。
+Phase 1 仍待完成：一次有记录的 Live-model Golden Run、持久加密 Mid-loop
+Transcript Recovery、Provider Cancellation/Token Accounting，以及针对 Prompt
+Injection Case 的可复现模型行为 Run。Contract Test 只能证明 Translation 与
+Orchestration，不能证明 Live Model 的规划能力或抗注入能力。
 
 退出条件：
 
@@ -256,11 +263,9 @@ Trust Boundary 文档。
 
 AgentDojo 版本和任务子集已经在上文确定。剩余问题如下：
 
-1. 第一个 Model Adapter 面向 OpenAI Responses API，还是更窄的
-   OpenAI-compatible Tool-calling Contract？
-2. 哪些 Run/Event 字段需要加密存储，而不是只做脱敏？
-3. 能够清晰展示多个相关副作用的最小 Approval UI 是什么？
-4. 初始 Scheduling Preference 应属于 Profile Rule、Skill Input，还是两者同时
+1. 哪些 Run/Event 字段需要加密存储，而不是只做脱敏？
+2. 能够清晰展示多个相关副作用的最小 Approval UI 是什么？
+3. 初始 Scheduling Preference 应属于 Profile Rule、Skill Input，还是两者同时
    存在并定义明确优先级？
-5. Candidate 从 `needs_evidence` 进入 `active` 至少需要多少配对样本，以及怎样
+4. Candidate 从 `needs_evidence` 进入 `active` 至少需要多少配对样本，以及怎样
    定义不确定性规则？

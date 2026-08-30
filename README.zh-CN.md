@@ -3,8 +3,9 @@
 [English](README.md)
 
 > 当前状态：Phase 1 进行中。安全动作核心、持久 Approval Pause、带 Provenance
-> Label 的 AgentDojo Read，以及 Provider-neutral 有界 Loop 已经能够通过
-> Scripted Model 运行；目前尚未连接真实模型或生产账号。
+> Label 的 AgentDojo Read、有界 Loop、Responses API Adapter 和交互式 CLI 已经
+> 实现。Provider Contract 已在无 Credential 环境中通过测试；目前还没有记录
+> Live-model Run，也没有生产环境 Connector。
 
 Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的工程重点不是
 覆盖尽可能多的个人助理功能，而是回答一个更窄的问题：
@@ -47,6 +48,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [Phase 1 安全动作核心实现](docs/implementation/PHASE1_ACTION_CORE.zh-CN.md)
 - [Phase 1 持久 Run Lifecycle](docs/implementation/PHASE1_RUN_LIFECYCLE.zh-CN.md)
 - [Phase 1 Provenance-aware Agent Loop](docs/implementation/PHASE1_AGENT_LOOP.zh-CN.md)
+- [Phase 1 Responses Adapter 与 CLI](docs/implementation/PHASE1_MODEL_ADAPTER_CLI.zh-CN.md)
 
 ## 当前可运行切片
 
@@ -61,3 +63,14 @@ Agent Loop Demo 会执行带 Provenance Label 的邮件与日历读取，在外�
 AgentDojo 官方 `user_task_18` Utility Grader 验证最终状态。它使用确定性
 Scripted Model，不连接真实邮件或日历账号。单独的 Lifecycle Demo 还会在等待
 Approval 时关闭并重建 SQLite Runtime。
+
+要运行 API-capable Adapter，请设置 `OPENAI_API_KEY`，明确选择 Endpoint 支持的
+Model，然后执行：
+
+```bash
+voren agentdojo --model 'your-model-id' \
+  'Create an event for the hiking trip with Mark based on my emails.'
+```
+
+Command 仍然只操作 AgentDojo。Commit 前会显示全部 Proposed Effect，并要求在
+终端进行精确副作用审批；CLI 不提供 Auto Approval 开关。

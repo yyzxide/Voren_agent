@@ -71,6 +71,13 @@ class DeterministicReadAdapter:
         )
 
 
+class FailingProviderModel:
+    def complete(self, *, messages, tools):
+        error = RuntimeError("provider rejected the request")
+        error.code = "rate_limit_exceeded"
+        raise error
+
+
 class AgentLoopTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
@@ -300,6 +307,24 @@ class AgentLoopTest(unittest.TestCase):
         self.assertEqual(result.error_code, "unknown_tool")
         self.assertEqual(reads.calls, [])
         self.assertEqual(self.world.commit_attempts, 0)
+
+    def test_safe_provider_error_code_reaches_result_and_audit_event(self) -> None:
+        loop = AgentLoop(
+            model=FailingProviderModel(),
+            read_tools=DeterministicReadAdapter(),
+            action_tools=(self.action_tool(),),
+            run_manager=self.manager,
+        )
+
+        result = loop.run(user_request="Summarize email.", config=self.config())
+
+        self.assertEqual(result.status, RuntimeResultStatus.FAILED)
+        self.assertEqual(result.error_code, "model_adapter_failed")
+        self.assertEqual(result.error_detail_code, "rate_limit_exceeded")
+        failed_event = self.store.list_events(result.run_id)[-1]
+        self.assertEqual(
+            failed_event.payload["provider_code"], "rate_limit_exceeded"
+        )
 
 
 if __name__ == "__main__":
