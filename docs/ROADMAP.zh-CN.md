@@ -1,0 +1,254 @@
+# 路线图与源码阅读计划
+
+[English](ROADMAP.md)
+
+## 1. 交付策略
+
+Voren 按照一系列可执行纵向切片构建。只有通过可观察的验收条件，某一阶段才
+算完成；只创建 Interface 或数据库表不代表阶段完成。
+
+## 2. Phase 0：环境与设计 Spike
+
+状态：环境与工具契约范围已于 **2026-08-30 完成**。详见
+[AgentDojo Workspace Spike](research/AGENTDOJO_SPIKE.zh-CN.md)。
+
+目标：
+
+- 原样运行一个固定版本的 AgentDojo workspace Task；
+- 检查邮件/日历状态和 Grading Model；
+- 确认依赖、License 和 Model Adapter 约束；
+- 记录第一批架构决策；
+- 把黄金工作流转化为具体 Test Fixture。
+
+退出条件：
+
+- 可以复现一次 AgentDojo Baseline Run；
+- 明确记录启用的工具和 State Verifier；
+- 全部流程不需要生产环境 Credential。
+
+已记录结果：
+
+- AgentDojo Distribution `0.1.35`，Commit
+  `a75aba7631d3ca5fb7ab938965c97ead2f9ff84b`；
+- Benchmark `v1.2.2`，Suite `workspace`；
+- 黄金用例 `user_task_18`，并以 `user_task_17`、`user_task_20` 作为对照；
+- 安全 Smoke Case：`injection_task_2`、`injection_task_3`、
+  `injection_task_4`；
+- 使用跨资源 Effect Manifest 取代单一的 Read/Write 标签；
+- 对上游 Aggregate Self-check 的失败按已知原因拆分记录，不将它描述成全绿
+  Baseline。
+
+## 3. Phase 1：安全行动纵向切片
+
+状态：**进行中**。确定性 Action Core 子切片已经完成，详见
+[Phase 1 安全动作核心](implementation/PHASE1_ACTION_CORE.zh-CN.md)。
+
+只实现黄金工作流需要的部分：
+
+- CLI Request 与 Run Lifecycle；
+- 一个 Model Adapter；
+- 有界 Tool-calling Loop；
+- AgentDojo Email/Calendar Adapter；
+- Append-only Trace；
+- Local Action Proposal；
+- 精确副作用审批的暂停/恢复；
+- Operation Ledger；
+- Postcondition Verification。
+
+Action Core 子切片已完成：
+
+- 类型化跨资源 Effect Manifest 与 Proposal；
+- 绑定精确 Digest 且检查过期时间的 Approval；
+- SQLite Operation Ledger 与持久 Receipt；
+- 基于状态的 Exact-effect Verification；
+- 重复 Commit 抑制与 Ambiguous Commit 处理；
+- 确定性 Fake Workspace 故障注入与测试；
+- 固定版本 AgentDojo Workspace Adapter；
+- 官方 `user_task_18` Utility Grader 集成。
+
+Phase 1 仍待完成：持久 Run 暂停/恢复、Append-only Event、带 Provenance Label
+的读取工具，以及有界 Model/Tool Loop。
+
+退出条件：
+
+- 黄金工作流端到端完成；
+- Tool Result 不能单独触发无关修改；
+- 每个外部写操作都有对应 Approval 和 Receipt；
+- Commit 后超时不会重复动作。
+
+## 4. Phase 2：Memory 与静态 Skill
+
+实现：
+
+- Profile、Episode 和 Skill Store；
+- 兼容 Agent Skills 的 Discovery；
+- Progressive Skill Loading；
+- Immutable Skill Version 和 Active Pointer；
+- Context 与 Evidence 中的 Trust Provenance；
+- 一个手工编写的 Scheduling Skill。
+
+退出条件：
+
+- Run 冻结精确 Memory 和 Skill 版本；
+- Preference Data 不会与 Procedural Instruction 混淆；
+- 不可信邮件内容不能直接更新长期 Store；
+- `no_skill`、`static_skill` 和可选 `oracle_skill` Trial 可以复现。
+
+## 5. Phase 3：Candidate 学习与晋升
+
+实现：
+
+- Evidence Eligibility Rule；
+- Durable-learning Router；
+- Bounded Skill Edit；
+- Candidate Lifecycle；
+- Paired Evaluation Runner；
+- Promotion Policy 与 Decision Report；
+- Rollback。
+
+退出条件：
+
+- 选定 Trace 只能创建非激活 Candidate；
+- 已知有害 Candidate 被拒绝；
+- 已接受 Candidate 绑定精确 Evidence 和 Evaluation Artifact；
+- 可以比较 Direct-reflection 与 Gated-learning Baseline；
+- Rollback 能够在同一组测试中恢复之前行为。
+
+## 6. Phase 4：安全与作品集报告
+
+实现：
+
+- AgentDojo Workspace Injection Run；
+- Memory/Skill Contamination Test；
+- 分离 Agent Behavior 与 Runtime Enforcement 的评测模式；
+- Security-versus-Utility Report；
+- 定向 Ablation；
+- Trace 与 Skill Diff 检查 UI 或生成式报告；
+- 明确记录 Limitations 与 Threat Model Boundary。
+
+退出条件：
+
+- 分别报告 Benign Utility 与 Attack Success；
+- 不使用 Always-deny Policy 隐藏原始 AgentDojo Attack Success；
+- Provenance 和 Promotion Gate 得到测试，而不只是文档描述；
+- 所有公开结果都链接到可复现 Artifact；
+- 项目具备用于面试的架构说明和阅读指南。
+
+## 7. Phase 5：一个真实 Connector
+
+只有受控系统稳定之后，才添加一个供应商体系，最可能是 Gmail 与 Google
+Calendar，并保持保守默认策略。
+
+初始生产行为优先只读和 Draft。发送、删除或修改外部状态仍然要求明确授权。
+AgentDojo 路径继续作为 Regression Environment。
+
+多个供应商、后台收件箱轮询、渠道集成和主动自动化继续延后。
+
+## 8. 源码阅读顺序
+
+源码研究以问题为导向。每份笔记应记录机制、假设、采用内容、拒绝内容，以及
+它影响的 Voren 测试。
+
+### 1. AgentDojo Workspace 与 Pipeline
+
+首先阅读，因为它定义 Voren 的初始世界和评测契约：
+
+- Workspace Email/Calendar Tool Definition；
+- 普通 User Task 与 State Grader；
+- Injection Task 与 Security Grader；
+- Pipeline 和 Tool Execution Loop；
+- Benchmark Runner 与 Result Format。
+
+采用：基于状态的 Utility/Security Evaluation 和不可信工具输出测试。
+
+拒绝：把 Voren Runtime 直接耦合到不稳定的 Benchmark API。
+
+### 2. Pi Agent Core
+
+阅读最小 Agent Runtime、Provider Abstraction、State、Event 和 Compaction
+相关模块。
+
+采用：易读的 Bounded Loop 和类型化 State/Event。
+
+拒绝：把 Pi 进程权限视为足够的 Action Security Model。
+
+### 3. Codex Action Boundary
+
+定向阅读 Approval、Tool Orchestration、Cancellation 和 App Server Event
+Contract，不通读整个产品。
+
+采用：显式 Pending Item、精确 Approval Context、执行前 Policy，以及可恢复的
+事件驱动交互。
+
+拒绝：复制大型 Coding Agent 架构，或者不经转换就把文件系统 Sandbox 模型
+套到 API 副作用上。
+
+### 4. Agent Skills Specification
+
+采用：可移植 `SKILL.md` 结构和 Progressive Disclosure。
+
+扩展：增加 Voren Sidecar，记录 Effect Scope、Evidence 和 Evaluation。Prose
+永远不能授予 Runtime Permission。
+
+### 5. Hermes Agent
+
+阅读 Background Review、Skill Management、Provenance、Staging 与 Approval。
+
+采用：实用 Skill Authoring Lifecycle 和人类可读 Diff。
+
+拒绝：仅仅因为任务复杂或调用了很多工具就创建长期 Skill。
+
+### 6. SkillOpt 与 SkillOpt-Sleep
+
+阅读 Scored Rollout Ingestion、Bounded Edit、Validation Selection、Rejected
+Edit Handling 和 Offline Consolidation。
+
+采用：根据 held-out Evidence 优化 Candidate。
+
+转换：把通用 Benchmark Score 转换成 Voren 的 External State、Side Effect 和
+Security Gate。
+
+### 7. OpenClaw
+
+阅读 Provenance、Action Receipt、Skill Proposal、Exact Revision Binding 和
+Trust Boundary 文档。
+
+采用：确定性 Admission Check 和与证据关联的 Lifecycle Event。
+
+拒绝：Gateway、Channel、Device Node、Scheduler 和 Plugin Ecosystem 范围。
+
+### 可选参考
+
+- Memory 组织成为可测量瓶颈时再研究 Letta；
+- 第二个真实 Adapter 证明需要更强 Plugin Boundary 时再研究 DeepSeek Harness；
+- 需要更广的日常应用结果评测时再研究 AppWorld；
+- 只有出现具体缺失机制时才研究 OpenHands 或 Goose，不做泛读。
+
+## 9. 第一批实现决策
+
+以下默认选择用于保持第一个切片一致：
+
+- 语言：Python 3.12；
+- Interface：CLI；
+- Model Support：一个位于本地 Protocol 后的 OpenAI-compatible Adapter；
+- World：AgentDojo `0.1.35` / Benchmark `v1.2.2` Workspace Adapter；
+- Persistence：SQLite 加 Content-addressed Artifact；
+- Mutation Policy：每个外部写操作都审批；
+- Skill Activation：首先只显式选择一个静态 Skill；
+- Learning：只离线生成 Candidate；
+- UI、真实 OAuth、向量检索和通用 Plugin：延后。
+
+这些是可逆的默认选择，不代表最终系统必须永远保持小规模。
+
+## 10. 待解决设计问题
+
+AgentDojo 版本和任务子集已经在上文确定。剩余问题如下：
+
+1. 第一个 Model Adapter 面向 OpenAI Responses API，还是更窄的
+   OpenAI-compatible Tool-calling Contract？
+2. 哪些 Run/Event 字段需要加密存储，而不是只做脱敏？
+3. 能够清晰展示多个相关副作用的最小 Approval UI 是什么？
+4. 初始 Scheduling Preference 应属于 Profile Rule、Skill Input，还是两者同时
+   存在并定义明确优先级？
+5. Candidate 从 `needs_evidence` 进入 `active` 至少需要多少配对样本，以及怎样
+   定义不确定性规则？

@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voren-agent"
+version = "0.1.0"
+description = "A provenance-aware action agent with verified external effects"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "pydantic>=2.11,<3",
+]
+
+[project.optional-dependencies]
+agentdojo = [
+  "agentdojo==0.1.35",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

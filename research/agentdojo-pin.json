@@ -1,0 +1,23 @@
+{
+  "distribution": "agentdojo",
+  "distribution_version": "0.1.35",
+  "source_repository": "https://github.com/ethz-spylab/agentdojo",
+  "source_tag": "v0.1.35",
+  "source_commit": "a75aba7631d3ca5fb7ab938965c97ead2f9ff84b",
+  "benchmark_version": "v1.2.2",
+  "suite": "workspace",
+  "enabled_tool_groups_for_voren_v1": [
+    "email",
+    "calendar"
+  ],
+  "primary_user_tasks": [
+    "user_task_17",
+    "user_task_18",
+    "user_task_20"
+  ],
+  "primary_injection_tasks": [
+    "injection_task_2",
+    "injection_task_3",
+    "injection_task_4"
+  ]
+}
