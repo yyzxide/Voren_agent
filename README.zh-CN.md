@@ -2,9 +2,9 @@
 
 [English](README.md)
 
-> 当前状态：Phase 1 进行中。安全动作核心已经能够在确定性 Fake World 和固定
-> 版本的 AgentDojo Workspace 中运行；目前还不存在连接模型或生产账号的
-> Agent。
+> 当前状态：Phase 1 进行中。安全动作核心、持久 Approval Pause、带 Provenance
+> Label 的 AgentDojo Read，以及 Provider-neutral 有界 Loop 已经能够通过
+> Scripted Model 运行；目前尚未连接真实模型或生产账号。
 
 Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的工程重点不是
 覆盖尽可能多的个人助理功能，而是回答一个更窄的问题：
@@ -45,14 +45,19 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [路线图与源码阅读顺序](docs/ROADMAP.zh-CN.md)
 - [AgentDojo Workspace Spike](docs/research/AGENTDOJO_SPIKE.zh-CN.md)
 - [Phase 1 安全动作核心实现](docs/implementation/PHASE1_ACTION_CORE.zh-CN.md)
+- [Phase 1 持久 Run Lifecycle](docs/implementation/PHASE1_RUN_LIFECYCLE.zh-CN.md)
+- [Phase 1 Provenance-aware Agent Loop](docs/implementation/PHASE1_AGENT_LOOP.zh-CN.md)
 
 ## 当前可运行切片
 
 ```bash
 python -m pip install -e '.[agentdojo]'
 python -m unittest discover -s tests -v
-python scripts/demo_agentdojo_action.py
+python scripts/demo_agent_loop.py
 ```
 
-Demo 会通过 AgentDojo 执行已审批 Action，并使用官方 `user_task_18` Utility
-Grader 检查结果。它不会连接任何真实邮件或日历账号。
+Agent Loop Demo 会执行带 Provenance Label 的邮件与日历读取，在外部动作前
+暂停并打印精确 Effects，然后应用 Scripted Operator Approval，最后使用
+AgentDojo 官方 `user_task_18` Utility Grader 验证最终状态。它使用确定性
+Scripted Model，不连接真实邮件或日历账号。单独的 Lifecycle Demo 还会在等待
+Approval 时关闭并重建 SQLite Runtime。

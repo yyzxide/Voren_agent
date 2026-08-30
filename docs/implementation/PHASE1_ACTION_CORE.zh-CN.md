@@ -125,10 +125,11 @@ Approval Simulator 属于评测和演示设施，不能用它声称真实外部�
 
 整个 Phase 1 仍在进行中。下一个切片还需要：
 
-- 围绕 Operation Ledger 实现持久 Run Lifecycle 与 Approval 暂停/恢复；
-- Append-only Event；
 - 有界 Model/Tool Loop；
 - 带 Provenance Label 的邮件/日历读取工具。
+
+持久 Pause/Resume 和 Append-only Lifecycle Event 已在
+[Phase 1 持久 Run Lifecycle](PHASE1_RUN_LIFECYCLE.zh-CN.md) 中实现。
 
 这两个受控 Workspace 都不会被描述成生产环境 Connector。Fake Workspace 的
 进程内状态不持久化；AgentDojo 则刻意模拟内存 Benchmark，不模拟真实 Provider

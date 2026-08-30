@@ -51,13 +51,14 @@
 2. `ContextAssembler` 加载操作者请求、可信 Profile 条目以及可用 Skill
    Metadata；
 3. `AgentRuntime` 请求下一次模型响应；
-4. 文本输出可以结束 Run，工具调用则转化为 `ActionProposal`；
-5. `ActionGateway` 校验 Schema、Provenance、副作用策略和前置条件；
-6. 如果需要审批，Run 进入暂停状态，并生成绑定规范化动作摘要的
-   `ApprovalRequest`；
-7. 获得授权后，Adapter 使用 Operation Key 提交动作；
-8. Verifier 读取最终外部状态并生成 `ActionReceipt`；
-9. 如果还有剩余步骤，Observation 返回模型；
+4. 文本输出可以结束 Run；Allowlist 中的 Pure Read 生成带结构化 Provenance
+   Label 的 `ToolObservation`，随后返回模型；
+5. 被分类为外部动作的调用转化为 `ActionProposal`，Model/Tool Loop 绝不直接
+   执行它；
+6. `ActionGateway` 校验 Action Schema，并具体化精确 Effect Manifest；
+7. Run 进入暂停状态，Approval Request 绑定规范化 Proposal Digest；
+8. 获得授权后，Adapter 使用 Operation Key 提交动作；
+9. Verifier 读取最终外部状态并生成 `ActionReceipt`；
 10. 终止结果被记录，并可在之后进入学习候选流程。
 
 ## 4. 核心组件
@@ -67,8 +68,12 @@
 负责生命周期与持久状态转换：
 
 ```text
-created -> running -> waiting_approval -> running -> completed
-                   \-> cancelled      \-> failed
+created -> running -> completed
+                \-> failed
+                \-> waiting_approval -> completed
+                                      \-> failed
+                                      \-> cancelled
+                                      \-> needs_reconciliation
 ```
 
 它负责暂停/恢复、取消、预算以及进程中断后的恢复。恢复的 Run 继续使用创建时
@@ -87,6 +92,12 @@ Runtime 刻意保持较小范围：
 
 第一个版本不依赖 Graph 框架。如果后续出现经过验证的需求，可以通过 Adapter
 集成相应框架。
+
+当前 Phase 1 已实现 Provider-neutral Message 与 Tool Definition、同步 Model
+Protocol、Model Step/总调用数/重复调用/Observation Bytes 硬限制，以及结构化
+Boundary Event。Runtime 在生成一个 External-action Proposal 后刻意停止。
+Provider Timeout、Cancellation Propagation、Token Accounting、Compaction、真实
+Model Adapter 与持久 Mid-loop Transcript Recovery 仍未实现。
 
 ### 4.3 Action Gateway
 

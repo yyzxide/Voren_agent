@@ -40,8 +40,11 @@ Voren 按照一系列可执行纵向切片构建。只有通过可观察的验�
 
 ## 3. Phase 1：安全行动纵向切片
 
-状态：**进行中**。确定性 Action Core 子切片已经完成，详见
-[Phase 1 安全动作核心](implementation/PHASE1_ACTION_CORE.zh-CN.md)。
+状态：**进行中**。Action Core、持久 Approval Lifecycle，以及使用 Scripted
+Model 的 Provenance-aware Loop 已完成，详见
+[Phase 1 安全动作核心](implementation/PHASE1_ACTION_CORE.zh-CN.md)、
+[Phase 1 Run Lifecycle](implementation/PHASE1_RUN_LIFECYCLE.zh-CN.md) 和
+[Phase 1 Agent Loop](implementation/PHASE1_AGENT_LOOP.zh-CN.md)。
 
 只实现黄金工作流需要的部分：
 
@@ -64,10 +67,19 @@ Action Core 子切片已完成：
 - 重复 Commit 抑制与 Ambiguous Commit 处理；
 - 确定性 Fake Workspace 故障注入与测试；
 - 固定版本 AgentDojo Workspace Adapter；
-- 官方 `user_task_18` Utility Grader 集成。
+- 官方 `user_task_18` Utility Grader 集成；
+- 持久 Run Pause/Resume 与 Receipt Recovery；
+- 只追加写、有序且可去重的 Lifecycle Event；
+- Provider-neutral Model Message、Tool Call 与 Definition；
+- Model Step、总调用数、重复调用和 Observation Size 的硬限制；
+- 带 Provenance Label 的 AgentDojo Email、Calendar 与 Contact Read；
+- 通过 Snapshot 强制 Read Purity，并排除有状态的 Unread Email Read；
+- 每个外部动作都必须经过 Proposal-and-pause 边界；
+- 无 Credential 的 AgentDojo `user_task_18` Loop Demo。
 
-Phase 1 仍待完成：持久 Run 暂停/恢复、Append-only Event、带 Provenance Label
-的读取工具，以及有界 Model/Tool Loop。
+Phase 1 仍待完成：一个真实 Model Adapter、CLI Wiring、持久 Mid-loop Transcript
+Recovery，以及针对黄金任务和 Prompt Injection Case 的可复现模型行为 Run。
+Scripted Adapter 只能证明 Orchestration，不能证明模型规划能力或抗注入能力。
 
 退出条件：
 

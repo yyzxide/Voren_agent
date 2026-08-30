@@ -51,14 +51,16 @@ boundaries are logical contracts, not a requirement for microservices.
 2. `ContextAssembler` loads the operator request, trusted profile entries, and
    the metadata of available skills.
 3. `AgentRuntime` requests the next model response.
-4. Text output may finish the run. Tool calls become `ActionProposal` objects.
-5. `ActionGateway` validates schema, provenance, effect policy, and
-   preconditions.
-6. If approval is needed, the run pauses with an `ApprovalRequest` bound to the
-   normalized action digest.
-7. On authorization, the adapter commits the action under an operation key.
-8. A verifier reads the resulting world state and records an `ActionReceipt`.
-9. The observation returns to the model if more steps are allowed.
+4. Text output may finish the run. Allowlisted pure reads produce structured,
+   provenance-labelled `ToolObservation` objects and return to the model.
+5. A call classified as an external action becomes an `ActionProposal`; it is
+   never executed directly by the model/tool loop.
+6. `ActionGateway` validates the action schema and materializes its exact effect
+   manifest.
+7. The run pauses with an approval request bound to the normalized proposal
+   digest.
+8. On authorization, the adapter commits the action under an operation key.
+9. A verifier reads the resulting world state and records an `ActionReceipt`.
 10. The terminal outcome is recorded and may later be considered by the
     learning pipeline.
 
@@ -69,8 +71,12 @@ boundaries are logical contracts, not a requirement for microservices.
 Owns lifecycle and durable state transitions:
 
 ```text
-created -> running -> waiting_approval -> running -> completed
-                   \-> cancelled      \-> failed
+created -> running -> completed
+                \-> failed
+                \-> waiting_approval -> completed
+                                      \-> failed
+                                      \-> cancelled
+                                      \-> needs_reconciliation
 ```
 
 It is responsible for pause/resume, cancellation, budgets, and recovery after
@@ -90,6 +96,13 @@ The runtime is intentionally small:
 
 The first version should not depend on a graph framework. Framework integration
 can be added later through an adapter if it serves a demonstrated need.
+
+The current Phase 1 implementation includes provider-neutral messages and tool
+definitions, a synchronous model protocol, hard limits for model steps, total
+and repeated calls, and observation bytes, plus structured boundary events.
+It deliberately stops after producing one external-action proposal. Provider
+timeouts, cancellation propagation, token accounting, compaction, a real model
+adapter, and durable mid-loop transcript recovery remain pending.
 
 ### 4.3 Action Gateway
 

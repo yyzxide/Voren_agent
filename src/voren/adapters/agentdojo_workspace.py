@@ -75,6 +75,11 @@ class AgentDojoWorkspaceAdapter:
     def account_email(self) -> str:
         return str(self.environment.calendar.account_email)
 
+    def create_functions_runtime(self) -> Any:
+        """Create an AgentDojo runtime pinned to this adapter's tool suite."""
+
+        return self._runtime_type(self.suite.tools)
+
     def commit(self, proposal: ActionProposal) -> None:
         self.commit_attempts += 1
         if proposal.operation_id in self._operations:
@@ -97,7 +102,7 @@ class AgentDojoWorkspaceAdapter:
         # Store the pre-state and predicted IDs before dispatch so an exception
         # can still be reconciled through observation.
         self._operations[proposal.operation_id] = context
-        runtime = self._runtime_type(self.suite.tools)
+        runtime = self.create_functions_runtime()
         tool_arguments = {
             "title": arguments.title,
             "start_time": arguments.start_time.strftime("%Y-%m-%d %H:%M"),

@@ -2,9 +2,9 @@
 
 [简体中文](README.zh-CN.md)
 
-> Status: Phase 1 in progress. The safe-action core works in both a deterministic
-> fake world and the pinned AgentDojo workspace; no model-connected or
-> production-account agent exists yet.
+> Status: Phase 1 in progress. The safe-action core, durable approval pause,
+> provenance-labelled AgentDojo reads, and bounded provider-neutral loop work
+> with a scripted model; no real model or production account is connected yet.
 
 Voren is a planned single-agent assistant for email and calendar work. Its
 engineering focus is not broad personal-assistant coverage, but a narrower
@@ -48,15 +48,20 @@ the first release.
 - [Roadmap and source-reading plan](docs/ROADMAP.md)
 - [AgentDojo workspace spike](docs/research/AGENTDOJO_SPIKE.md)
 - [Phase 1 action-core implementation](docs/implementation/PHASE1_ACTION_CORE.md)
+- [Phase 1 durable run lifecycle](docs/implementation/PHASE1_RUN_LIFECYCLE.md)
+- [Phase 1 provenance-aware agent loop](docs/implementation/PHASE1_AGENT_LOOP.md)
 
 ## Current executable slice
 
 ```bash
 python -m pip install -e '.[agentdojo]'
 python -m unittest discover -s tests -v
-python scripts/demo_agentdojo_action.py
+python scripts/demo_agent_loop.py
 ```
 
-The demo runs the approved action through AgentDojo and checks the resulting
-state with its official `user_task_18` utility grader. It never connects to a
-real email or calendar account.
+The agent-loop demo performs provenance-labelled email/calendar reads, pauses
+before an external action, prints the exact effects, then applies a scripted
+operator approval and verifies the resulting state with AgentDojo's official
+`user_task_18` utility grader. It uses a deterministic scripted model and does
+not connect to a real email or calendar account. The separate lifecycle demo
+also closes and rebuilds the SQLite-backed runtime while approval is pending.

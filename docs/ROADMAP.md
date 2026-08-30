@@ -40,8 +40,11 @@ Recorded outcome:
 
 ## 3. Phase 1: safe-action vertical slice
 
-Status: **in progress**. The deterministic action-core sub-slice is complete;
-see [Phase 1 Action Core](implementation/PHASE1_ACTION_CORE.md).
+Status: **in progress**. The action core, durable approval lifecycle, and
+scripted provenance-aware loop are complete; see
+[Phase 1 Action Core](implementation/PHASE1_ACTION_CORE.md),
+[Phase 1 Run Lifecycle](implementation/PHASE1_RUN_LIFECYCLE.md), and
+[Phase 1 Agent Loop](implementation/PHASE1_AGENT_LOOP.md).
 
 Implement only what the golden workflow needs:
 
@@ -64,10 +67,20 @@ Completed in the action-core sub-slice:
 - duplicate-commit suppression and ambiguous-commit handling; and
 - deterministic Fake Workspace faults and tests;
 - pinned AgentDojo workspace adapter; and
-- official `user_task_18` utility-grader integration.
+- official `user_task_18` utility-grader integration;
+- durable run pause/resume and receipt recovery; and
+- append-only, ordered, deduplicated lifecycle events;
+- provider-neutral model messages, tool calls, and definitions;
+- bounded model steps, total calls, repeated calls, and observation size;
+- provenance-labelled AgentDojo email, calendar, and contact reads;
+- snapshot-enforced read purity and exclusion of stateful unread-email reads;
+- a hard proposal-and-pause boundary for every external action; and
+- a credential-free AgentDojo `user_task_18` loop demonstration.
 
-Still pending in Phase 1: durable run pause/resume, append-only events,
-provenance-labelled read tools, and the bounded model/tool loop.
+Still pending in Phase 1: one real model adapter, CLI wiring, durable mid-loop
+transcript recovery, and reproducible model-behavior runs for the golden and
+prompt-injection cases. The scripted adapter proves orchestration, not model
+planning or injection resistance.
 
 Exit criteria:
 

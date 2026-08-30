@@ -129,10 +129,11 @@ Four AgentDojo integration tests additionally prove:
 
 Phase 1 as a whole remains in progress. The next slice still needs:
 
-- durable run lifecycle and approval pause/resume around the operation ledger;
-- append-only events;
 - the bounded model/tool loop; and
 - read-side email/calendar tools with provenance labels.
+
+Durable pause/resume and append-only lifecycle events are implemented in
+[Phase 1 Durable Run Lifecycle](PHASE1_RUN_LIFECYCLE.md).
 
 Neither controlled workspace is presented as a production connector. The Fake
 Workspace process state is not durable, and AgentDojo intentionally models an

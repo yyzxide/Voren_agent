@@ -68,6 +68,12 @@ class SQLiteOperationLedger:
             return None
         return ActionReceipt.model_validate_json(receipt_json)
 
+    def get_approval(self, operation_id: str) -> ApprovalDecision | None:
+        approval_json = self._get_row(operation_id)["approval_json"]
+        if approval_json is None:
+            return None
+        return ApprovalDecision.model_validate_json(approval_json)
+
     def authorize(self, operation_id: str, approval: ApprovalDecision) -> None:
         row = self._get_row(operation_id)
         status = str(row["status"])
