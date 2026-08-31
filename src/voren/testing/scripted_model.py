@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from voren.runtime.cancellation import CancellationToken
 from voren.runtime.models import ModelMessage, ModelResponse, ToolDefinition
 
 
@@ -17,6 +18,7 @@ class ScriptedModelAdapter:
         *,
         messages: tuple[ModelMessage, ...],
         tools: tuple[ToolDefinition, ...],
+        cancellation: CancellationToken,
     ) -> ModelResponse:
         self.requests.append((messages, tools))
         index = len(self.requests) - 1

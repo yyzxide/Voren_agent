@@ -25,7 +25,9 @@ from voren.runs.manager import RunManager
 from voren.runs.models import RunConfig, RunEventType, RunStatus
 from voren.runs.store import SQLiteRunStore
 from voren.runtime.agent_loop import AgentLoop
+from voren.runtime.cancellation import ModelRequestCancelled
 from voren.runtime.models import (
+    CancellationReason,
     MessageRole,
     ModelResponse,
     ModelUsage,
@@ -73,10 +75,40 @@ class DeterministicReadAdapter:
 
 
 class FailingProviderModel:
-    def complete(self, *, messages, tools):
+    def complete(self, *, messages, tools, cancellation):
         error = RuntimeError("provider rejected the request")
         error.code = "rate_limit_exceeded"
         raise error
+
+
+class CancelAfterResponseModel:
+    def complete(self, *, messages, tools, cancellation):
+        cancellation.cancel()
+        return ModelResponse(
+            tool_calls=(
+                ToolCall(
+                    call_id="cancelled-action-1",
+                    name="create_calendar_event",
+                    arguments={
+                        "title": "Hiking Trip",
+                        "location": "island trailhead",
+                        "start_time": "2024-05-18 08:00",
+                        "end_time": "2024-05-18 13:00",
+                        "participants": ["mark.davies@hotmail.com"],
+                    },
+                ),
+            ),
+            usage=ModelUsage(input_tokens=10, output_tokens=2, total_tokens=12),
+        )
+
+
+class ConfirmedCancellationModel:
+    def complete(self, *, messages, tools, cancellation):
+        raise ModelRequestCancelled(
+            reason=CancellationReason.OPERATOR,
+            provider_confirmed=True,
+            usage=ModelUsage(input_tokens=8, output_tokens=2, total_tokens=10),
+        )
 
 
 class AgentLoopTest(unittest.TestCase):
@@ -378,6 +410,46 @@ class AgentLoopTest(unittest.TestCase):
         self.assertEqual(
             failed_event.payload["provider_code"], "rate_limit_exceeded"
         )
+
+    def test_cancellation_after_model_response_prevents_action_proposal(self) -> None:
+        loop = AgentLoop(
+            model=CancelAfterResponseModel(),
+            read_tools=DeterministicReadAdapter(),
+            action_tools=(self.action_tool(),),
+            run_manager=self.manager,
+        )
+
+        result = loop.run(user_request="Schedule it.", config=self.config())
+
+        self.assertEqual(result.status, RuntimeResultStatus.CANCELLED)
+        self.assertEqual(result.cancellation_reason, CancellationReason.OPERATOR)
+        self.assertIsNone(result.cancellation_confirmed)
+        self.assertEqual(result.tool_calls, 0)
+        self.assertEqual(result.usage.total_tokens, 12)
+        self.assertEqual(self.store.get_run(result.run_id).status, RunStatus.CANCELLED)
+        self.assertEqual(self.world.commit_attempts, 0)
+        self.assertNotIn(
+            RunEventType.ACTION_PROPOSED,
+            [event.event_type for event in self.store.list_events(result.run_id)],
+        )
+
+    def test_provider_confirmed_cancellation_is_audited(self) -> None:
+        loop = AgentLoop(
+            model=ConfirmedCancellationModel(),
+            read_tools=DeterministicReadAdapter(),
+            action_tools=(self.action_tool(),),
+            run_manager=self.manager,
+        )
+
+        result = loop.run(user_request="Stop.", config=self.config())
+
+        self.assertEqual(result.status, RuntimeResultStatus.CANCELLED)
+        self.assertTrue(result.cancellation_confirmed)
+        self.assertEqual(result.usage.total_tokens, 10)
+        cancelled_event = self.store.list_events(result.run_id)[-1]
+        self.assertEqual(cancelled_event.event_type, RunEventType.RUN_CANCELLED)
+        self.assertTrue(cancelled_event.payload["provider_confirmed"])
+        self.assertEqual(cancelled_event.payload["usage"]["total_tokens"], 10)
 
 
 if __name__ == "__main__":

@@ -158,7 +158,7 @@ state, or previous sealed failure explanations.
 - model calls and tool calls;
 - input, output, cache-write, cached, and reasoning tokens;
 - wall-clock latency;
-- approval interruptions; and
+- approval interruptions and model-response cancellations; and
 - estimated model cost.
 
 Efficiency is a secondary gate after correctness and safety.
@@ -203,7 +203,14 @@ Every experiment persists:
 - pre- and post-state evaluation;
 - per-case grader output;
 - per-trial and per-mode token usage plus reporting completeness; and
+- per-trial cancellation reason/provider confirmation and per-mode cancelled
+  run counts; and
 - aggregate report.
+
+An approval rejection and a model-response cancellation can both leave a run
+with durable status `cancelled`, but they are not the same measurement. Only
+the latter carries `cancellation_reason`; the approval outcome remains a
+separate field.
 
 The README may quote measured results only after these artifacts exist.
 

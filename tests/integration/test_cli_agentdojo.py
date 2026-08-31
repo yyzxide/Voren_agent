@@ -10,6 +10,7 @@ from pathlib import Path
 from voren.cli import build_parser, run_agentdojo, run_agentdojo_evaluation
 from voren.evaluation.artifacts import read_artifact
 from voren.evaluation.models import EvaluationMode
+from voren.runtime.cancellation import CancellationToken
 from voren.runtime.models import ModelResponse, ToolCall
 from voren.testing.scripted_model import ScriptedModelAdapter
 
@@ -112,6 +113,24 @@ class AgentDojoCLITest(unittest.TestCase):
         self.assertEqual(run_status, "cancelled")
         self.assertEqual(operation[0], "prepared")
         self.assertIsNone(operation[1])
+
+    def test_pre_requested_runtime_cancellation_returns_130(self) -> None:
+        output: list[str] = []
+        cancellation = CancellationToken()
+        cancellation.cancel()
+
+        exit_code = run_agentdojo(
+            self.args(),
+            model=ScriptedModelAdapter(()),
+            cancellation=cancellation,
+            output=output.append,
+        )
+
+        self.assertEqual(exit_code, 130)
+        self.assertTrue(any("run cancelled: operator" in line for line in output))
+        with sqlite3.connect(self.database) as connection:
+            run_status = connection.execute("SELECT status FROM runs").fetchone()[0]
+        self.assertEqual(run_status, "cancelled")
 
     def test_evaluation_cli_writes_integrity_checked_artifact(self) -> None:
         artifact_path = (

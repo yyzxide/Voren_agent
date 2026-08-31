@@ -51,7 +51,8 @@ prompt, model output, or tool observation body.
 
 ## Evaluation artifact and CLI
 
-The evaluation artifact schema is now `voren-evaluation/v2`. Each trial stores
+At this slice's checkpoint the evaluation artifact schema became
+`voren-evaluation/v2`. Each trial stores
 its `RuntimeUsage`, and each mode summary aggregates all trial usage while
 preserving request-report completeness. The interactive CLI prints the same
 normalized fields after a run; evaluation summaries show total tokens and the
@@ -81,9 +82,12 @@ Read the implementation in this order:
 
 ## Verification boundary
 
-The complete suite now contains 57 passing tests. These tests use deterministic
-scripted provider responses and verify parsing, validation, aggregation,
-incomplete reports, CLI output, and evaluation artifacts.
+This slice had 57 passing tests at its checkpoint. The later
+[provider-cancellation slice](PHASE1_PROVIDER_CANCELLATION.md) upgrades the
+artifact schema to `voren-evaluation/v3` and brings the complete suite to 66
+tests. These tests use deterministic scripted provider responses and verify
+parsing, validation, aggregation, incomplete reports, CLI output, and
+evaluation artifacts.
 
 No live model request was made for this checkpoint because `OPENAI_API_KEY` and
 `VOREN_MODEL` were not configured in the development environment. Therefore,

@@ -41,6 +41,7 @@ from voren.runs.manager import RunManager
 from voren.runs.models import RunConfig
 from voren.runs.store import SQLiteRunStore
 from voren.runtime.agent_loop import AgentLoop
+from voren.runtime.cancellation import CancellationToken
 from voren.runtime.models import RuntimeLimits, RuntimeResultStatus, RuntimeUsage
 from voren.runtime.ports import ModelAdapter
 from voren.runtime.tools import external_action_tool
@@ -75,7 +76,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path(".voren/voren.sqlite3"),
         help="SQLite trace and operation database.",
     )
-    agentdojo.add_argument("--timeout-seconds", type=float, default=60.0)
+    agentdojo.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=60.0,
+        help="Overall model-response deadline and per-HTTP-call timeout.",
+    )
     agentdojo.add_argument("--max-output-tokens", type=int, default=2_048)
     agentdojo.add_argument("--max-model-steps", type=int, default=8)
     agentdojo.add_argument("--max-tool-calls", type=int, default=12)
@@ -120,7 +126,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="SQLite trace and operation database.",
     )
     evaluation.add_argument("--experiment-id")
-    evaluation.add_argument("--timeout-seconds", type=float, default=60.0)
+    evaluation.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=60.0,
+        help="Overall model-response deadline and per-HTTP-call timeout.",
+    )
     evaluation.add_argument("--max-output-tokens", type=int, default=2_048)
     evaluation.add_argument("--max-model-steps", type=int, default=8)
     evaluation.add_argument("--max-tool-calls", type=int, default=12)
@@ -132,6 +143,7 @@ def run_agentdojo(
     args: argparse.Namespace,
     *,
     model: ModelAdapter | None = None,
+    cancellation: CancellationToken | None = None,
     approval_reader: ApprovalReader = input,
     output: Output = print,
 ) -> int:
@@ -191,6 +203,7 @@ def run_agentdojo(
                 action_contract_versions=(WORKSPACE_CONTRACT_VERSION,),
                 metadata={"model": model_name, "provider": "responses_api"},
             ),
+            cancellation=cancellation,
         )
         _print_usage(result.usage, output)
 
@@ -198,6 +211,18 @@ def run_agentdojo(
             output(result.final_text or "")
             _print_trace(store, result.run_id, output)
             return 0
+        if result.status is RuntimeResultStatus.CANCELLED:
+            confirmation = (
+                "not_applicable"
+                if result.cancellation_confirmed is None
+                else str(result.cancellation_confirmed).lower()
+            )
+            output(
+                f"run cancelled: {result.cancellation_reason.value}; "
+                f"provider_confirmed={confirmation}"
+            )
+            _print_trace(store, result.run_id, output)
+            return 130
         if result.status is not RuntimeResultStatus.WAITING_APPROVAL:
             detail = (
                 f"/{result.error_detail_code}" if result.error_detail_code else ""
@@ -321,6 +346,7 @@ def run_agentdojo_evaluation(
         output(
             f"{summary.mode.value}: utility={summary.utility_rate:.3f}, "
             f"attack_success={attack_rate}, trials={summary.total_trials}, "
+            f"cancelled={summary.cancelled_runs}, "
             f"tokens={summary.model_usage.total_tokens}, "
             f"usage_reported={summary.model_usage.reported_model_requests}/"
             f"{summary.model_usage.model_requests}"

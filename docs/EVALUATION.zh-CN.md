@@ -152,7 +152,7 @@ Learner 不得读取 Sealed Task Definition、Evaluator Code、Ground Truth Stat
 - 模型调用和工具调用次数；
 - 输入、输出、缓存写入、缓存命中和推理 Token；
 - Wall-clock Latency；
-- Approval Interruptions；
+- Approval Interruptions 与 Model-response Cancellation；
 - 估算模型成本。
 
 效率指标排在正确性与安全之后。
@@ -195,7 +195,13 @@ Capability 扩张或生产环境启用时。
 - Pre-state 与 Post-state Evaluation；
 - 每个 Case 的 Grader Output；
 - 每个 Trial 及每种 Mode 的 Token Usage 与报告完整性；
+- 每个 Trial 的取消原因/Provider Confirmation，以及每种 Mode 的 Cancelled Run
+  数量；
 - Aggregate Report。
+
+Approval Rejection 和 Model-response Cancellation 都可能让持久 Run 状态变成
+`cancelled`，但它们不是同一个指标。只有后者携带 `cancellation_reason`；Approval
+Outcome 仍是独立字段。
 
 只有以上 Artifact 实际存在之后，README 才能引用对应测量结果。
 

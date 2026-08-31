@@ -49,7 +49,8 @@ Tool Observation 正文。
 
 ## Evaluation Artifact 与 CLI
 
-Evaluation Artifact Schema 已升级为 `voren-evaluation/v2`。每个 Trial 保存自己
+在这个切片的 Checkpoint，Evaluation Artifact Schema 升级为
+`voren-evaluation/v2`。每个 Trial 保存自己
 的 `RuntimeUsage`；每种 Mode 的 Summary 会聚合所有 Trial，同时保留“报告请求
 数 / 总请求数”这一完整性信息。交互式 CLI 会在 Run 结束后输出同一组归一化
 字段，评测摘要则展示总 Token 和报告比例。
@@ -74,9 +75,11 @@ Provider 的 Compute Units 字段也尚未纳入当前中立契约。
 
 ## 验证边界
 
-当前完整 Suite 共 57 个通过的测试。它们使用确定性的 Scripted Provider
-响应，覆盖 Usage 解析、校验、累加、报告不完整、CLI 输出和 Evaluation
-Artifact。
+这个切片的 Checkpoint 共有 57 个通过的测试。后续
+[Provider Cancellation 切片](PHASE1_PROVIDER_CANCELLATION.zh-CN.md) 将 Artifact
+Schema 升级为 `voren-evaluation/v3`，并把完整 Suite 增加到 66 个测试。它们使用
+确定性的 Scripted Provider 响应，覆盖 Usage 解析、校验、累加、报告不完整、
+CLI 输出和 Evaluation Artifact。
 
 开发环境没有配置 `OPENAI_API_KEY` 与 `VOREN_MODEL`，所以这个 Checkpoint 没有
 发起真实模型请求。它证明的是用量统计链路，而不是真实 Provider 当前行为或模型

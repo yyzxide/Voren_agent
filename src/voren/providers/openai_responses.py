@@ -6,14 +6,17 @@ import copy
 import json
 import os
 import socket
+import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 from urllib.request import Request, urlopen
 
+from voren.runtime.cancellation import CancellationToken, ModelRequestCancelled
 from voren.runtime.models import (
+    CancellationReason,
     MessageRole,
     ModelMessage,
     ModelResponse,
@@ -43,18 +46,28 @@ class ModelTranscriptError(RuntimeError):
 class ResponsesTransport(Protocol):
     def create_response(self, payload: dict[str, Any]) -> dict[str, Any]: ...
 
+    def retrieve_response(self, response_id: str) -> dict[str, Any]: ...
+
+    def cancel_response(self, response_id: str) -> dict[str, Any]: ...
+
 
 @dataclass(frozen=True, slots=True)
 class OpenAIResponsesConfig:
     model: str
     max_output_tokens: int = 2_048
     include_encrypted_reasoning: bool = True
+    response_timeout_seconds: float = 60.0
+    poll_interval_seconds: float = 0.5
 
     def __post_init__(self) -> None:
         if not self.model.strip():
             raise ValueError("model must not be empty")
         if self.max_output_tokens < 1:
             raise ValueError("max_output_tokens must be positive")
+        if self.response_timeout_seconds <= 0:
+            raise ValueError("response_timeout_seconds must be positive")
+        if self.poll_interval_seconds < 0:
+            raise ValueError("poll_interval_seconds cannot be negative")
 
 
 class UrllibResponsesTransport:
@@ -95,13 +108,44 @@ class UrllibResponsesTransport:
         return self._endpoint
 
     def create_response(self, payload: dict[str, Any]) -> dict[str, Any]:
-        body = json.dumps(
-            payload, ensure_ascii=False, separators=(",", ":")
-        ).encode("utf-8")
-        request = Request(
-            self._endpoint,
-            data=body,
+        return self._request_json(
             method="POST",
+            endpoint=self._endpoint,
+            payload=payload,
+        )
+
+    def retrieve_response(self, response_id: str) -> dict[str, Any]:
+        return self._request_json(
+            method="GET",
+            endpoint=f"{self._endpoint}/{self._response_path(response_id)}",
+        )
+
+    def cancel_response(self, response_id: str) -> dict[str, Any]:
+        return self._request_json(
+            method="POST",
+            endpoint=(
+                f"{self._endpoint}/{self._response_path(response_id)}/cancel"
+            ),
+        )
+
+    def _request_json(
+        self,
+        *,
+        method: str,
+        endpoint: str,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        body = (
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode(
+                "utf-8"
+            )
+            if payload is not None
+            else None
+        )
+        request = Request(
+            endpoint,
+            data=body,
+            method=method,
             headers={
                 "Authorization": f"Bearer {self._api_key}",
                 "Content-Type": "application/json",
@@ -115,7 +159,11 @@ class UrllibResponsesTransport:
             raise ModelProviderError(
                 self._safe_http_error_code(error), http_status=error.code
             ) from error
-        except (URLError, TimeoutError, socket.timeout) as error:
+        except (TimeoutError, socket.timeout) as error:
+            raise ModelProviderError("provider_timeout") from error
+        except URLError as error:
+            if isinstance(error.reason, (TimeoutError, socket.timeout)):
+                raise ModelProviderError("provider_timeout") from error
             raise ModelProviderError("provider_unreachable") from error
 
         try:
@@ -125,6 +173,12 @@ class UrllibResponsesTransport:
         if not isinstance(decoded, dict):
             raise ModelProviderError("invalid_provider_response_shape")
         return decoded
+
+    @staticmethod
+    def _response_path(response_id: str) -> str:
+        if not response_id or len(response_id) > 200:
+            raise ModelProviderError("invalid_provider_response_id")
+        return quote(response_id, safe="")
 
     @staticmethod
     def _safe_http_error_code(error: HTTPError) -> str:
@@ -151,9 +205,11 @@ class OpenAIResponsesModelAdapter:
         *,
         config: OpenAIResponsesConfig,
         transport: ResponsesTransport,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._config = config
         self._transport = transport
+        self._clock = clock
         self._cached_outputs: dict[
             tuple[str, ...], tuple[tuple[ToolCall, ...], list[dict[str, Any]]]
         ] = {}
@@ -177,6 +233,7 @@ class OpenAIResponsesModelAdapter:
             config=OpenAIResponsesConfig(
                 model=model,
                 max_output_tokens=max_output_tokens,
+                response_timeout_seconds=timeout_seconds,
             ),
             transport=UrllibResponsesTransport(
                 api_key=api_key,
@@ -190,7 +247,15 @@ class OpenAIResponsesModelAdapter:
         *,
         messages: tuple[ModelMessage, ...],
         tools: tuple[ToolDefinition, ...],
+        cancellation: CancellationToken | None = None,
     ) -> ModelResponse:
+        cancellation = cancellation or CancellationToken()
+        if cancellation.cancelled:
+            raise ModelRequestCancelled(
+                reason=cancellation.reason or CancellationReason.OPERATOR,
+                provider_confirmed=None,
+            )
+        started_at = self._clock()
         instructions, input_items = self._serialize_messages(messages)
         payload: dict[str, Any] = {
             "model": self._config.model,
@@ -201,11 +266,136 @@ class OpenAIResponsesModelAdapter:
             "parallel_tool_calls": False,
             "max_output_tokens": self._config.max_output_tokens,
             "store": False,
+            "background": True,
         }
         if self._config.include_encrypted_reasoning:
             payload["include"] = ["reasoning.encrypted_content"]
         raw_response = self._transport.create_response(payload)
+        raw_response = self._await_terminal_response(
+            raw_response,
+            cancellation=cancellation,
+            started_at=started_at,
+        )
         return self._parse_response(raw_response)
+
+    def _await_terminal_response(
+        self,
+        response: dict[str, Any],
+        *,
+        cancellation: CancellationToken,
+        started_at: float,
+    ) -> dict[str, Any]:
+        current = response
+        while True:
+            status = current.get("status")
+            deadline_exceeded = (
+                self._clock() - started_at
+                >= self._config.response_timeout_seconds
+            )
+            if cancellation.cancelled:
+                requested_reason = (
+                    cancellation.reason or CancellationReason.OPERATOR
+                )
+            elif deadline_exceeded:
+                requested_reason = CancellationReason.DEADLINE
+            else:
+                requested_reason = None
+            if requested_reason is not None:
+                if status in {"queued", "in_progress"}:
+                    response_id = current.get("id")
+                    if not isinstance(response_id, str) or not response_id:
+                        raise ModelProviderError("missing_background_response_id")
+                    self._cancel_background_response(
+                        response_id,
+                        reason=requested_reason,
+                    )
+                safe_status = (
+                    status
+                    if isinstance(status, str) and status and len(status) <= 40
+                    else "unknown"
+                )
+                raise ModelRequestCancelled(
+                    reason=requested_reason,
+                    provider_confirmed=(status == "cancelled"),
+                    detail_code=(
+                        None
+                        if status == "cancelled"
+                        else f"provider_status_{safe_status}"
+                    ),
+                    usage=self._terminal_usage(current),
+                )
+            if status in {None, "completed"}:
+                return current
+            if status == "cancelled":
+                raise ModelRequestCancelled(
+                    reason=CancellationReason.PROVIDER,
+                    provider_confirmed=True,
+                    usage=self._terminal_usage(current),
+                )
+            if status not in {"queued", "in_progress"}:
+                return current
+
+            response_id = current.get("id")
+            if not isinstance(response_id, str) or not response_id:
+                raise ModelProviderError("missing_background_response_id")
+            remaining = self._config.response_timeout_seconds - (
+                self._clock() - started_at
+            )
+            if remaining <= 0:
+                self._cancel_background_response(
+                    response_id,
+                    reason=CancellationReason.DEADLINE,
+                )
+            wait_seconds = min(self._config.poll_interval_seconds, remaining)
+            if cancellation.wait(wait_seconds):
+                self._cancel_background_response(
+                    response_id,
+                    reason=(
+                        cancellation.reason or CancellationReason.OPERATOR
+                    ),
+                )
+            if self._clock() - started_at >= self._config.response_timeout_seconds:
+                self._cancel_background_response(
+                    response_id,
+                    reason=CancellationReason.DEADLINE,
+                )
+            current = self._transport.retrieve_response(response_id)
+
+    def _cancel_background_response(
+        self,
+        response_id: str,
+        *,
+        reason: CancellationReason,
+    ) -> None:
+        try:
+            response = self._transport.cancel_response(response_id)
+        except ModelProviderError as error:
+            raise ModelRequestCancelled(
+                reason=reason,
+                provider_confirmed=False,
+                detail_code=f"cancel_{error.code}",
+            ) from error
+
+        status = response.get("status")
+        confirmed = status == "cancelled"
+        safe_status = (
+            status
+            if isinstance(status, str) and status and len(status) <= 40
+            else "unknown"
+        )
+        raise ModelRequestCancelled(
+            reason=reason,
+            provider_confirmed=confirmed,
+            detail_code=(None if confirmed else f"provider_status_{safe_status}"),
+            usage=self._terminal_usage(response),
+        )
+
+    @classmethod
+    def _terminal_usage(cls, response: dict[str, Any]) -> ModelUsage | None:
+        try:
+            return cls._parse_usage(response.get("usage"))
+        except ModelProviderError:
+            return None
 
     def _serialize_messages(
         self, messages: tuple[ModelMessage, ...]

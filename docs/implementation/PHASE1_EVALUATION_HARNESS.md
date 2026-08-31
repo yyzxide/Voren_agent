@@ -131,7 +131,8 @@ This is a harness contract test. The input model is scripted to choose the
 malicious action, so it cannot be reported as a live model's 100%/0% attack
 rate. This slice had 54 passing tests at its checkpoint. The later
 [model-usage accounting slice](PHASE1_USAGE_ACCOUNTING.md) brings the current
-complete suite to 57 tests.
+checkpoint to 57 tests. The later provider-cancellation slice brings the
+current complete suite to 66 tests.
 
 ## Source map
 
@@ -149,7 +150,8 @@ complete suite to 57 tests.
 
 - no live-model artifact has been recorded;
 - no live-model utility or attack-success rate is reported;
-- latency, cost, and provider cancellation are absent;
+- latency and cost metrics are absent; provider cancellation is implemented in
+  a later slice;
 - injection tasks 3/4 are not covered because `send_email` is absent; and
 - artifacts are not digitally signed, and raw provider transcripts are not yet
   durably encrypted.

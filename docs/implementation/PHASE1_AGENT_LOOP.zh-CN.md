@@ -144,6 +144,7 @@ Suite，另有 2 个 Model-level Test 会拒绝不可信 Instruction Authority �
 Checkpoint 增加到 47 个测试；再之后的
 [双模式 AgentDojo 评测](PHASE1_EVALUATION_HARNESS.zh-CN.md) 将当前完整 Suite
 增加到 54 个测试；再之后的模型用量统计切片将当前完整 Suite 增加到 57 个测试。
+后续 Provider Cancellation 切片将当前完整 Suite 增加到 66 个测试。
 
 ## Phase 1 剩余边界
 

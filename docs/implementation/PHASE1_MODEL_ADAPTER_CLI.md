@@ -153,7 +153,8 @@ checkpoint. The later
 [dual-mode AgentDojo evaluation](PHASE1_EVALUATION_HARNESS.md) brings the current
 checkpoint to 54 tests. The later
 [model-usage accounting slice](PHASE1_USAGE_ACCOUNTING.md) brings the current
-complete suite to 57 tests.
+checkpoint to 57 tests. The later provider-cancellation slice brings the
+current complete suite to 66 tests.
 
 ## Remaining Phase 1 boundary
 
@@ -163,8 +164,10 @@ provided to the test environment. Phase 1 still needs:
 - one recorded live golden-task run with explicit model/config versions;
 - AgentDojo injection runs that measure model behavior separately from runtime
   enforcement;
-- durable encrypted transcript artifacts for mid-loop process recovery; and
-- provider timeout/cancellation propagation.
+- durable encrypted transcript artifacts for mid-loop process recovery.
+
+Provider timeout/cancellation propagation is implemented in the later
+[provider-cancellation slice](PHASE1_PROVIDER_CANCELLATION.md).
 
 ## Suggested reading order
 

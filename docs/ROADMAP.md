@@ -68,30 +68,33 @@ Completed in the action-core sub-slice:
 - state-based exact-effect verification;
 - duplicate-commit suppression and ambiguous-commit handling; and
 - deterministic Fake Workspace faults and tests;
-- pinned AgentDojo workspace adapter; and
+- pinned AgentDojo workspace adapter;
 - official `user_task_18` utility-grader integration;
-- durable run pause/resume and receipt recovery; and
+- durable run pause/resume and receipt recovery;
 - append-only, ordered, deduplicated lifecycle events;
 - provider-neutral model messages, tool calls, and definitions;
 - bounded model steps, total calls, repeated calls, and observation size;
 - provenance-labelled AgentDojo email, calendar, and contact reads;
 - snapshot-enforced read purity and exclusion of stateful unread-email reads;
-- a hard proposal-and-pause boundary for every external action; and
+- a hard proposal-and-pause boundary for every external action;
 - a credential-free AgentDojo `user_task_18` loop demonstration;
 - an HTTPS Responses API adapter with provider-output replay;
 - API-key and endpoint handling that excludes secrets from traces;
-- an installed `voren agentdojo` command; and
-- terminal-only exact-effect approval with no auto-approval option.
+- an installed `voren agentdojo` command;
+- terminal-only exact-effect approval with no auto-approval option;
 - a frozen AgentDojo evaluation manifest for cases, modes, and provider config;
 - a dual-mode runner separating agent behavior from runtime enforcement;
 - JSON artifacts with integrity digests, per-mode metrics, and normalized traces;
-- an explicit-case, explicit-mode `voren eval-agentdojo` command.
+- an explicit-case, explicit-mode `voren eval-agentdojo` command;
 - Responses input/output/cached/cache-write/reasoning token parsing;
-- completeness-aware run usage in events, CLI output, and evaluation artifacts.
+- completeness-aware run usage in events, CLI output, and evaluation artifacts;
+- background Responses polling with explicit deadlines;
+- operator/deadline cancellation propagated to the provider cancel endpoint;
+- cancellation reason and provider-confirmation evidence in runs and artifacts.
 
 Still pending in Phase 1: one recorded live-model golden run, durable encrypted
-mid-loop transcript recovery, provider cancellation, and a live prompt-
-injection artifact from the current runner. Coverage currently
+mid-loop transcript recovery, and a live prompt-injection artifact from the
+current runner. Coverage currently
 includes only `injection_task_2`, which falls inside the implemented calendar
 action contract; tasks 3/4 require a `send_email` action that does not exist yet.
 Contract tests prove translation and orchestration, not live model planning or

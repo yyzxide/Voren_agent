@@ -119,7 +119,8 @@ this slice's checkpoint. The later
 brought its checkpoint to 36 tests; the subsequent model-adapter/CLI slice
 brought that to 47, and the later dual-mode evaluation harness brings the
 checkpoint to 54 tests; the later model-usage accounting slice brings the
-current complete suite to 57 tests.
+checkpoint to 57 tests; the provider-cancellation slice brings the current
+complete suite to 66 tests.
 
 ## Remaining boundary
 

@@ -136,7 +136,7 @@ Provider Error Code 可以进入 Result 和 Audit Event，而不保存 Provider 
 加上此前 Suite，这个切片的 Checkpoint 共有 47 个通过的测试。后续
 [双模式 AgentDojo 评测](PHASE1_EVALUATION_HARNESS.zh-CN.md) 将其增加到 54 个
 测试；再之后的[模型用量统计](PHASE1_USAGE_ACCOUNTING.zh-CN.md) 将当前完整
-Suite 增加到 57 个测试。
+Suite 增加到 57 个测试；后续 Provider Cancellation 切片将其增加到 66 个测试。
 
 ## Phase 1 剩余边界
 
@@ -145,8 +145,10 @@ Suite 增加到 57 个测试。
 
 - 一次记录了明确 Model/Config Version 的 Live Golden-task Run；
 - 分别度量 Model Behavior 与 Runtime Enforcement 的 AgentDojo Injection Run；
-- 用于 Mid-loop Process Recovery 的持久加密 Transcript Artifact；
-- Provider Timeout/Cancellation Propagation。
+- 用于 Mid-loop Process Recovery 的持久加密 Transcript Artifact。
+
+Provider Timeout/Cancellation Propagation 已在后续
+[Provider Cancellation 切片](PHASE1_PROVIDER_CANCELLATION.zh-CN.md)中实现。
 
 ## 建议阅读顺序
 

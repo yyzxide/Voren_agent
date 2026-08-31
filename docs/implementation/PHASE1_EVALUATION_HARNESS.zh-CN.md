@@ -122,7 +122,7 @@ Grader，Action Receipt 也通过 Exact-effect Verification。
 这个结果只是 Harness Contract Test：输入模型被脚本固定为恶意动作，因此不能
 写成“某真实模型攻击成功率 100%/0%”。这个切片的 Checkpoint 为 54 个通过的
 测试；后续[模型用量统计](PHASE1_USAGE_ACCOUNTING.zh-CN.md) 将当前完整 Suite
-增加到 57 个测试。
+增加到 57 个测试；再之后的 Provider Cancellation 切片将其增加到 66 个测试。
 
 ## 源码位置
 
@@ -140,7 +140,7 @@ Grader，Action Receipt 也通过 Exact-effect Verification。
 
 - 没有保存过 Live Model Artifact；
 - 没有报告任何真实模型 Utility 或 Attack Success Rate；
-- 没有 Latency、Cost 或 Provider Cancellation 指标；
+- 没有 Latency 或 Cost 指标；Provider Cancellation 在后续切片实现；
 - 没有覆盖需要 `send_email` 的 Injection Task 3/4；
 - Artifact 没有数字签名，Provider 原始 Transcript 也尚未持久加密。
 

@@ -10,10 +10,10 @@ from typing import Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from voren.runtime.models import RuntimeUsage
+from voren.runtime.models import CancellationReason, RuntimeUsage
 
 
-EVALUATION_SCHEMA_VERSION = "voren-evaluation/v2"
+EVALUATION_SCHEMA_VERSION = "voren-evaluation/v3"
 
 
 class FrozenModel(BaseModel):
@@ -117,6 +117,8 @@ class TrialResult(FrozenModel):
     model_usage: RuntimeUsage = Field(default_factory=RuntimeUsage)
     error_code: str | None = None
     error_detail_code: str | None = None
+    cancellation_reason: CancellationReason | None = None
+    cancellation_confirmed: bool | None = None
     final_output_digest: str | None = Field(
         default=None, pattern=r"^[0-9a-f]{64}$"
     )
@@ -133,6 +135,13 @@ class TrialResult(FrozenModel):
             raise ValueError("attack_success must be recorded only for attacked cases")
         if self.model_usage.model_requests != self.model_steps:
             raise ValueError("trial model usage must match model_steps")
+        if self.cancellation_reason is None:
+            if self.cancellation_confirmed is not None:
+                raise ValueError(
+                    "cancellation confirmation requires a cancellation reason"
+                )
+        elif self.run_status != "cancelled":
+            raise ValueError("model cancellation requires cancelled run status")
         return self
 
 
@@ -146,6 +155,7 @@ class ModeSummary(FrozenModel):
     attack_success_rate: float | None = Field(default=None, ge=0, le=1)
     approvals: int = Field(ge=0)
     rejections: int = Field(ge=0)
+    cancelled_runs: int = Field(ge=0)
     model_usage: RuntimeUsage = Field(default_factory=RuntimeUsage)
 
 
@@ -216,6 +226,9 @@ def summarize_trials(trials: tuple[TrialResult, ...]) -> tuple[ModeSummary, ...]
                 rejections=sum(
                     trial.approval_outcome is ApprovalOutcome.REJECTED
                     for trial in selected
+                ),
+                cancelled_runs=sum(
+                    trial.run_status == "cancelled" for trial in selected
                 ),
                 model_usage=aggregate_runtime_usage(
                     tuple(trial.model_usage for trial in selected)

@@ -102,9 +102,12 @@ definitions, a synchronous model protocol, hard limits for model steps, total
 and repeated calls, and observation bytes, plus structured boundary events.
 It deliberately stops after producing one external-action proposal. An HTTPS
 Responses API adapter and interactive AgentDojo CLI now implement the provider
-boundary; a recorded live-model run has not yet been performed. Provider
-timeout cancellation, compaction, and durable mid-loop transcript recovery
-remain pending. Input, output, cached, cache-write, and reasoning tokens from
+boundary; a recorded live-model run has not yet been performed. The adapter now
+uses background Responses, bounded polling, and the provider cancel endpoint.
+A thread-safe cancellation token flows through the loop; cancellation stops
+local tool processing and records whether provider cancellation was confirmed.
+Compaction and durable mid-loop transcript recovery remain pending. Input,
+output, cached, cache-write, and reasoning tokens from
 Responses are validated at the provider boundary and accumulated into run
 results, events, and evaluation artifacts. A call without usage is explicitly
 marked incomplete rather than treated as zero-cost.
@@ -334,8 +337,9 @@ rollback claim.
 - Python 3.12;
 - `uv` for environment and dependency management;
 - Pydantic v2 for domain and tool contracts;
-- a synchronous first runtime, with `asyncio` deferred until cancellation is
-  implemented end to end;
+- a synchronous first runtime with cooperative cancellation tokens and
+  provider-side background-response cancellation; async task supervision is
+  deferred to the web interface slice;
 - SQLite for the first durable event, operation, and version ledgers;
 - standard-library `unittest` for unit, fault-injection, and integration tests;
 - one Responses-compatible HTTPS model adapter behind the local protocol; and

@@ -12,7 +12,9 @@ from voren.observations.models import ToolObservation
 from voren.observations.read_tools import ReadToolAdapter
 from voren.runs.manager import RunManager
 from voren.runs.models import RunConfig, RunEventType
+from voren.runtime.cancellation import CancellationToken, ModelRequestCancelled
 from voren.runtime.models import (
+    CancellationReason,
     MessageRole,
     ModelMessage,
     ModelResponse,
@@ -110,8 +112,15 @@ class AgentLoop:
         self._read_names = {tool.name for tool in read_definitions}
         self._action_names = {tool.name for tool in action_tools}
 
-    def run(self, *, user_request: str, config: RunConfig) -> RuntimeResult:
+    def run(
+        self,
+        *,
+        user_request: str,
+        config: RunConfig,
+        cancellation: CancellationToken | None = None,
+    ) -> RuntimeResult:
         run = self._run_manager.start_new_run(config)
+        cancellation = cancellation or CancellationToken()
         messages = [
             ModelMessage(role=MessageRole.SYSTEM, content=SYSTEM_INSTRUCTION),
             ModelMessage(role=MessageRole.USER, content=user_request),
@@ -123,6 +132,15 @@ class AgentLoop:
         usage = _UsageAccumulator()
 
         for step in range(1, self._limits.max_model_steps + 1):
+            if cancellation.cancelled:
+                return self._cancel(
+                    run_id=run.run_id,
+                    step=step - 1,
+                    tool_calls=tool_call_count,
+                    usage=usage.snapshot(),
+                    reason=cancellation.reason or CancellationReason.OPERATOR,
+                    provider_confirmed=None,
+                )
             usage.request_started()
             self._run_manager.record_runtime_event(
                 run.run_id,
@@ -138,10 +156,23 @@ class AgentLoop:
             )
             try:
                 raw_response = self._model.complete(
-                    messages=tuple(messages), tools=self._tools
+                    messages=tuple(messages),
+                    tools=self._tools,
+                    cancellation=cancellation,
                 )
                 response = ModelResponse.model_validate(raw_response)
                 usage.record(response.usage)
+            except ModelRequestCancelled as error:
+                usage.record(error.usage)
+                return self._cancel(
+                    run_id=run.run_id,
+                    step=step,
+                    tool_calls=tool_call_count,
+                    usage=usage.snapshot(),
+                    reason=error.reason,
+                    provider_confirmed=error.provider_confirmed,
+                    detail_code=error.detail_code,
+                )
             except Exception as error:
                 provider_code = getattr(error, "code", None)
                 safe_provider_code = (
@@ -167,6 +198,15 @@ class AgentLoop:
                 )
 
             self._record_model_response(run.run_id, step, response)
+            if cancellation.cancelled:
+                return self._cancel(
+                    run_id=run.run_id,
+                    step=step,
+                    tool_calls=tool_call_count,
+                    usage=usage.snapshot(),
+                    reason=cancellation.reason or CancellationReason.OPERATOR,
+                    provider_confirmed=None,
+                )
             messages.append(
                 ModelMessage(
                     role=MessageRole.ASSISTANT,
@@ -198,6 +238,17 @@ class AgentLoop:
 
             called_names = {call.name for call in response.tool_calls}
             if called_names & self._action_names:
+                if cancellation.cancelled:
+                    return self._cancel(
+                        run_id=run.run_id,
+                        step=step,
+                        tool_calls=tool_call_count,
+                        usage=usage.snapshot(),
+                        reason=(
+                            cancellation.reason or CancellationReason.OPERATOR
+                        ),
+                        provider_confirmed=None,
+                    )
                 if len(response.tool_calls) != 1:
                     return self._fail(
                         run_id=run.run_id,
@@ -248,6 +299,17 @@ class AgentLoop:
                 )
 
             for call in response.tool_calls:
+                if cancellation.cancelled:
+                    return self._cancel(
+                        run_id=run.run_id,
+                        step=step,
+                        tool_calls=tool_call_count,
+                        usage=usage.snapshot(),
+                        reason=(
+                            cancellation.reason or CancellationReason.OPERATOR
+                        ),
+                        provider_confirmed=None,
+                    )
                 if call.name not in self._read_names:
                     return self._fail(
                         run_id=run.run_id,
@@ -475,6 +537,45 @@ class AgentLoop:
             usage=usage,
             error_code=error_code,
             error_detail_code=error_detail_code,
+        )
+
+    def _cancel(
+        self,
+        *,
+        run_id: str,
+        step: int,
+        tool_calls: int,
+        usage: RuntimeUsage,
+        reason: CancellationReason,
+        provider_confirmed: bool | None,
+        detail_code: str | None = None,
+    ) -> RuntimeResult:
+        error_code = (
+            "model_request_timeout"
+            if reason is CancellationReason.DEADLINE
+            else "model_request_cancelled"
+        )
+        self._run_manager.cancel_runtime(
+            run_id,
+            reason=reason.value,
+            provider_confirmed=provider_confirmed,
+            details={
+                "error_code": error_code,
+                **({"detail_code": detail_code} if detail_code else {}),
+                "usage": usage.model_dump(mode="json"),
+                "usage_complete": usage.complete,
+            },
+        )
+        return RuntimeResult(
+            run_id=run_id,
+            status=RuntimeResultStatus.CANCELLED,
+            model_steps=step,
+            tool_calls=tool_calls,
+            usage=usage,
+            error_code=error_code,
+            error_detail_code=detail_code,
+            cancellation_reason=reason,
+            cancellation_confirmed=provider_confirmed,
         )
 
     @staticmethod

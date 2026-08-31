@@ -230,6 +230,36 @@ class RunManager:
             events=tuple(events),
         )
 
+    def cancel_runtime(
+        self,
+        run_id: str,
+        *,
+        reason: str,
+        provider_confirmed: bool | None,
+        details: dict[str, Any] | None = None,
+    ) -> RunRecord:
+        """Cancel a running loop without implying provider confirmation."""
+
+        payload: dict[str, Any] = {"reason": reason, **(details or {})}
+        if provider_confirmed is not None:
+            payload["provider_confirmed"] = provider_confirmed
+        return self._store.transition(
+            run_id,
+            expected_status=RunStatus.RUNNING,
+            new_status=RunStatus.CANCELLED,
+            pending_operation_id=None,
+            pending_proposal_digest=None,
+            last_receipt_status=None,
+            updated_at=self._clock(),
+            events=(
+                self._event(
+                    RunEventType.RUN_CANCELLED,
+                    dedupe_key="run.cancelled",
+                    payload=payload,
+                ),
+            ),
+        )
+
     def resume_with_approval(
         self, run_id: str, approval: ApprovalDecision
     ) -> ActionReceipt:

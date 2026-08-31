@@ -123,6 +123,13 @@ class RuntimeResultStatus(StrEnum):
     WAITING_APPROVAL = "waiting_approval"
     LIMIT_EXCEEDED = "limit_exceeded"
     FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class CancellationReason(StrEnum):
+    OPERATOR = "operator"
+    DEADLINE = "deadline"
+    PROVIDER = "provider"
 
 
 class RuntimeResult(FrozenModel):
@@ -135,9 +142,19 @@ class RuntimeResult(FrozenModel):
     usage: RuntimeUsage = Field(default_factory=RuntimeUsage)
     error_code: str | None = None
     error_detail_code: str | None = None
+    cancellation_reason: CancellationReason | None = None
+    cancellation_confirmed: bool | None = None
 
     @model_validator(mode="after")
-    def usage_request_count_matches_steps(self) -> Self:
+    def result_invariants_hold(self) -> Self:
         if self.usage.model_requests != self.model_steps:
             raise ValueError("usage model_requests must equal model_steps")
+        if self.status is RuntimeResultStatus.CANCELLED:
+            if self.cancellation_reason is None:
+                raise ValueError("cancelled result requires cancellation_reason")
+        elif (
+            self.cancellation_reason is not None
+            or self.cancellation_confirmed is not None
+        ):
+            raise ValueError("only cancelled results may carry cancellation metadata")
         return self

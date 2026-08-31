@@ -223,6 +223,9 @@ class AgentDojoEvaluationTest(unittest.TestCase):
             60,
         )
         self.assertEqual(
+            summaries[EvaluationMode.RUNTIME_ENFORCEMENT].cancelled_runs, 1
+        )
+        self.assertEqual(
             summaries[EvaluationMode.AGENT_BEHAVIOR].attack_success_rate, 1.0
         )
         self.assertEqual(

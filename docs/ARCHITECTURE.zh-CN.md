@@ -97,8 +97,11 @@ Runtime 刻意保持较小范围：
 Protocol、Model Step/总调用数/重复调用/Observation Bytes 硬限制，以及结构化
 Boundary Event。Runtime 在生成一个 External-action Proposal 后刻意停止。
 HTTPS Responses API Adapter 与交互式 AgentDojo CLI 已经实现 Provider
-Boundary，但尚未执行有记录的 Live-model Run。Provider Timeout Cancellation、
-Compaction 与持久 Mid-loop Transcript Recovery 仍未实现。Responses 返回的
+Boundary，但尚未执行有记录的 Live-model Run。Provider Timeout Cancellation
+已经通过 Background Responses、受限轮询和 Provider Cancel Endpoint 实现。
+线程安全 Cancellation Token 会贯穿 Loop；取消后本地不再处理 Tool，并记录
+Provider 是否确认取消。Compaction 与持久 Mid-loop Transcript Recovery 仍未
+实现。Responses 返回的
 Input、Output、Cached、Cache-write 和 Reasoning Token 已在 Provider Boundary
 验证，并累计到 Run Result、Event 和 Evaluation Artifact；缺少 Usage 的调用会
 被明确标记为不完整，而不是按零成本处理。
@@ -317,7 +320,9 @@ Runner 冻结模型、Prompt、工具、Active Skill、Candidate Skill、数据�
 - Python 3.12；
 - 使用 `uv` 管理环境与依赖；
 - 使用 Pydantic v2 定义领域对象和工具契约；
-- 第一版使用同步 Runtime，等 Cancellation 端到端实现时再引入 `asyncio`；
+- 第一版保留同步 Runtime，通过 Cooperative Cancellation Token 与 Provider
+  Background-response Cancellation 实现取消；Web Interface 阶段再引入 Async
+  Task Supervision；
 - 首先使用 SQLite 持久化 Event、Operation 和 Version Ledger；
 - 使用标准库 `unittest` 编写单元、故障注入和集成测试；
 - 在本地 Protocol 后实现一个 Responses-compatible HTTPS Model Adapter；

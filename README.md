@@ -8,7 +8,9 @@
 > enforcement evaluation harness with integrity-bound artifacts is also
 > implemented. Provider and evaluation contracts are tested without a
 > credential, and model-token usage flows through runtime and evaluation
-> artifacts. A recorded live-model run and production connectors do not exist.
+> artifacts. Background Responses polling, deadline/operator cancellation, and
+> provider-confirmation evidence are implemented. A recorded live-model run
+> and production connectors do not exist.
 
 Voren is a planned single-agent assistant for email and calendar work. Its
 engineering focus is not broad personal-assistant coverage, but a narrower
@@ -57,6 +59,7 @@ the first release.
 - [Phase 1 Responses adapter and CLI](docs/implementation/PHASE1_MODEL_ADAPTER_CLI.md)
 - [Phase 1 dual-mode AgentDojo evaluation](docs/implementation/PHASE1_EVALUATION_HARNESS.md)
 - [Phase 1 model-usage accounting](docs/implementation/PHASE1_USAGE_ACCOUNTING.md)
+- [Phase 1 provider cancellation](docs/implementation/PHASE1_PROVIDER_CANCELLATION.md)
 
 ## Current executable slice
 
@@ -98,5 +101,5 @@ voren eval-agentdojo \
 ```
 
 This command calls an online model and may incur cost, so both cases and modes
-must be selected explicitly. The current 57 automated tests use scripted models
+must be selected explicitly. The current 66 automated tests use scripted models
 and are not live-model quality or prompt-injection results.

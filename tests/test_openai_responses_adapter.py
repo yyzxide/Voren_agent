@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import socket
 import unittest
 
 from voren.providers.openai_responses import (
@@ -11,7 +12,9 @@ from voren.providers.openai_responses import (
     OpenAIResponsesModelAdapter,
     UrllibResponsesTransport,
 )
+from voren.runtime.cancellation import CancellationToken, ModelRequestCancelled
 from voren.runtime.models import (
+    CancellationReason,
     MessageRole,
     ModelMessage,
     ModelUsage,
@@ -22,13 +25,31 @@ from voren.runtime.models import (
 
 
 class FakeTransport:
-    def __init__(self, responses: tuple[dict, ...]) -> None:
+    def __init__(
+        self,
+        responses: tuple[dict, ...],
+        *,
+        retrieved: tuple[dict, ...] = (),
+        cancelled: tuple[dict, ...] = (),
+    ) -> None:
         self.responses = responses
+        self.retrieved = retrieved
+        self.cancelled = cancelled
         self.payloads: list[dict] = []
+        self.retrieve_ids: list[str] = []
+        self.cancel_ids: list[str] = []
 
     def create_response(self, payload: dict) -> dict:
         self.payloads.append(payload)
         return self.responses[len(self.payloads) - 1]
+
+    def retrieve_response(self, response_id: str) -> dict:
+        self.retrieve_ids.append(response_id)
+        return self.retrieved[len(self.retrieve_ids) - 1]
+
+    def cancel_response(self, response_id: str) -> dict:
+        self.cancel_ids.append(response_id)
+        return self.cancelled[len(self.cancel_ids) - 1]
 
 
 class FakeHTTPResponse:
@@ -139,12 +160,139 @@ class OpenAIResponsesModelAdapterTest(unittest.TestCase):
         self.assertFalse(payload["store"])
         self.assertFalse(payload["parallel_tool_calls"])
         self.assertEqual(payload["tool_choice"], "auto")
+        self.assertTrue(payload["background"])
         self.assertEqual(payload["include"], ["reasoning.encrypted_content"])
         self.assertNotIn("api_key", json.dumps(payload))
         self.assertTrue(
             payload["tools"][0]["description"].startswith("READ-ONLY DATA TOOL")
         )
         self.assertFalse(payload["tools"][0]["strict"])
+
+    def test_polls_background_response_until_completed(self) -> None:
+        queued = {"id": "resp-background-1", "status": "queued", "output": []}
+        in_progress = {
+            "id": "resp-background-1",
+            "status": "in_progress",
+            "output": [],
+        }
+        transport = FakeTransport(
+            (queued,),
+            retrieved=(in_progress, self.text_response()),
+        )
+        adapter = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(
+                model="test-model", poll_interval_seconds=0
+            ),
+            transport=transport,
+        )
+
+        result = adapter.complete(
+            messages=self.initial_messages(), tools=self.tools()
+        )
+
+        self.assertEqual(result.text, "The hike starts at 08:00.")
+        self.assertEqual(
+            transport.retrieve_ids,
+            ["resp-background-1", "resp-background-1"],
+        )
+
+    def test_operator_cancellation_calls_provider_and_preserves_usage(self) -> None:
+        token = CancellationToken()
+        queued = {"id": "resp-background-2", "status": "queued", "output": []}
+        cancelled = {
+            "id": "resp-background-2",
+            "status": "cancelled",
+            "output": [],
+            "usage": {
+                "input_tokens": 20,
+                "output_tokens": 5,
+                "total_tokens": 25,
+            },
+        }
+
+        class CancelAfterCreateTransport(FakeTransport):
+            def create_response(self, payload: dict) -> dict:
+                response = super().create_response(payload)
+                token.cancel()
+                return response
+
+        transport = CancelAfterCreateTransport(
+            (queued,), cancelled=(cancelled,)
+        )
+        adapter = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(model="test-model"),
+            transport=transport,
+        )
+
+        with self.assertRaises(ModelRequestCancelled) as raised:
+            adapter.complete(
+                messages=self.initial_messages(),
+                tools=self.tools(),
+                cancellation=token,
+            )
+
+        self.assertEqual(raised.exception.reason, CancellationReason.OPERATOR)
+        self.assertTrue(raised.exception.provider_confirmed)
+        self.assertEqual(raised.exception.usage.total_tokens, 25)
+        self.assertEqual(transport.cancel_ids, ["resp-background-2"])
+
+    def test_response_deadline_cancels_background_response(self) -> None:
+        queued = {"id": "resp-background-3", "status": "queued", "output": []}
+        cancelled = {
+            "id": "resp-background-3",
+            "status": "cancelled",
+            "output": [],
+        }
+        clock_values = iter((0.0, 1.0))
+        transport = FakeTransport((queued,), cancelled=(cancelled,))
+        adapter = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(
+                model="test-model",
+                response_timeout_seconds=1,
+                poll_interval_seconds=0,
+            ),
+            transport=transport,
+            clock=lambda: next(clock_values),
+        )
+
+        with self.assertRaises(ModelRequestCancelled) as raised:
+            adapter.complete(messages=self.initial_messages(), tools=self.tools())
+
+        self.assertEqual(raised.exception.reason, CancellationReason.DEADLINE)
+        self.assertTrue(raised.exception.provider_confirmed)
+        self.assertEqual(transport.cancel_ids, ["resp-background-3"])
+
+    def test_cancellation_does_not_claim_confirmation_when_too_late(self) -> None:
+        token = CancellationToken()
+        queued = {"id": "resp-background-4", "status": "queued", "output": []}
+        completed = self.text_response()
+        completed["id"] = "resp-background-4"
+
+        class CancelAfterCreateTransport(FakeTransport):
+            def create_response(self, payload: dict) -> dict:
+                response = super().create_response(payload)
+                token.cancel()
+                return response
+
+        transport = CancelAfterCreateTransport(
+            (queued,), cancelled=(completed,)
+        )
+        adapter = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(model="test-model"),
+            transport=transport,
+        )
+
+        with self.assertRaises(ModelRequestCancelled) as raised:
+            adapter.complete(
+                messages=self.initial_messages(),
+                tools=self.tools(),
+                cancellation=token,
+            )
+
+        self.assertFalse(raised.exception.provider_confirmed)
+        self.assertEqual(
+            raised.exception.detail_code, "provider_status_completed"
+        )
 
     def test_replays_reasoning_and_function_output_for_next_turn(self) -> None:
         first = self.function_response()
@@ -315,6 +463,53 @@ class OpenAIResponsesModelAdapterTest(unittest.TestCase):
         self.assertEqual(captured["timeout"], 12)
         self.assertNotIn("test-secret", repr(transport))
         self.assertEqual(result, {"status": "completed", "output": []})
+
+    def test_transport_distinguishes_socket_timeout(self) -> None:
+        def opener(_request, *, timeout):
+            raise socket.timeout()
+
+        transport = UrllibResponsesTransport(
+            api_key="test-secret",
+            base_url="https://provider.example/v1",
+            opener=opener,
+        )
+
+        with self.assertRaises(ModelProviderError) as raised:
+            transport.retrieve_response("resp-timeout")
+
+        self.assertEqual(raised.exception.code, "provider_timeout")
+
+    def test_transport_retrieves_and_cancels_by_encoded_response_id(self) -> None:
+        requests = []
+
+        def opener(request, *, timeout):
+            requests.append((request.get_method(), request.full_url, request.data))
+            return FakeHTTPResponse({"status": "completed", "output": []})
+
+        transport = UrllibResponsesTransport(
+            api_key="test-secret",
+            base_url="https://provider.example/v1",
+            opener=opener,
+        )
+
+        transport.retrieve_response("resp/unsafe")
+        transport.cancel_response("resp/unsafe")
+
+        self.assertEqual(
+            requests,
+            [
+                (
+                    "GET",
+                    "https://provider.example/v1/responses/resp%2Funsafe",
+                    None,
+                ),
+                (
+                    "POST",
+                    "https://provider.example/v1/responses/resp%2Funsafe/cancel",
+                    None,
+                ),
+            ],
+        )
 
 
 if __name__ == "__main__":

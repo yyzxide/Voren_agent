@@ -338,6 +338,8 @@ class AgentDojoEvaluationRunner:
                 model_usage=result.usage,
                 error_code=result.error_code,
                 error_detail_code=result.error_detail_code,
+                cancellation_reason=result.cancellation_reason,
+                cancellation_confirmed=result.cancellation_confirmed,
                 final_output_digest=(digest_json(final_text) if final_text else None),
                 pre_state_digest=_environment_digest(pre_environment),
                 post_state_digest=_environment_digest(workspace.environment),

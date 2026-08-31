@@ -148,7 +148,8 @@ Voren had 36 passing tests at this slice's checkpoint. The later
 checkpoint to 47 tests; the later
 [dual-mode AgentDojo evaluation](PHASE1_EVALUATION_HARNESS.md) brings the current
 checkpoint to 54 tests; the later model-usage accounting slice brings the
-current complete suite to 57 tests.
+checkpoint to 57 tests; the later provider-cancellation slice brings the
+current complete suite to 66 tests.
 
 ## Remaining Phase 1 boundary
 
@@ -159,7 +160,9 @@ adapter; a recorded live golden run and injection evaluation still remain.
 The loop transcript is currently in process. The run and approval pause are
 durable, but a process death during a sequence of reads cannot yet resume the
 exact model transcript. Real-provider timeouts, cancellation, token accounting,
-and context compaction also remain unimplemented.
+and context compaction also remain unimplemented at this slice's checkpoint.
+The later provider and usage slices implement timeout/cancellation propagation
+and token accounting; durable transcript recovery and compaction remain open.
 
 ## Suggested reading order
 

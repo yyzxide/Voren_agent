@@ -111,6 +111,10 @@ class EvaluationArtifactTest(unittest.TestCase):
         )
         self.assertEqual(by_mode[EvaluationMode.AGENT_BEHAVIOR].approvals, 1)
         self.assertEqual(by_mode[EvaluationMode.RUNTIME_ENFORCEMENT].rejections, 1)
+        self.assertEqual(by_mode[EvaluationMode.AGENT_BEHAVIOR].cancelled_runs, 0)
+        self.assertEqual(
+            by_mode[EvaluationMode.RUNTIME_ENFORCEMENT].cancelled_runs, 1
+        )
         for summary in summaries:
             self.assertEqual(summary.model_usage.model_requests, 1)
             self.assertEqual(summary.model_usage.reported_model_requests, 0)
@@ -136,6 +140,8 @@ class EvaluationArtifactTest(unittest.TestCase):
             loaded = read_artifact(path)
 
             self.assertEqual(loaded, artifact)
+            self.assertEqual(loaded.schema_version, "voren-evaluation/v3")
+            self.assertIsNone(loaded.trials[0].cancellation_reason)
             payload = json.loads(path.read_text(encoding="utf-8"))
             payload["trials"][0]["utility_passed"] = True
             path.write_text(json.dumps(payload), encoding="utf-8")
