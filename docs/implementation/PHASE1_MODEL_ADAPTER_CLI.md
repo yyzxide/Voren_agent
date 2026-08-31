@@ -148,7 +148,10 @@ cover the absence of auto-approval, verified approval, and rejection without a
 receipt. One runtime test proves a safe provider error code reaches the result
 and audit event without persisting raw provider text.
 
-Together with prior suites, Voren now has 47 passing tests.
+Together with prior suites, Voren had 47 passing tests at this slice's
+checkpoint. The later
+[dual-mode AgentDojo evaluation](PHASE1_EVALUATION_HARNESS.md) brings the current
+complete suite to 54 tests.
 
 ## Remaining Phase 1 boundary
 

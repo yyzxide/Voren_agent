@@ -140,8 +140,10 @@ Demo 会先完成两次 AgentDojo Read，然后在包含两个 Effect 的 Calend
 Snapshot Purity，以及排除有状态的未读邮件工具。加上此前 Action 与 Lifecycle
 Suite，另有 2 个 Model-level Test 会拒绝不可信 Instruction Authority 和被篡改
 的 Observation Digest。这个切片的 Checkpoint 共有 36 个通过的测试。后续
-[Responses Model Adapter 与 CLI](PHASE1_MODEL_ADAPTER_CLI.zh-CN.md) 将当前完整
-Suite 增加到 47 个测试。
+[Responses Model Adapter 与 CLI](PHASE1_MODEL_ADAPTER_CLI.zh-CN.md) 将其
+Checkpoint 增加到 47 个测试；再之后的
+[双模式 AgentDojo 评测](PHASE1_EVALUATION_HARNESS.zh-CN.md) 将当前完整 Suite
+增加到 54 个测试。
 
 ## Phase 1 剩余边界
 

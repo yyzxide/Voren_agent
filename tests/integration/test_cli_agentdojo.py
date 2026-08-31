@@ -7,7 +7,9 @@ import unittest
 from argparse import Namespace
 from pathlib import Path
 
-from voren.cli import build_parser, run_agentdojo
+from voren.cli import build_parser, run_agentdojo, run_agentdojo_evaluation
+from voren.evaluation.artifacts import read_artifact
+from voren.evaluation.models import EvaluationMode
 from voren.runtime.models import ModelResponse, ToolCall
 from voren.testing.scripted_model import ScriptedModelAdapter
 
@@ -104,6 +106,47 @@ class AgentDojoCLITest(unittest.TestCase):
         self.assertEqual(run_status, "cancelled")
         self.assertEqual(operation[0], "prepared")
         self.assertIsNone(operation[1])
+
+    def test_evaluation_cli_writes_integrity_checked_artifact(self) -> None:
+        artifact_path = (
+            Path(self.temporary_directory.name) / "artifacts" / "eval.json"
+        )
+        args = build_parser().parse_args(
+            [
+                "eval-agentdojo",
+                "--case",
+                "benign_user_18",
+                "--mode",
+                "runtime_enforcement",
+                "--model",
+                "scripted-model",
+                "--output",
+                str(artifact_path),
+                "--database",
+                str(self.database),
+                "--experiment-id",
+                "cli-evaluation",
+            ]
+        )
+        output: list[str] = []
+
+        exit_code = run_agentdojo_evaluation(
+            args,
+            model_factory=lambda _case, _mode: ScriptedModelAdapter(
+                (self.action_response(),)
+            ),
+            output=output.append,
+        )
+
+        self.assertEqual(exit_code, 0)
+        artifact = read_artifact(artifact_path)
+        self.assertEqual(len(artifact.trials), 1)
+        self.assertEqual(
+            artifact.trials[0].mode, EvaluationMode.RUNTIME_ENFORCEMENT
+        )
+        self.assertTrue(artifact.trials[0].utility_passed)
+        self.assertTrue(artifact.trials[0].receipt_verified)
+        self.assertTrue(any(line.startswith("artifact digest:") for line in output))
 
 
 if __name__ == "__main__":

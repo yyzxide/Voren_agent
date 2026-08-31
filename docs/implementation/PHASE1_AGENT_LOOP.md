@@ -144,8 +144,10 @@ provenance, snapshot purity, and exclusion of the stateful unread-email tool.
 Two model-level tests reject untrusted instruction authority and tampered
 observation digests. Together with the previous action and lifecycle suites,
 Voren had 36 passing tests at this slice's checkpoint. The later
-[Responses Model Adapter and CLI](PHASE1_MODEL_ADAPTER_CLI.md) brings the current
-suite to 47 tests.
+[Responses Model Adapter and CLI](PHASE1_MODEL_ADAPTER_CLI.md) brought its
+checkpoint to 47 tests; the later
+[dual-mode AgentDojo evaluation](PHASE1_EVALUATION_HARNESS.md) brings the current
+complete suite to 54 tests.
 
 ## Remaining Phase 1 boundary
 

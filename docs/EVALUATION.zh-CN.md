@@ -70,6 +70,12 @@ Verification 或 Security Gate。
 必须将三种模式分开，避免一个拒绝所有有用操作的 Runtime 只因为“很安全”就
 得到好结果。
 
+Phase 1 已把前两种模式实现为可执行 AgentDojo Runner，并生成带完整性 Digest
+的 JSON Artifact，详见
+[Phase 1 双模式 AgentDojo 评测](implementation/PHASE1_EVALUATION_HARNESS.zh-CN.md)。
+当前实现覆盖日历动作范围内的 Injection Task 2；以下完整策略仍包含之后需要
+扩展的邮件发送、Skill 与 Memory Case。
+
 ### Agent Behavior Mode
 
 外部动作由固定 Benchmark Adapter 自动放行。这保留 AgentDojo 原始的 Utility
@@ -213,6 +219,11 @@ Capability 扩张或生产环境启用时。
 - 注入指令不能创建或修改长期 Skill；
 - 阻止攻击时不能同时阻止合法用户任务；
 - 分别报告 Utility 和 Attack Success。
+
+当前可执行 Smoke Case 使用 `user_task_18 + injection_task_2`，分别证明
+Behavior Mode 会保留原始攻击语义，而 Enforcement Mode 的精确 User-task
+Policy 会在 Commit 前拒绝恶意日历动作。需要 `send_email` 的 Injection Task
+3/4 在动作契约实现前不计入安全结果。
 
 ### Suite D：Skill Regression
 

@@ -9,6 +9,7 @@ from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from voren.actions.errors import ApprovalRejectedError
 from voren.actions.gateway import ActionGateway
@@ -23,6 +24,15 @@ from voren.adapters.workspace_contracts import (
     WORKSPACE_CONTRACT_VERSION,
     create_calendar_event_definition,
 )
+from voren.evaluation.agentdojo import (
+    AgentDojoEvaluationRunner,
+    ModelFactory,
+    evaluation_input_digests,
+    phase1_smoke_manifest,
+    select_trials,
+)
+from voren.evaluation.artifacts import detect_source_revision, write_artifact
+from voren.evaluation.models import EvaluationMode, ExperimentConfig
 from voren.providers.openai_responses import (
     ModelConfigurationError,
     OpenAIResponsesModelAdapter,
@@ -70,6 +80,51 @@ def build_parser() -> argparse.ArgumentParser:
     agentdojo.add_argument("--max-model-steps", type=int, default=8)
     agentdojo.add_argument("--max-tool-calls", type=int, default=12)
     agentdojo.set_defaults(handler=run_agentdojo)
+
+    evaluation = subcommands.add_parser(
+        "eval-agentdojo",
+        help="Run frozen AgentDojo cases and write a verifiable JSON artifact.",
+    )
+    evaluation.add_argument(
+        "--case",
+        action="append",
+        required=True,
+        choices=("all", *(case.case_id for case in phase1_smoke_manifest().cases)),
+        help="Frozen case ID; repeat for multiple cases or pass 'all'.",
+    )
+    evaluation.add_argument(
+        "--mode",
+        action="append",
+        required=True,
+        choices=tuple(mode.value for mode in EvaluationMode),
+        help="Evaluation boundary; repeat to compare both modes.",
+    )
+    evaluation.add_argument(
+        "--model",
+        help="Responses API model ID; alternatively set VOREN_MODEL.",
+    )
+    evaluation.add_argument(
+        "--base-url",
+        help="Responses-compatible API base URL; defaults to OPENAI_BASE_URL.",
+    )
+    evaluation.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="Destination for the integrity-bound JSON artifact.",
+    )
+    evaluation.add_argument(
+        "--database",
+        type=Path,
+        default=Path(".voren/evaluations.sqlite3"),
+        help="SQLite trace and operation database.",
+    )
+    evaluation.add_argument("--experiment-id")
+    evaluation.add_argument("--timeout-seconds", type=float, default=60.0)
+    evaluation.add_argument("--max-output-tokens", type=int, default=2_048)
+    evaluation.add_argument("--max-model-steps", type=int, default=8)
+    evaluation.add_argument("--max-tool-calls", type=int, default=12)
+    evaluation.set_defaults(handler=run_agentdojo_evaluation)
     return parser
 
 
@@ -178,6 +233,95 @@ def run_agentdojo(
     finally:
         store.close()
         ledger.close()
+
+
+def run_agentdojo_evaluation(
+    args: argparse.Namespace,
+    *,
+    model_factory: ModelFactory | None = None,
+    output: Output = print,
+) -> int:
+    """Run an explicitly selected paid evaluation and persist its evidence."""
+
+    model_name = args.model or os.environ.get("VOREN_MODEL")
+    if not model_name:
+        raise ModelConfigurationError("pass --model or set VOREN_MODEL")
+    manifest = phase1_smoke_manifest()
+    modes = tuple(EvaluationMode(value) for value in args.mode)
+    if len(modes) != len(set(modes)):
+        raise ValueError("evaluation modes must be unique")
+    case_ids = tuple(args.case)
+    if "all" in case_ids and case_ids != ("all",):
+        raise ValueError("'all' cannot be combined with explicit case IDs")
+    selections = select_trials(manifest, case_ids=case_ids, modes=modes)
+
+    resolved_model_factory = model_factory
+    if resolved_model_factory is None:
+
+        def create_model(_case, _mode):
+            return OpenAIResponsesModelAdapter.from_environment(
+                model=model_name,
+                base_url=args.base_url,
+                timeout_seconds=args.timeout_seconds,
+                max_output_tokens=args.max_output_tokens,
+            )
+
+        resolved_model_factory = create_model
+
+    source = detect_source_revision(Path.cwd())
+    prompt_digest, tool_digest, attack_digest = evaluation_input_digests()
+    config = ExperimentConfig(
+        experiment_id=args.experiment_id or f"eval-{uuid4()}",
+        created_at=datetime.now(UTC),
+        code_revision=source.revision,
+        code_dirty=source.dirty,
+        provider="responses_api",
+        model=model_name,
+        manifest_id=manifest.manifest_id,
+        manifest_digest=manifest.calculated_digest(),
+        system_prompt_digest=prompt_digest,
+        tool_schema_digest=tool_digest,
+        dataset=manifest.dataset,
+        dataset_version=manifest.dataset_version,
+        attack_template_version=manifest.attack_template_version,
+        attack_template_digest=attack_digest,
+        sampling={
+            "max_output_tokens": args.max_output_tokens,
+            "max_model_steps": args.max_model_steps,
+            "max_tool_calls": args.max_tool_calls,
+            "timeout_seconds": args.timeout_seconds,
+            "temperature": "provider_default",
+            "seed": None,
+        },
+    )
+    runner = AgentDojoEvaluationRunner(
+        model_factory=resolved_model_factory,
+        database=args.database,
+        limits=RuntimeLimits(
+            max_model_steps=args.max_model_steps,
+            max_tool_calls=args.max_tool_calls,
+        ),
+    )
+    artifact = runner.run(
+        config=config,
+        manifest=manifest,
+        selections=selections,
+    )
+    write_artifact(args.output, artifact)
+    output(f"artifact: {args.output}")
+    output(f"artifact digest: {artifact.artifact_digest}")
+    output(f"code revision: {source.revision} (dirty={source.dirty})")
+    for summary in artifact.summaries:
+        attack_rate = (
+            "n/a"
+            if summary.attack_success_rate is None
+            else f"{summary.attack_success_rate:.3f}"
+        )
+        output(
+            f"{summary.mode.value}: utility={summary.utility_rate:.3f}, "
+            f"attack_success={attack_rate}, trials={summary.total_trials}"
+        )
+    return 0
 
 
 def _print_proposal(proposal, output: Output) -> None:

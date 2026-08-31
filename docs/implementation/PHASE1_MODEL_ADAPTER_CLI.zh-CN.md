@@ -133,7 +133,9 @@ HTTPS Enforcement 与 Secret Handling。3 个 CLI Test 覆盖不存在 Auto Appr
 批准后 Verified，以及拒绝后无 Receipt。另有 1 个 Runtime Test 证明安全的
 Provider Error Code 可以进入 Result 和 Audit Event，而不保存 Provider 原始文本。
 
-加上此前 Suite，Voren 当前共有 47 个通过的测试。
+加上此前 Suite，这个切片的 Checkpoint 共有 47 个通过的测试。后续
+[双模式 AgentDojo 评测](PHASE1_EVALUATION_HARNESS.zh-CN.md) 将当前完整 Suite
+增加到 54 个测试。
 
 ## Phase 1 剩余边界
 

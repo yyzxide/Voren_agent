@@ -82,12 +82,18 @@ Completed in the action-core sub-slice:
 - API-key and endpoint handling that excludes secrets from traces;
 - an installed `voren agentdojo` command; and
 - terminal-only exact-effect approval with no auto-approval option.
+- a frozen AgentDojo evaluation manifest for cases, modes, and provider config;
+- a dual-mode runner separating agent behavior from runtime enforcement;
+- JSON artifacts with integrity digests, per-mode metrics, and normalized traces;
+- an explicit-case, explicit-mode `voren eval-agentdojo` command.
 
 Still pending in Phase 1: one recorded live-model golden run, durable encrypted
-mid-loop transcript recovery, provider cancellation/token accounting, and
-reproducible model-behavior runs for prompt-injection cases. Contract tests
-prove translation and orchestration, not live model planning or injection
-resistance.
+mid-loop transcript recovery, provider cancellation/token accounting, and a
+live prompt-injection artifact from the current runner. Coverage currently
+includes only `injection_task_2`, which falls inside the implemented calendar
+action contract; tasks 3/4 require a `send_email` action that does not exist yet.
+Contract tests prove translation and orchestration, not live model planning or
+injection resistance.
 
 Exit criteria:
 

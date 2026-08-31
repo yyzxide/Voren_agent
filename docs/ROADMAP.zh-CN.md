@@ -82,11 +82,17 @@ Action Core 子切片已完成：
 - 不把 Secret 写入 Trace 的 API Key 与 Endpoint Handling；
 - 安装后的 `voren agentdojo` Command；
 - 只能在终端进行的 Exact-effect Approval，且没有 Auto Approval Option。
+- 冻结 Case/Mode/Provider Config 的 AgentDojo Evaluation Manifest；
+- 分离 Agent Behavior 与 Runtime Enforcement 的双模式 Runner；
+- 带完整性 Digest、分模式指标和规范化 Trace 的 JSON Artifact；
+- 需要显式选择 Case 与 Mode 的 `voren eval-agentdojo` Command。
 
 Phase 1 仍待完成：一次有记录的 Live-model Golden Run、持久加密 Mid-loop
-Transcript Recovery、Provider Cancellation/Token Accounting，以及针对 Prompt
-Injection Case 的可复现模型行为 Run。Contract Test 只能证明 Translation 与
-Orchestration，不能证明 Live Model 的规划能力或抗注入能力。
+Transcript Recovery、Provider Cancellation/Token Accounting，以及使用当前
+Runner 生成的 Live Prompt Injection Artifact。当前仅覆盖落在已实现日历动作
+契约内的 `injection_task_2`；需要 `send_email` 的 task 3/4 尚未形成行为评测。
+Contract Test 只能证明 Translation 与 Orchestration，不能证明 Live Model 的
+规划能力或抗注入能力。
 
 退出条件：
 

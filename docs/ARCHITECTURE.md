@@ -106,6 +106,13 @@ boundary; a recorded live-model run has not yet been performed. Provider
 timeout cancellation, token accounting, compaction, and durable mid-loop
 transcript recovery remain pending.
 
+`evaluation/` now implements a frozen case manifest, dual agent-behavior and
+runtime-enforcement runners, AgentDojo graders, and integrity-bound JSON
+artifacts. It reuses the same runtime but creates an isolated workspace for
+every trial. Evaluation ground truth enters only the deterministic approval
+simulator, never model context. Current evidence uses scripted models; no live
+model artifact exists yet.
+
 ### 4.3 Action Gateway
 
 An `ActionDefinition` contains at least:
@@ -329,7 +336,8 @@ rollback claim.
 - SQLite for the first durable event, operation, and version ledgers;
 - standard-library `unittest` for unit, fault-injection, and integration tests;
 - one Responses-compatible HTTPS model adapter behind the local protocol; and
-- AgentDojo pinned behind a Voren-owned adapter.
+- AgentDojo pinned behind a Voren-owned adapter; and
+- versioned manifests plus integrity-bound JSON evaluation artifacts.
 
 FastAPI and a browser UI are deferred until the CLI vertical slice passes live
 model and injection evaluation.

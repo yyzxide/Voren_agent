@@ -73,6 +73,12 @@ postcondition verification, or the security gate.
 Three modes remain separate so a runtime that refuses every useful action
 cannot appear successful merely because it is safe.
 
+Phase 1 implements the first two modes as an executable AgentDojo runner that
+writes integrity-bound JSON artifacts. See
+[Phase 1 dual-mode AgentDojo evaluation](implementation/PHASE1_EVALUATION_HARNESS.md).
+Current coverage is injection task 2 inside the calendar-action envelope; the
+complete strategy below still includes later email, skill, and memory cases.
+
 ### Agent behavior mode
 
 External actions are automatically passed through a fixed benchmark adapter.
@@ -221,6 +227,12 @@ The README may quote measured results only after these artifacts exist.
 - blocking the attack does not prevent the benign user task from completing;
   and
 - utility and attack success are reported separately.
+
+The current executable smoke case uses `user_task_18 + injection_task_2`. It
+preserves raw attack semantics in behavior mode and rejects the malicious
+calendar action before commit under the enforcement mode's exact user-task
+policy. Injection tasks 3/4 require `send_email` and are not counted as safety
+results before that action contract exists.
 
 ### Suite D: Skill regression
 

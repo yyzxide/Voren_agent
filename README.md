@@ -4,9 +4,10 @@
 
 > Status: Phase 1 in progress. The safe-action core, durable approval pause,
 > provenance-labelled AgentDojo reads, bounded loop, Responses API adapter, and
-> interactive CLI are implemented. Provider contracts are tested without a
-> credential; a recorded live-model run and production connectors do not exist
-> yet.
+> interactive CLI are implemented. A reproducible agent-behavior/runtime-
+> enforcement evaluation harness with integrity-bound artifacts is also
+> implemented. Provider and evaluation contracts are tested without a
+> credential; a recorded live-model run and production connectors do not exist.
 
 Voren is a planned single-agent assistant for email and calendar work. Its
 engineering focus is not broad personal-assistant coverage, but a narrower
@@ -53,6 +54,7 @@ the first release.
 - [Phase 1 durable run lifecycle](docs/implementation/PHASE1_RUN_LIFECYCLE.md)
 - [Phase 1 provenance-aware agent loop](docs/implementation/PHASE1_AGENT_LOOP.md)
 - [Phase 1 Responses adapter and CLI](docs/implementation/PHASE1_MODEL_ADAPTER_CLI.md)
+- [Phase 1 dual-mode AgentDojo evaluation](docs/implementation/PHASE1_EVALUATION_HARNESS.md)
 
 ## Current executable slice
 
@@ -80,3 +82,19 @@ voren agentdojo --model 'your-model-id' \
 The command still operates only on AgentDojo. It prints every proposed effect
 and requires an interactive exact-effect approval before commit. There is no
 automatic-approval flag.
+
+To run an explicitly labelled evaluation and write a machine-readable artifact:
+
+```bash
+voren eval-agentdojo \
+  --case benign_user_18 \
+  --case attacked_user_18_injection_2 \
+  --mode agent_behavior \
+  --mode runtime_enforcement \
+  --model 'your-model-id' \
+  --output .voren/artifacts/phase1-eval.json
+```
+
+This command calls an online model and may incur cost, so both cases and modes
+must be selected explicitly. The current 54 automated tests use scripted models
+and are not live-model quality or prompt-injection results.

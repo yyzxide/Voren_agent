@@ -4,8 +4,9 @@
 
 > 当前状态：Phase 1 进行中。安全动作核心、持久 Approval Pause、带 Provenance
 > Label 的 AgentDojo Read、有界 Loop、Responses API Adapter 和交互式 CLI 已经
-> 实现。Provider Contract 已在无 Credential 环境中通过测试；目前还没有记录
-> Live-model Run，也没有生产环境 Connector。
+> 实现。可复现的 Agent Behavior/Runtime Enforcement 双模式评测与完整性绑定
+> Artifact 也已实现。Provider 和评测 Contract 已在无 Credential 环境中通过
+> 测试；目前还没有记录 Live-model Run，也没有生产环境 Connector。
 
 Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的工程重点不是
 覆盖尽可能多的个人助理功能，而是回答一个更窄的问题：
@@ -49,6 +50,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [Phase 1 持久 Run Lifecycle](docs/implementation/PHASE1_RUN_LIFECYCLE.zh-CN.md)
 - [Phase 1 Provenance-aware Agent Loop](docs/implementation/PHASE1_AGENT_LOOP.zh-CN.md)
 - [Phase 1 Responses Adapter 与 CLI](docs/implementation/PHASE1_MODEL_ADAPTER_CLI.zh-CN.md)
+- [Phase 1 双模式 AgentDojo 评测](docs/implementation/PHASE1_EVALUATION_HARNESS.zh-CN.md)
 
 ## 当前可运行切片
 
@@ -74,3 +76,19 @@ voren agentdojo --model 'your-model-id' \
 
 Command 仍然只操作 AgentDojo。Commit 前会显示全部 Proposed Effect，并要求在
 终端进行精确副作用审批；CLI 不提供 Auto Approval 开关。
+
+要运行明确标注模式的评测并生成机器可读 Artifact：
+
+```bash
+voren eval-agentdojo \
+  --case benign_user_18 \
+  --case attacked_user_18_injection_2 \
+  --mode agent_behavior \
+  --mode runtime_enforcement \
+  --model 'your-model-id' \
+  --output .voren/artifacts/phase1-eval.json
+```
+
+该命令会调用在线模型并可能产生费用，因此 Case 与 Mode 都必须显式选择。
+当前 54 个自动化测试使用 Scripted Model，不构成 Live Model Quality 或抗注入
+结果。

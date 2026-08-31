@@ -100,6 +100,12 @@ HTTPS Responses API Adapter 与交互式 AgentDojo CLI 已经实现 Provider
 Boundary，但尚未执行有记录的 Live-model Run。Provider Timeout Cancellation、
 Token Accounting、Compaction 与持久 Mid-loop Transcript Recovery 仍未实现。
 
+`evaluation/` 已实现固定 Case Manifest、Agent Behavior 与 Runtime Enforcement
+双模式 Runner、AgentDojo Grader 以及带完整性 Digest 的 JSON Artifact。它复用
+相同 Runtime，但为每个 Trial 创建隔离 Workspace；评测 Ground Truth 只进入
+确定性 Approval Simulator，不进入 Model Context。当前证据来自 Scripted Model，
+Live Model Artifact 仍未生成。
+
 ### 4.3 Action Gateway
 
 一个 `ActionDefinition` 至少包含：
@@ -312,7 +318,8 @@ Runner 冻结模型、Prompt、工具、Active Skill、Candidate Skill、数据�
 - 首先使用 SQLite 持久化 Event、Operation 和 Version Ledger；
 - 使用标准库 `unittest` 编写单元、故障注入和集成测试；
 - 在本地 Protocol 后实现一个 Responses-compatible HTTPS Model Adapter；
-- 通过 Voren 自己的 Adapter 封装固定版本的 AgentDojo。
+- 通过 Voren 自己的 Adapter 封装固定版本的 AgentDojo；
+- 使用版本化 Manifest 和完整性绑定 JSON Artifact 保存评测结果。
 
 CLI 纵向切片通过 Live Model 与 Injection Evaluation 之前，不引入 FastAPI 和
 浏览器 UI。
