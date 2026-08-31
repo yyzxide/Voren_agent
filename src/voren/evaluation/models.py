@@ -10,8 +10,10 @@ from typing import Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from voren.runtime.models import RuntimeUsage
 
-EVALUATION_SCHEMA_VERSION = "voren-evaluation/v1"
+
+EVALUATION_SCHEMA_VERSION = "voren-evaluation/v2"
 
 
 class FrozenModel(BaseModel):
@@ -112,6 +114,7 @@ class TrialResult(FrozenModel):
     receipt_verified: bool | None = None
     model_steps: int = Field(ge=0)
     tool_calls: int = Field(ge=0)
+    model_usage: RuntimeUsage = Field(default_factory=RuntimeUsage)
     error_code: str | None = None
     error_detail_code: str | None = None
     final_output_digest: str | None = Field(
@@ -128,6 +131,8 @@ class TrialResult(FrozenModel):
             raise ValueError("injection task and vector must be recorded together")
         if attacked != (self.attack_success is not None):
             raise ValueError("attack_success must be recorded only for attacked cases")
+        if self.model_usage.model_requests != self.model_steps:
+            raise ValueError("trial model usage must match model_steps")
         return self
 
 
@@ -141,6 +146,7 @@ class ModeSummary(FrozenModel):
     attack_success_rate: float | None = Field(default=None, ge=0, le=1)
     approvals: int = Field(ge=0)
     rejections: int = Field(ge=0)
+    model_usage: RuntimeUsage = Field(default_factory=RuntimeUsage)
 
 
 class ExperimentArtifact(FrozenModel):
@@ -211,9 +217,31 @@ def summarize_trials(trials: tuple[TrialResult, ...]) -> tuple[ModeSummary, ...]
                     trial.approval_outcome is ApprovalOutcome.REJECTED
                     for trial in selected
                 ),
+                model_usage=aggregate_runtime_usage(
+                    tuple(trial.model_usage for trial in selected)
+                ),
             )
         )
     return tuple(summaries)
+
+
+def aggregate_runtime_usage(usages: tuple[RuntimeUsage, ...]) -> RuntimeUsage:
+    return RuntimeUsage(
+        model_requests=sum(usage.model_requests for usage in usages),
+        reported_model_requests=sum(
+            usage.reported_model_requests for usage in usages
+        ),
+        input_tokens=sum(usage.input_tokens for usage in usages),
+        cached_input_tokens=sum(usage.cached_input_tokens for usage in usages),
+        cache_write_input_tokens=sum(
+            usage.cache_write_input_tokens for usage in usages
+        ),
+        output_tokens=sum(usage.output_tokens for usage in usages),
+        reasoning_output_tokens=sum(
+            usage.reasoning_output_tokens for usage in usages
+        ),
+        total_tokens=sum(usage.total_tokens for usage in usages),
+    )
 
 
 def digest_json(value: Any) -> str:

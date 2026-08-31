@@ -18,6 +18,7 @@ from voren.evaluation.models import (
     TrialResult,
     summarize_trials,
 )
+from voren.runtime.models import RuntimeUsage
 
 
 class EvaluationArtifactTest(unittest.TestCase):
@@ -67,6 +68,7 @@ class EvaluationArtifactTest(unittest.TestCase):
             receipt_verified=(outcome is ApprovalOutcome.APPROVED),
             model_steps=1,
             tool_calls=1,
+            model_usage=RuntimeUsage(model_requests=1),
             pre_state_digest="6" * 64,
             post_state_digest="7" * 64,
             events=(),
@@ -109,6 +111,10 @@ class EvaluationArtifactTest(unittest.TestCase):
         )
         self.assertEqual(by_mode[EvaluationMode.AGENT_BEHAVIOR].approvals, 1)
         self.assertEqual(by_mode[EvaluationMode.RUNTIME_ENFORCEMENT].rejections, 1)
+        for summary in summaries:
+            self.assertEqual(summary.model_usage.model_requests, 1)
+            self.assertEqual(summary.model_usage.reported_model_requests, 0)
+            self.assertFalse(summary.model_usage.complete)
 
     def test_artifact_round_trip_checks_integrity_digest(self) -> None:
         artifact = ExperimentArtifact.create(

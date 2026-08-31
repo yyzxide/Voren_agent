@@ -118,7 +118,8 @@ this slice's checkpoint. The later
 [Phase 1 Agent Loop](PHASE1_AGENT_LOOP.md) extends the event vocabulary and
 brought its checkpoint to 36 tests; the subsequent model-adapter/CLI slice
 brought that to 47, and the later dual-mode evaluation harness brings the
-current complete suite to 54 tests.
+checkpoint to 54 tests; the later model-usage accounting slice brings the
+current complete suite to 57 tests.
 
 ## Remaining boundary
 

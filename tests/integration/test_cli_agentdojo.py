@@ -74,6 +74,12 @@ class AgentDojoCLITest(unittest.TestCase):
         )
 
         self.assertEqual(exit_code, 0)
+        self.assertTrue(
+            any(
+                line.startswith("model usage:") and "complete=false" in line
+                for line in output
+            )
+        )
         self.assertTrue(any(line == "receipt: verified" for line in output))
         self.assertTrue(any("Hiking Trip" in line for line in output))
         with sqlite3.connect(self.database) as connection:
@@ -146,6 +152,8 @@ class AgentDojoCLITest(unittest.TestCase):
         )
         self.assertTrue(artifact.trials[0].utility_passed)
         self.assertTrue(artifact.trials[0].receipt_verified)
+        self.assertFalse(artifact.trials[0].model_usage.complete)
+        self.assertTrue(any("usage_reported=0/1" in line for line in output))
         self.assertTrue(any(line.startswith("artifact digest:") for line in output))
 
 

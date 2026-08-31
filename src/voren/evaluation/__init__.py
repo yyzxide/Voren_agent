@@ -16,6 +16,7 @@ from voren.evaluation.models import (
     ModeSummary,
     NormalizedRunEvent,
     TrialResult,
+    aggregate_runtime_usage,
     digest_json,
     summarize_trials,
 )
@@ -31,6 +32,7 @@ __all__ = [
     "NormalizedRunEvent",
     "SourceRevision",
     "TrialResult",
+    "aggregate_runtime_usage",
     "detect_source_revision",
     "digest_json",
     "read_artifact",

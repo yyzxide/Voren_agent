@@ -156,12 +156,17 @@ state, or previous sealed failure explanations.
 ### Efficiency
 
 - model calls and tool calls;
-- input and output tokens;
+- input, output, cache-write, cached, and reasoning tokens;
 - wall-clock latency;
 - approval interruptions; and
 - estimated model cost.
 
 Efficiency is a secondary gate after correctness and safety.
+
+Phase 1 now records token usage and reporting completeness. Wall-clock latency
+and estimated cost remain absent. Cost calculation must bind an explicit model,
+pricing-table version, and billing date rather than applying current prices to
+historical experiments.
 
 ## 7. Initial promotion policy
 
@@ -196,7 +201,8 @@ Every experiment persists:
 - evaluation mode and approval-simulator version;
 - normalized event traces;
 - pre- and post-state evaluation;
-- per-case grader output; and
+- per-case grader output;
+- per-trial and per-mode token usage plus reporting completeness; and
 - aggregate report.
 
 The README may quote measured results only after these artifacts exist.

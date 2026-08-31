@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import Counter
+from dataclasses import dataclass
 
 from voren.actions.errors import ActionGatewayError
 from voren.observations.models import ToolObservation
@@ -15,9 +16,11 @@ from voren.runtime.models import (
     MessageRole,
     ModelMessage,
     ModelResponse,
+    ModelUsage,
     RuntimeLimits,
     RuntimeResult,
     RuntimeResultStatus,
+    RuntimeUsage,
     ToolCall,
     ToolDefinition,
     ToolKind,
@@ -33,6 +36,44 @@ tools. Read tools may inspect data. An external_action tool creates a proposal
 for operator approval; it does not mean the action has executed. Never claim an
 external action succeeded unless a later verified receipt says so.
 """
+
+
+@dataclass(slots=True)
+class _UsageAccumulator:
+    model_requests: int = 0
+    reported_model_requests: int = 0
+    input_tokens: int = 0
+    cached_input_tokens: int = 0
+    cache_write_input_tokens: int = 0
+    output_tokens: int = 0
+    reasoning_output_tokens: int = 0
+    total_tokens: int = 0
+
+    def request_started(self) -> None:
+        self.model_requests += 1
+
+    def record(self, usage: ModelUsage | None) -> None:
+        if usage is None:
+            return
+        self.reported_model_requests += 1
+        self.input_tokens += usage.input_tokens
+        self.cached_input_tokens += usage.cached_input_tokens
+        self.cache_write_input_tokens += usage.cache_write_input_tokens
+        self.output_tokens += usage.output_tokens
+        self.reasoning_output_tokens += usage.reasoning_output_tokens
+        self.total_tokens += usage.total_tokens
+
+    def snapshot(self) -> RuntimeUsage:
+        return RuntimeUsage(
+            model_requests=self.model_requests,
+            reported_model_requests=self.reported_model_requests,
+            input_tokens=self.input_tokens,
+            cached_input_tokens=self.cached_input_tokens,
+            cache_write_input_tokens=self.cache_write_input_tokens,
+            output_tokens=self.output_tokens,
+            reasoning_output_tokens=self.reasoning_output_tokens,
+            total_tokens=self.total_tokens,
+        )
 
 
 class AgentLoop:
@@ -79,8 +120,10 @@ class AgentLoop:
         seen_call_ids: set[str] = set()
         observation_digests: list[str] = []
         tool_call_count = 0
+        usage = _UsageAccumulator()
 
         for step in range(1, self._limits.max_model_steps + 1):
+            usage.request_started()
             self._run_manager.record_runtime_event(
                 run.run_id,
                 RunEventType.MODEL_REQUESTED,
@@ -98,6 +141,7 @@ class AgentLoop:
                     messages=tuple(messages), tools=self._tools
                 )
                 response = ModelResponse.model_validate(raw_response)
+                usage.record(response.usage)
             except Exception as error:
                 provider_code = getattr(error, "code", None)
                 safe_provider_code = (
@@ -109,6 +153,7 @@ class AgentLoop:
                     run_id=run.run_id,
                     step=step,
                     tool_calls=tool_call_count,
+                    usage=usage.snapshot(),
                     error_code="model_adapter_failed",
                     error_detail_code=safe_provider_code,
                     details={
@@ -135,6 +180,7 @@ class AgentLoop:
                         run_id=run.run_id,
                         step=step,
                         tool_calls=tool_call_count,
+                        usage=usage.snapshot(),
                         error_code="empty_model_response",
                     )
                 outcome_digest = self._digest(response.text)
@@ -147,6 +193,7 @@ class AgentLoop:
                     final_text=response.text,
                     model_steps=step,
                     tool_calls=tool_call_count,
+                    usage=usage.snapshot(),
                 )
 
             called_names = {call.name for call in response.tool_calls}
@@ -156,6 +203,7 @@ class AgentLoop:
                         run_id=run.run_id,
                         step=step,
                         tool_calls=tool_call_count,
+                        usage=usage.snapshot(),
                         error_code="mixed_action_batch",
                     )
                 call = response.tool_calls[0]
@@ -164,6 +212,7 @@ class AgentLoop:
                     call=call,
                     step=step,
                     tool_call_count=tool_call_count,
+                    usage=usage.snapshot(),
                     signature_counts=signature_counts,
                     seen_call_ids=seen_call_ids,
                 )
@@ -185,6 +234,7 @@ class AgentLoop:
                         run_id=run.run_id,
                         step=step,
                         tool_calls=tool_call_count,
+                        usage=usage.snapshot(),
                         error_code="invalid_action_proposal",
                         details={"error_type": type(error).__name__},
                     )
@@ -194,6 +244,7 @@ class AgentLoop:
                     pending_proposal=proposal,
                     model_steps=step,
                     tool_calls=tool_call_count,
+                    usage=usage.snapshot(),
                 )
 
             for call in response.tool_calls:
@@ -202,6 +253,7 @@ class AgentLoop:
                         run_id=run.run_id,
                         step=step,
                         tool_calls=tool_call_count,
+                        usage=usage.snapshot(),
                         error_code="unknown_tool",
                         details={"tool_name": call.name},
                     )
@@ -210,6 +262,7 @@ class AgentLoop:
                     call=call,
                     step=step,
                     tool_call_count=tool_call_count,
+                    usage=usage.snapshot(),
                     signature_counts=signature_counts,
                     seen_call_ids=seen_call_ids,
                 )
@@ -237,6 +290,7 @@ class AgentLoop:
                         run_id=run.run_id,
                         step=step,
                         tool_calls=tool_call_count,
+                        usage=usage.snapshot(),
                         error_code="read_adapter_failed",
                         details={"error_type": type(error).__name__},
                     )
@@ -245,6 +299,7 @@ class AgentLoop:
                         run_id=run.run_id,
                         step=step,
                         tool_calls=tool_call_count,
+                        usage=usage.snapshot(),
                         limit_name="max_observation_bytes",
                         details={
                             "observed": observation.serialized_bytes,
@@ -284,6 +339,7 @@ class AgentLoop:
             run_id=run.run_id,
             step=self._limits.max_model_steps,
             tool_calls=tool_call_count,
+            usage=usage.snapshot(),
             limit_name="max_model_steps",
             details={"allowed": self._limits.max_model_steps},
         )
@@ -295,6 +351,7 @@ class AgentLoop:
         call: ToolCall,
         step: int,
         tool_call_count: int,
+        usage: RuntimeUsage,
         signature_counts: Counter[str],
         seen_call_ids: set[str],
     ) -> RuntimeResult | None:
@@ -303,6 +360,7 @@ class AgentLoop:
                 run_id=run_id,
                 step=step,
                 tool_calls=tool_call_count,
+                usage=usage,
                 error_code="duplicate_tool_call_id",
             )
         if tool_call_count >= self._limits.max_tool_calls:
@@ -310,6 +368,7 @@ class AgentLoop:
                 run_id=run_id,
                 step=step,
                 tool_calls=tool_call_count,
+                usage=usage,
                 limit_name="max_tool_calls",
                 details={"allowed": self._limits.max_tool_calls},
             )
@@ -319,6 +378,7 @@ class AgentLoop:
                 run_id=run_id,
                 step=step,
                 tool_calls=tool_call_count,
+                usage=usage,
                 limit_name="max_repeated_tool_call",
                 details={"allowed": self._limits.max_repeated_tool_call},
             )
@@ -338,6 +398,12 @@ class AgentLoop:
                 "response_digest": self._digest(response.model_dump(mode="json")),
                 "has_text": bool(response.text),
                 "tool_call_count": len(response.tool_calls),
+                "usage_reported": response.usage is not None,
+                "usage": (
+                    response.usage.model_dump(mode="json")
+                    if response.usage is not None
+                    else None
+                ),
             },
         )
 
@@ -366,6 +432,7 @@ class AgentLoop:
         run_id: str,
         step: int,
         tool_calls: int,
+        usage: RuntimeUsage,
         limit_name: str,
         details: dict,
     ) -> RuntimeResult:
@@ -380,6 +447,7 @@ class AgentLoop:
             status=RuntimeResultStatus.LIMIT_EXCEEDED,
             model_steps=step,
             tool_calls=tool_calls,
+            usage=usage,
             error_code=limit_name,
         )
 
@@ -389,6 +457,7 @@ class AgentLoop:
         run_id: str,
         step: int,
         tool_calls: int,
+        usage: RuntimeUsage,
         error_code: str,
         error_detail_code: str | None = None,
         details: dict | None = None,
@@ -403,6 +472,7 @@ class AgentLoop:
             status=RuntimeResultStatus.FAILED,
             model_steps=step,
             tool_calls=tool_calls,
+            usage=usage,
             error_code=error_code,
             error_detail_code=error_detail_code,
         )

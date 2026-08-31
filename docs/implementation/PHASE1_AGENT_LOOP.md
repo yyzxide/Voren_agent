@@ -147,7 +147,8 @@ Voren had 36 passing tests at this slice's checkpoint. The later
 [Responses Model Adapter and CLI](PHASE1_MODEL_ADAPTER_CLI.md) brought its
 checkpoint to 47 tests; the later
 [dual-mode AgentDojo evaluation](PHASE1_EVALUATION_HARNESS.md) brings the current
-complete suite to 54 tests.
+checkpoint to 54 tests; the later model-usage accounting slice brings the
+current complete suite to 57 tests.
 
 ## Remaining Phase 1 boundary
 

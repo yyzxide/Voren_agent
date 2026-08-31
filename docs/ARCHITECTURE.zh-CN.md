@@ -98,7 +98,10 @@ Protocol、Model Step/总调用数/重复调用/Observation Bytes 硬限制，�
 Boundary Event。Runtime 在生成一个 External-action Proposal 后刻意停止。
 HTTPS Responses API Adapter 与交互式 AgentDojo CLI 已经实现 Provider
 Boundary，但尚未执行有记录的 Live-model Run。Provider Timeout Cancellation、
-Token Accounting、Compaction 与持久 Mid-loop Transcript Recovery 仍未实现。
+Compaction 与持久 Mid-loop Transcript Recovery 仍未实现。Responses 返回的
+Input、Output、Cached、Cache-write 和 Reasoning Token 已在 Provider Boundary
+验证，并累计到 Run Result、Event 和 Evaluation Artifact；缺少 Usage 的调用会
+被明确标记为不完整，而不是按零成本处理。
 
 `evaluation/` 已实现固定 Case Manifest、Agent Behavior 与 Runtime Enforcement
 双模式 Runner、AgentDojo Grader 以及带完整性 Digest 的 JSON Artifact。它复用

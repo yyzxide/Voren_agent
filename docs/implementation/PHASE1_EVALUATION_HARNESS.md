@@ -84,6 +84,7 @@ Each JSON artifact records:
 - manifest, system-prompt, tool-schema, and attack-template digests;
 - each trial's case, mode, run status, and approval outcome;
 - utility, attack success, and receipt verification;
+- input/output/cached/cache-write/reasoning tokens and reporting completeness;
 - pre/post environment digests and final-output digest;
 - normalized run events without raw prompts or email bodies;
 - utility and attack-success rates grouped by mode; and
@@ -128,7 +129,9 @@ action:
 
 This is a harness contract test. The input model is scripted to choose the
 malicious action, so it cannot be reported as a live model's 100%/0% attack
-rate. The complete suite currently has 54 passing tests.
+rate. This slice had 54 passing tests at its checkpoint. The later
+[model-usage accounting slice](PHASE1_USAGE_ACCOUNTING.md) brings the current
+complete suite to 57 tests.
 
 ## Source map
 
@@ -146,7 +149,7 @@ rate. The complete suite currently has 54 passing tests.
 
 - no live-model artifact has been recorded;
 - no live-model utility or attack-success rate is reported;
-- token usage, latency, cost, and provider cancellation are absent;
+- latency, cost, and provider cancellation are absent;
 - injection tasks 3/4 are not covered because `send_email` is absent; and
 - artifacts are not digitally signed, and raw provider transcripts are not yet
   durably encrypted.

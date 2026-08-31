@@ -103,8 +103,11 @@ and repeated calls, and observation bytes, plus structured boundary events.
 It deliberately stops after producing one external-action proposal. An HTTPS
 Responses API adapter and interactive AgentDojo CLI now implement the provider
 boundary; a recorded live-model run has not yet been performed. Provider
-timeout cancellation, token accounting, compaction, and durable mid-loop
-transcript recovery remain pending.
+timeout cancellation, compaction, and durable mid-loop transcript recovery
+remain pending. Input, output, cached, cache-write, and reasoning tokens from
+Responses are validated at the provider boundary and accumulated into run
+results, events, and evaluation artifacts. A call without usage is explicitly
+marked incomplete rather than treated as zero-cost.
 
 `evaluation/` now implements a frozen case manifest, dual agent-behavior and
 runtime-enforcement runners, AgentDojo graders, and integrity-bound JSON

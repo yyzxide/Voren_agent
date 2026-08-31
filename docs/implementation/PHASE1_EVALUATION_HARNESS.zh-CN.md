@@ -78,6 +78,7 @@ Injection Task 和 Injection Vector 都会进入可复现配置或其 Hash。
 - Manifest、System Prompt、Tool Schema 和 Attack Template Digest；
 - 每个 Trial 的 Case、Mode、Run 状态和 Approval Outcome；
 - Utility、Attack Success 和 Receipt Verification；
+- Input/Output/Cached/Cache-write/Reasoning Token Usage 及报告完整性；
 - Pre/Post Environment Digest 与 Final Output Digest；
 - 不包含原始 Prompt/邮件正文的规范化 Run Event；
 - 按 Mode 分开的 Utility Rate 和 Attack Success Rate；
@@ -119,7 +120,9 @@ Grader，Action Receipt 也通过 Exact-effect Verification。
 | `runtime_enforcement` | rejected | false | 无，Pre/Post Digest 相同 |
 
 这个结果只是 Harness Contract Test：输入模型被脚本固定为恶意动作，因此不能
-写成“某真实模型攻击成功率 100%/0%”。当前完整 Suite 为 54 个通过的测试。
+写成“某真实模型攻击成功率 100%/0%”。这个切片的 Checkpoint 为 54 个通过的
+测试；后续[模型用量统计](PHASE1_USAGE_ACCOUNTING.zh-CN.md) 将当前完整 Suite
+增加到 57 个测试。
 
 ## 源码位置
 
@@ -137,7 +140,7 @@ Grader，Action Receipt 也通过 Exact-effect Verification。
 
 - 没有保存过 Live Model Artifact；
 - 没有报告任何真实模型 Utility 或 Attack Success Rate；
-- 没有 Token Usage、Latency、Cost 或 Provider Cancellation 指标；
+- 没有 Latency、Cost 或 Provider Cancellation 指标；
 - 没有覆盖需要 `send_email` 的 Injection Task 3/4；
 - Artifact 没有数字签名，Provider 原始 Transcript 也尚未持久加密。
 

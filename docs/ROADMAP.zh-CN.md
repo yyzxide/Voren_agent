@@ -86,10 +86,12 @@ Action Core 子切片已完成：
 - 分离 Agent Behavior 与 Runtime Enforcement 的双模式 Runner；
 - 带完整性 Digest、分模式指标和规范化 Trace 的 JSON Artifact；
 - 需要显式选择 Case 与 Mode 的 `voren eval-agentdojo` Command。
+- Responses Input/Output/Cached/Cache-write/Reasoning Token Usage 解析；
+- 带完整性标记的 Run-level Usage 累计，并写入 Event、CLI 与 Evaluation Artifact。
 
 Phase 1 仍待完成：一次有记录的 Live-model Golden Run、持久加密 Mid-loop
-Transcript Recovery、Provider Cancellation/Token Accounting，以及使用当前
-Runner 生成的 Live Prompt Injection Artifact。当前仅覆盖落在已实现日历动作
+Transcript Recovery、Provider Cancellation，以及使用当前 Runner 生成的 Live
+Prompt Injection Artifact。当前仅覆盖落在已实现日历动作
 契约内的 `injection_task_2`；需要 `send_email` 的 task 3/4 尚未形成行为评测。
 Contract Test 只能证明 Translation 与 Orchestration，不能证明 Live Model 的
 规划能力或抗注入能力。

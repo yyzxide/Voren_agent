@@ -14,6 +14,7 @@ from voren.providers.openai_responses import (
 from voren.runtime.models import (
     MessageRole,
     ModelMessage,
+    ModelUsage,
     ToolCall,
     ToolDefinition,
     ToolKind,
@@ -224,6 +225,56 @@ class OpenAIResponsesModelAdapterTest(unittest.TestCase):
             adapter.complete(messages=self.initial_messages(), tools=self.tools())
 
         self.assertEqual(raised.exception.code, "invalid_function_call_json")
+
+    def test_parses_detailed_provider_usage(self) -> None:
+        response = self.text_response()
+        response["usage"] = {
+            "input_tokens": 120,
+            "input_tokens_details": {
+                "cached_tokens": 80,
+                "cache_write_tokens": 20,
+            },
+            "output_tokens": 40,
+            "output_tokens_details": {"reasoning_tokens": 30},
+            "total_tokens": 160,
+        }
+        adapter = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(model="test-model"),
+            transport=FakeTransport((response,)),
+        )
+
+        result = adapter.complete(
+            messages=self.initial_messages(), tools=self.tools()
+        )
+
+        self.assertEqual(
+            result.usage,
+            ModelUsage(
+                input_tokens=120,
+                cached_input_tokens=80,
+                cache_write_input_tokens=20,
+                output_tokens=40,
+                reasoning_output_tokens=30,
+                total_tokens=160,
+            ),
+        )
+
+    def test_rejects_internally_inconsistent_provider_usage(self) -> None:
+        response = self.text_response()
+        response["usage"] = {
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "total_tokens": 999,
+        }
+        adapter = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(model="test-model"),
+            transport=FakeTransport((response,)),
+        )
+
+        with self.assertRaises(ModelProviderError) as raised:
+            adapter.complete(messages=self.initial_messages(), tools=self.tools())
+
+        self.assertEqual(raised.exception.code, "invalid_provider_usage")
 
     def test_environment_constructor_requires_api_key(self) -> None:
         with self.assertRaises(ModelConfigurationError):

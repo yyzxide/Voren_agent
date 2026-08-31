@@ -111,7 +111,7 @@ Demo 会在 Run 等待 Approval 时刻意关闭并重新打开 SQLite 组件。
 后续 [Phase 1 Agent Loop](PHASE1_AGENT_LOOP.zh-CN.md) 扩展了 Event Vocabulary，
 并将当时的 Checkpoint 增加到 36 个测试；之后的 Model Adapter/CLI 切片将其
 增加到 47 个测试；再之后的双模式 Evaluation Harness 将当前完整 Suite 增加到
-54 个测试。
+54 个测试；后续模型用量统计切片将当前完整 Suite 增加到 57 个测试。
 
 ## 剩余边界
 

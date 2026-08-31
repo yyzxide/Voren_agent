@@ -335,6 +335,7 @@ class AgentDojoEvaluationRunner:
                 receipt_verified=receipt_verified,
                 model_steps=result.model_steps,
                 tool_calls=result.tool_calls,
+                model_usage=result.usage,
                 error_code=result.error_code,
                 error_detail_code=result.error_detail_code,
                 final_output_digest=(digest_json(final_text) if final_text else None),

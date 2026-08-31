@@ -17,6 +17,7 @@ from voren.runtime.models import (
     MessageRole,
     ModelMessage,
     ModelResponse,
+    ModelUsage,
     ToolCall,
     ToolDefinition,
     ToolKind,
@@ -310,7 +311,50 @@ class OpenAIResponsesModelAdapter:
         text = "\n".join(part for part in text_parts if part) or None
         if text is None and not tool_calls:
             raise ModelProviderError("empty_provider_output")
-        return ModelResponse(text=text, tool_calls=tool_calls)
+        return ModelResponse(
+            text=text,
+            tool_calls=tool_calls,
+            usage=self._parse_usage(response.get("usage")),
+        )
+
+    @classmethod
+    def _parse_usage(cls, raw_usage: Any) -> ModelUsage | None:
+        if raw_usage is None:
+            return None
+        if not isinstance(raw_usage, dict):
+            raise ModelProviderError("invalid_provider_usage")
+        input_details = raw_usage.get("input_tokens_details")
+        output_details = raw_usage.get("output_tokens_details")
+        input_details = {} if input_details is None else input_details
+        output_details = {} if output_details is None else output_details
+        if not isinstance(input_details, dict) or not isinstance(output_details, dict):
+            raise ModelProviderError("invalid_provider_usage")
+        try:
+            return ModelUsage(
+                input_tokens=cls._usage_integer(raw_usage, "input_tokens"),
+                cached_input_tokens=cls._usage_integer(
+                    input_details, "cached_tokens", default=0
+                ),
+                cache_write_input_tokens=cls._usage_integer(
+                    input_details, "cache_write_tokens", default=0
+                ),
+                output_tokens=cls._usage_integer(raw_usage, "output_tokens"),
+                reasoning_output_tokens=cls._usage_integer(
+                    output_details, "reasoning_tokens", default=0
+                ),
+                total_tokens=cls._usage_integer(raw_usage, "total_tokens"),
+            )
+        except ValueError as error:
+            raise ModelProviderError("invalid_provider_usage") from error
+
+    @staticmethod
+    def _usage_integer(
+        values: dict[str, Any], key: str, *, default: int | None = None
+    ) -> int:
+        value = values.get(key, default)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"invalid usage field: {key}")
+        return value
 
     @staticmethod
     def _parse_function_call(item: dict[str, Any]) -> ToolCall:

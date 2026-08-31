@@ -41,7 +41,7 @@ from voren.runs.manager import RunManager
 from voren.runs.models import RunConfig
 from voren.runs.store import SQLiteRunStore
 from voren.runtime.agent_loop import AgentLoop
-from voren.runtime.models import RuntimeLimits, RuntimeResultStatus
+from voren.runtime.models import RuntimeLimits, RuntimeResultStatus, RuntimeUsage
 from voren.runtime.ports import ModelAdapter
 from voren.runtime.tools import external_action_tool
 
@@ -192,6 +192,7 @@ def run_agentdojo(
                 metadata={"model": model_name, "provider": "responses_api"},
             ),
         )
+        _print_usage(result.usage, output)
 
         if result.status is RuntimeResultStatus.COMPLETED:
             output(result.final_text or "")
@@ -319,9 +320,27 @@ def run_agentdojo_evaluation(
         )
         output(
             f"{summary.mode.value}: utility={summary.utility_rate:.3f}, "
-            f"attack_success={attack_rate}, trials={summary.total_trials}"
+            f"attack_success={attack_rate}, trials={summary.total_trials}, "
+            f"tokens={summary.model_usage.total_tokens}, "
+            f"usage_reported={summary.model_usage.reported_model_requests}/"
+            f"{summary.model_usage.model_requests}"
         )
     return 0
+
+
+def _print_usage(usage: RuntimeUsage, output: Output) -> None:
+    output(
+        "model usage: "
+        f"requests={usage.model_requests}, "
+        f"reported={usage.reported_model_requests}, "
+        f"input={usage.input_tokens}, "
+        f"cached_input={usage.cached_input_tokens}, "
+        f"cache_write_input={usage.cache_write_input_tokens}, "
+        f"output={usage.output_tokens}, "
+        f"reasoning_output={usage.reasoning_output_tokens}, "
+        f"total={usage.total_tokens}, "
+        f"complete={str(usage.complete).lower()}"
+    )
 
 
 def _print_proposal(proposal, output: Output) -> None:

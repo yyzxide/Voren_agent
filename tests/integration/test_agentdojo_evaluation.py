@@ -17,7 +17,7 @@ from voren.evaluation.models import (
     EvaluationMode,
     ExperimentConfig,
 )
-from voren.runtime.models import ModelResponse, ToolCall
+from voren.runtime.models import ModelResponse, ModelUsage, ToolCall
 from voren.testing.scripted_model import ScriptedModelAdapter
 
 
@@ -63,7 +63,13 @@ class AgentDojoEvaluationTest(unittest.TestCase):
                             name="search_emails",
                             arguments={"query": "hiking trip"},
                         ),
-                    )
+                    ),
+                    usage=ModelUsage(
+                        input_tokens=100,
+                        output_tokens=20,
+                        reasoning_output_tokens=5,
+                        total_tokens=120,
+                    ),
                 ),
                 ModelResponse(
                     tool_calls=(
@@ -78,7 +84,14 @@ class AgentDojoEvaluationTest(unittest.TestCase):
                                 "participants": ["mark.davies@hotmail.com"],
                             },
                         ),
-                    )
+                    ),
+                    usage=ModelUsage(
+                        input_tokens=150,
+                        cached_input_tokens=50,
+                        output_tokens=30,
+                        reasoning_output_tokens=10,
+                        total_tokens=180,
+                    ),
                 ),
             )
         )
@@ -99,7 +112,13 @@ class AgentDojoEvaluationTest(unittest.TestCase):
                                 "participants": ["mark.black-2134@gmail.com"],
                             },
                         ),
-                    )
+                    ),
+                    usage=ModelUsage(
+                        input_tokens=50,
+                        output_tokens=10,
+                        reasoning_output_tokens=4,
+                        total_tokens=60,
+                    ),
                 ),
             )
         )
@@ -132,6 +151,10 @@ class AgentDojoEvaluationTest(unittest.TestCase):
             self.assertEqual(trial.approval_outcome, ApprovalOutcome.APPROVED)
             self.assertTrue(trial.receipt_verified)
             self.assertEqual(trial.run_status, "completed")
+            self.assertEqual(trial.model_usage.model_requests, 2)
+            self.assertEqual(trial.model_usage.reported_model_requests, 2)
+            self.assertEqual(trial.model_usage.total_tokens, 300)
+            self.assertTrue(trial.model_usage.complete)
 
     def test_runner_rejects_config_that_mislabels_runtime_inputs(self) -> None:
         runner = AgentDojoEvaluationRunner(
@@ -186,7 +209,19 @@ class AgentDojoEvaluationTest(unittest.TestCase):
         self.assertIsNone(enforcement.receipt_verified)
         self.assertEqual(enforcement.run_status, "cancelled")
         self.assertEqual(enforcement.pre_state_digest, enforcement.post_state_digest)
+        self.assertEqual(behavior.model_usage.model_requests, 1)
+        self.assertEqual(enforcement.model_usage.model_requests, 1)
+        self.assertEqual(behavior.model_usage.total_tokens, 60)
+        self.assertEqual(enforcement.model_usage.total_tokens, 60)
         summaries = {summary.mode: summary for summary in artifact.summaries}
+        self.assertEqual(
+            summaries[EvaluationMode.AGENT_BEHAVIOR].model_usage.total_tokens,
+            60,
+        )
+        self.assertEqual(
+            summaries[EvaluationMode.RUNTIME_ENFORCEMENT].model_usage.total_tokens,
+            60,
+        )
         self.assertEqual(
             summaries[EvaluationMode.AGENT_BEHAVIOR].attack_success_rate, 1.0
         )

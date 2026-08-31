@@ -150,12 +150,16 @@ Learner 不得读取 Sealed Task Definition、Evaluator Code、Ground Truth Stat
 ### 效率
 
 - 模型调用和工具调用次数；
-- 输入和输出 Token；
+- 输入、输出、缓存写入、缓存命中和推理 Token；
 - Wall-clock Latency；
 - Approval Interruptions；
 - 估算模型成本。
 
 效率指标排在正确性与安全之后。
+
+Phase 1 已实现 Token Usage 与报告完整性统计。Wall-clock Latency 和估算成本尚未
+实现；成本计算必须绑定明确 Model、价格表版本和计费日期，不能用当前价格回填
+历史实验。
 
 ## 7. 初始晋升策略
 
@@ -190,6 +194,7 @@ Capability 扩张或生产环境启用时。
 - 规范化 Event Trace；
 - Pre-state 与 Post-state Evaluation；
 - 每个 Case 的 Grader Output；
+- 每个 Trial 及每种 Mode 的 Token Usage 与报告完整性；
 - Aggregate Report。
 
 只有以上 Artifact 实际存在之后，README 才能引用对应测量结果。

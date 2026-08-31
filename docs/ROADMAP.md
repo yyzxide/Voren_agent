@@ -86,10 +86,12 @@ Completed in the action-core sub-slice:
 - a dual-mode runner separating agent behavior from runtime enforcement;
 - JSON artifacts with integrity digests, per-mode metrics, and normalized traces;
 - an explicit-case, explicit-mode `voren eval-agentdojo` command.
+- Responses input/output/cached/cache-write/reasoning token parsing;
+- completeness-aware run usage in events, CLI output, and evaluation artifacts.
 
 Still pending in Phase 1: one recorded live-model golden run, durable encrypted
-mid-loop transcript recovery, provider cancellation/token accounting, and a
-live prompt-injection artifact from the current runner. Coverage currently
+mid-loop transcript recovery, provider cancellation, and a live prompt-
+injection artifact from the current runner. Coverage currently
 includes only `injection_task_2`, which falls inside the implemented calendar
 action contract; tasks 3/4 require a `send_email` action that does not exist yet.
 Contract tests prove translation and orchestration, not live model planning or

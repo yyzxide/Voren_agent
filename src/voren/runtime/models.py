@@ -67,9 +67,48 @@ class ToolDefinition(FrozenModel):
     kind: ToolKind
 
 
+class ModelUsage(FrozenModel):
+    """Provider-reported usage for one completed model response."""
+
+    input_tokens: int = Field(default=0, ge=0)
+    cached_input_tokens: int = Field(default=0, ge=0)
+    cache_write_input_tokens: int = Field(default=0, ge=0)
+    output_tokens: int = Field(default=0, ge=0)
+    reasoning_output_tokens: int = Field(default=0, ge=0)
+    total_tokens: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def details_match_totals(self) -> Self:
+        if self.cached_input_tokens > self.input_tokens:
+            raise ValueError("cached_input_tokens cannot exceed input_tokens")
+        if self.reasoning_output_tokens > self.output_tokens:
+            raise ValueError("reasoning_output_tokens cannot exceed output_tokens")
+        if self.total_tokens != self.input_tokens + self.output_tokens:
+            raise ValueError("total_tokens must equal input_tokens + output_tokens")
+        return self
+
+
+class RuntimeUsage(ModelUsage):
+    """Accumulated token usage plus completeness across one agent run."""
+
+    model_requests: int = Field(default=0, ge=0)
+    reported_model_requests: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def reported_requests_do_not_exceed_requests(self) -> Self:
+        if self.reported_model_requests > self.model_requests:
+            raise ValueError("reported model requests cannot exceed model requests")
+        return self
+
+    @property
+    def complete(self) -> bool:
+        return self.model_requests == self.reported_model_requests
+
+
 class ModelResponse(FrozenModel):
     text: str | None = None
     tool_calls: tuple[ToolCall, ...] = ()
+    usage: ModelUsage | None = None
 
 
 class RuntimeLimits(FrozenModel):
@@ -93,5 +132,12 @@ class RuntimeResult(FrozenModel):
     pending_proposal: ActionProposal | None = None
     model_steps: int = Field(ge=0)
     tool_calls: int = Field(ge=0)
+    usage: RuntimeUsage = Field(default_factory=RuntimeUsage)
     error_code: str | None = None
     error_detail_code: str | None = None
+
+    @model_validator(mode="after")
+    def usage_request_count_matches_steps(self) -> Self:
+        if self.usage.model_requests != self.model_steps:
+            raise ValueError("usage model_requests must equal model_steps")
+        return self

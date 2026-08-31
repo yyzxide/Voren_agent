@@ -151,7 +151,9 @@ and audit event without persisting raw provider text.
 Together with prior suites, Voren had 47 passing tests at this slice's
 checkpoint. The later
 [dual-mode AgentDojo evaluation](PHASE1_EVALUATION_HARNESS.md) brings the current
-complete suite to 54 tests.
+checkpoint to 54 tests. The later
+[model-usage accounting slice](PHASE1_USAGE_ACCOUNTING.md) brings the current
+complete suite to 57 tests.
 
 ## Remaining Phase 1 boundary
 
@@ -162,7 +164,7 @@ provided to the test environment. Phase 1 still needs:
 - AgentDojo injection runs that measure model behavior separately from runtime
   enforcement;
 - durable encrypted transcript artifacts for mid-loop process recovery; and
-- provider timeout/cancellation propagation and token-usage accounting.
+- provider timeout/cancellation propagation.
 
 ## Suggested reading order
 

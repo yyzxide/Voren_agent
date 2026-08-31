@@ -28,6 +28,7 @@ from voren.runtime.agent_loop import AgentLoop
 from voren.runtime.models import (
     MessageRole,
     ModelResponse,
+    ModelUsage,
     RuntimeLimits,
     RuntimeResultStatus,
     ToolCall,
@@ -225,6 +226,55 @@ class AgentLoopTest(unittest.TestCase):
         )
         self.assertNotIn(result.final_text, event_payloads)
 
+    def test_model_usage_accumulates_across_steps_and_events(self) -> None:
+        loop, _, _ = self.make_loop(
+            (
+                ModelResponse(
+                    tool_calls=(self.search_call("read-1"),),
+                    usage=ModelUsage(
+                        input_tokens=100,
+                        cached_input_tokens=40,
+                        cache_write_input_tokens=10,
+                        output_tokens=20,
+                        reasoning_output_tokens=5,
+                        total_tokens=120,
+                    ),
+                ),
+                ModelResponse(
+                    text="The hike starts at 08:00.",
+                    usage=ModelUsage(
+                        input_tokens=150,
+                        cached_input_tokens=20,
+                        output_tokens=30,
+                        reasoning_output_tokens=10,
+                        total_tokens=180,
+                    ),
+                ),
+            )
+        )
+
+        result = loop.run(user_request="Find the hiking time.", config=self.config())
+
+        self.assertTrue(result.usage.complete)
+        self.assertEqual(result.usage.model_requests, 2)
+        self.assertEqual(result.usage.reported_model_requests, 2)
+        self.assertEqual(result.usage.input_tokens, 250)
+        self.assertEqual(result.usage.cached_input_tokens, 60)
+        self.assertEqual(result.usage.cache_write_input_tokens, 10)
+        self.assertEqual(result.usage.output_tokens, 50)
+        self.assertEqual(result.usage.reasoning_output_tokens, 15)
+        self.assertEqual(result.usage.total_tokens, 300)
+        response_events = [
+            event
+            for event in self.store.list_events(result.run_id)
+            if event.event_type is RunEventType.MODEL_RESPONDED
+        ]
+        self.assertEqual(
+            [event.payload["usage_reported"] for event in response_events],
+            [True, True],
+        )
+        self.assertEqual(response_events[1].payload["usage"]["total_tokens"], 180)
+
     def test_repeated_identical_tool_call_hits_hard_limit(self) -> None:
         calls = tuple(
             ModelResponse(tool_calls=(self.search_call(f"read-{index}"),))
@@ -321,6 +371,9 @@ class AgentLoopTest(unittest.TestCase):
         self.assertEqual(result.status, RuntimeResultStatus.FAILED)
         self.assertEqual(result.error_code, "model_adapter_failed")
         self.assertEqual(result.error_detail_code, "rate_limit_exceeded")
+        self.assertEqual(result.usage.model_requests, 1)
+        self.assertEqual(result.usage.reported_model_requests, 0)
+        self.assertFalse(result.usage.complete)
         failed_event = self.store.list_events(result.run_id)[-1]
         self.assertEqual(
             failed_event.payload["provider_code"], "rate_limit_exceeded"
