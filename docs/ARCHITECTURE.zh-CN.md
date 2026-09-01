@@ -257,6 +257,12 @@ draft -> candidate -> evaluating -> active -> superseded -> archived
 晋升以原子方式修改 Active Version Pointer。回滚是重新选择一个已评测的不可变
 版本，不会重写历史。
 
+当前 Phase 2 Store 已实现这个表示边界：严格的 Agent Skills Metadata、Voren
+Sidecar、内容寻址 Package Object、原子 SQLite Active Pointer、Progressive-load
+API，以及写入 `RunConfig` 的精确 Version Ref。安装不代表激活；可移植格式中仍属
+实验性的 `allowed-tools` 只保留为 Discovery Hint，不能授予 Runtime Capability。
+Context Assembly 和 Learned-candidate Lifecycle 属于后续切片。
+
 ### 4.8 Learning Control
 
 学习路径运行在前台行动循环之外：

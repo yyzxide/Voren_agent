@@ -270,6 +270,14 @@ draft -> candidate -> evaluating -> active -> superseded -> archived
 Promotion atomically changes the active version pointer. Rollback selects an
 already evaluated immutable version; it does not rewrite history.
 
+The current Phase 2 store implements this representation boundary: strict
+Agent Skills metadata, a Voren sidecar, content-addressed package objects, an
+atomic SQLite active pointer, progressive-load APIs, and exact version refs in
+`RunConfig`. Installation never implies activation. The portable experimental
+`allowed-tools` field is retained only as a discovery hint and cannot grant a
+runtime capability. Context assembly and learned-candidate lifecycle remain
+separate follow-up slices.
+
 ### 4.8 Learning control
 
 The learning path runs outside the foreground action loop:

@@ -9,7 +9,8 @@
 > 测试，模型 Token Usage 会贯穿 Runtime 与评测 Artifact。Background Responses
 > 轮询、Deadline/Operator Cancellation、Provider Confirmation 证据和加密
 > Mid-loop Transcript Recovery 也已实现。目前还没有记录 Live-model Run，
-> 也没有生产环境 Connector。
+> 也没有生产环境 Connector。Phase 2 已经开始：当前具备兼容 Agent Skills、
+> 内容寻址的静态 Skill Store，以及供 Run Config 冻结精确 Active Version 的契约。
 
 Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的工程重点不是
 覆盖尽可能多的个人助理功能，而是回答一个更窄的问题：
@@ -57,6 +58,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [Phase 1 模型用量统计](docs/implementation/PHASE1_USAGE_ACCOUNTING.zh-CN.md)
 - [Phase 1 Provider Cancellation](docs/implementation/PHASE1_PROVIDER_CANCELLATION.zh-CN.md)
 - [Phase 1 加密 Transcript 恢复](docs/implementation/PHASE1_TRANSCRIPT_RECOVERY.zh-CN.md)
+- [Phase 2 静态 Skill Store](docs/implementation/PHASE2_STATIC_SKILL_STORE.zh-CN.md)
 
 ## 当前可运行切片
 
@@ -97,5 +99,5 @@ voren eval-agentdojo \
 ```
 
 该命令会调用在线模型并可能产生费用，因此 Case 与 Mode 都必须显式选择。
-当前 69 个自动化测试使用 Scripted Model，不构成 Live Model Quality 或抗注入
+当前 79 个自动化测试使用 Scripted Model，不构成 Live Model Quality 或抗注入
 结果。

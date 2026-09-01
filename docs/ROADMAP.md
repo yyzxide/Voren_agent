@@ -110,6 +110,14 @@ Exit criteria:
 
 ## 4. Phase 2: memory and static skills
 
+Status: **in progress**. Agent Skills-compatible parsing, progressive loading
+APIs, content-addressed immutable versions, an atomic active pointer, exact
+RunConfig skill references, and the first hand-written scheduling skill are
+implemented. See [Phase 2 Static Skill Store](implementation/PHASE2_STATIC_SKILL_STORE.md).
+
+Profile/Episode stores, trust-aware context assembly, runtime skill activation,
+and reproducible `no_skill`/`static_skill` evaluation modes remain pending.
+
 Implement:
 
 - profile, episode, and skill stores;

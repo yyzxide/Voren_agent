@@ -11,7 +11,9 @@
 > artifacts. Background Responses polling, deadline/operator cancellation, and
 > provider-confirmation evidence are implemented. Encrypted mid-loop transcript
 > recovery now preserves context and budgets across process restarts. A recorded
-> live-model run and production connectors do not exist.
+> live-model run and production connectors do not exist. Phase 2 has started
+> with an Agent Skills-compatible, content-addressed static skill store and an
+> exact active-version snapshot contract for run configs.
 
 Voren is a planned single-agent assistant for email and calendar work. Its
 engineering focus is not broad personal-assistant coverage, but a narrower
@@ -62,6 +64,7 @@ the first release.
 - [Phase 1 model-usage accounting](docs/implementation/PHASE1_USAGE_ACCOUNTING.md)
 - [Phase 1 provider cancellation](docs/implementation/PHASE1_PROVIDER_CANCELLATION.md)
 - [Phase 1 encrypted transcript recovery](docs/implementation/PHASE1_TRANSCRIPT_RECOVERY.md)
+- [Phase 2 static skill store](docs/implementation/PHASE2_STATIC_SKILL_STORE.md)
 
 ## Current executable slice
 
@@ -104,5 +107,5 @@ voren eval-agentdojo \
 ```
 
 This command calls an online model and may incur cost, so both cases and modes
-must be selected explicitly. The current 69 automated tests use scripted models
+must be selected explicitly. The current 79 automated tests use scripted models
 and are not live-model quality or prompt-injection results.

@@ -10,6 +10,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from voren.skills.models import SkillVersionRef
+
 
 class FrozenModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -50,11 +52,16 @@ class RunConfig(FrozenModel):
     world_adapter: str = Field(min_length=1)
     policy_version: str = Field(min_length=1)
     action_contract_versions: tuple[str, ...]
+    skill_versions: tuple[SkillVersionRef, ...] = ()
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     def calculated_digest(self) -> str:
+        payload = self.model_dump(mode="json")
+        if not self.skill_versions:
+            # Preserve digests for Phase 1 runs written before skill pinning existed.
+            payload.pop("skill_versions")
         canonical = json.dumps(
-            self.model_dump(mode="json"),
+            payload,
             sort_keys=True,
             separators=(",", ":"),
             ensure_ascii=False,
