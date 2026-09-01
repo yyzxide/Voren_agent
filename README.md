@@ -9,8 +9,9 @@
 > implemented. Provider and evaluation contracts are tested without a
 > credential, and model-token usage flows through runtime and evaluation
 > artifacts. Background Responses polling, deadline/operator cancellation, and
-> provider-confirmation evidence are implemented. A recorded live-model run
-> and production connectors do not exist.
+> provider-confirmation evidence are implemented. Encrypted mid-loop transcript
+> recovery now preserves context and budgets across process restarts. A recorded
+> live-model run and production connectors do not exist.
 
 Voren is a planned single-agent assistant for email and calendar work. Its
 engineering focus is not broad personal-assistant coverage, but a narrower
@@ -60,6 +61,7 @@ the first release.
 - [Phase 1 dual-mode AgentDojo evaluation](docs/implementation/PHASE1_EVALUATION_HARNESS.md)
 - [Phase 1 model-usage accounting](docs/implementation/PHASE1_USAGE_ACCOUNTING.md)
 - [Phase 1 provider cancellation](docs/implementation/PHASE1_PROVIDER_CANCELLATION.md)
+- [Phase 1 encrypted transcript recovery](docs/implementation/PHASE1_TRANSCRIPT_RECOVERY.md)
 
 ## Current executable slice
 
@@ -77,9 +79,10 @@ not connect to a real email or calendar account. The separate lifecycle demo
 also closes and rebuilds the SQLite-backed runtime while approval is pending.
 
 To exercise the API-capable adapter, set `OPENAI_API_KEY`, explicitly choose a
-model supported by the endpoint, and run:
+model supported by the endpoint, generate a local transcript key once, and run:
 
 ```bash
+export VOREN_TRANSCRIPT_KEY="$(python3 -c 'from voren.runtime.transcripts import SQLiteTranscriptStore; print(SQLiteTranscriptStore.generate_key())')"
 voren agentdojo --model 'your-model-id' \
   'Create an event for the hiking trip with Mark based on my emails.'
 ```
@@ -101,5 +104,5 @@ voren eval-agentdojo \
 ```
 
 This command calls an online model and may incur cost, so both cases and modes
-must be selected explicitly. The current 66 automated tests use scripted models
+must be selected explicitly. The current 69 automated tests use scripted models
 and are not live-model quality or prompt-injection results.

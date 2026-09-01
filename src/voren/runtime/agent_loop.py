@@ -11,7 +11,7 @@ from voren.actions.errors import ActionGatewayError
 from voren.observations.models import ToolObservation
 from voren.observations.read_tools import ReadToolAdapter
 from voren.runs.manager import RunManager
-from voren.runs.models import RunConfig, RunEventType
+from voren.runs.models import RunConfig, RunEventType, RunStatus
 from voren.runtime.cancellation import CancellationToken, ModelRequestCancelled
 from voren.runtime.models import (
     CancellationReason,
@@ -28,6 +28,10 @@ from voren.runtime.models import (
     ToolKind,
 )
 from voren.runtime.ports import ModelAdapter
+from voren.runtime.transcripts import (
+    SQLiteTranscriptStore,
+    TranscriptCheckpoint,
+)
 
 
 SYSTEM_INSTRUCTION = """You are Voren, an email and calendar assistant.
@@ -50,6 +54,19 @@ class _UsageAccumulator:
     output_tokens: int = 0
     reasoning_output_tokens: int = 0
     total_tokens: int = 0
+
+    @classmethod
+    def from_snapshot(cls, usage: RuntimeUsage) -> _UsageAccumulator:
+        return cls(
+            model_requests=usage.model_requests,
+            reported_model_requests=usage.reported_model_requests,
+            input_tokens=usage.input_tokens,
+            cached_input_tokens=usage.cached_input_tokens,
+            cache_write_input_tokens=usage.cache_write_input_tokens,
+            output_tokens=usage.output_tokens,
+            reasoning_output_tokens=usage.reasoning_output_tokens,
+            total_tokens=usage.total_tokens,
+        )
 
     def request_started(self) -> None:
         self.model_requests += 1
@@ -87,11 +104,13 @@ class AgentLoop:
         action_tools: tuple[ToolDefinition, ...],
         run_manager: RunManager,
         limits: RuntimeLimits | None = None,
+        transcript_store: SQLiteTranscriptStore | None = None,
     ) -> None:
         self._model = model
         self._read_tools = read_tools
         self._run_manager = run_manager
         self._limits = limits or RuntimeLimits()
+        self._transcript_store = transcript_store
 
         read_definitions = tuple(
             ToolDefinition(
@@ -119,19 +138,65 @@ class AgentLoop:
         config: RunConfig,
         cancellation: CancellationToken | None = None,
     ) -> RuntimeResult:
-        run = self._run_manager.start_new_run(config)
-        cancellation = cancellation or CancellationToken()
-        messages = [
-            ModelMessage(role=MessageRole.SYSTEM, content=SYSTEM_INSTRUCTION),
-            ModelMessage(role=MessageRole.USER, content=user_request),
-        ]
-        signature_counts: Counter[str] = Counter()
-        seen_call_ids: set[str] = set()
-        observation_digests: list[str] = []
-        tool_call_count = 0
-        usage = _UsageAccumulator()
+        return self._execute(
+            user_request=user_request,
+            config=config,
+            cancellation=cancellation,
+            resume_checkpoint=None,
+        )
 
-        for step in range(1, self._limits.max_model_steps + 1):
+    def _execute(
+        self,
+        *,
+        user_request: str,
+        config: RunConfig,
+        cancellation: CancellationToken | None = None,
+        resume_checkpoint: TranscriptCheckpoint | None,
+    ) -> RuntimeResult:
+        cancellation = cancellation or CancellationToken()
+        if resume_checkpoint is None:
+            run = self._run_manager.start_new_run(config)
+            messages = [
+                ModelMessage(role=MessageRole.SYSTEM, content=SYSTEM_INSTRUCTION),
+                ModelMessage(role=MessageRole.USER, content=user_request),
+            ]
+            signature_counts: Counter[str] = Counter()
+            seen_call_ids: set[str] = set()
+            observation_digests: list[str] = []
+            tool_call_count = 0
+            usage = _UsageAccumulator()
+            start_step = 1
+            self._save_checkpoint(
+                run_id=run.run_id,
+                config_digest=run.config_digest,
+                next_model_step=start_step,
+                messages=messages,
+                signature_counts=signature_counts,
+                seen_call_ids=seen_call_ids,
+                observation_digests=observation_digests,
+                tool_call_count=tool_call_count,
+                usage=usage.snapshot(),
+            )
+        else:
+            run = self._run_manager.get_run(resume_checkpoint.run_id)
+            if run.status is not RunStatus.RUNNING:
+                raise ValueError(
+                    f"run {run.run_id!r} cannot resume from {run.status.value!r}"
+                )
+            if (
+                config != run.config
+                or run.config_digest != resume_checkpoint.config_digest
+            ):
+                raise ValueError("resume checkpoint does not match the frozen run config")
+            messages = list(resume_checkpoint.messages)
+            signature_counts = resume_checkpoint.restored_signature_counts()
+            seen_call_ids = set(resume_checkpoint.seen_call_ids)
+            observation_digests = list(resume_checkpoint.observation_digests)
+            tool_call_count = resume_checkpoint.tool_call_count
+            usage = _UsageAccumulator.from_snapshot(resume_checkpoint.usage)
+            start_step = resume_checkpoint.next_model_step
+
+        for step in range(start_step, self._limits.max_model_steps + 1):
             if cancellation.cancelled:
                 return self._cancel(
                     run_id=run.run_id,
@@ -227,6 +292,7 @@ class AgentLoop:
                 self._run_manager.complete_without_action(
                     run.run_id, outcome_digest=outcome_digest
                 )
+                self.discard_checkpoint(run.run_id)
                 return RuntimeResult(
                     run_id=run.run_id,
                     status=RuntimeResultStatus.COMPLETED,
@@ -397,6 +463,18 @@ class AgentLoop:
                     )
                 )
 
+            self._save_checkpoint(
+                run_id=run.run_id,
+                config_digest=run.config_digest,
+                next_model_step=step + 1,
+                messages=messages,
+                signature_counts=signature_counts,
+                seen_call_ids=seen_call_ids,
+                observation_digests=observation_digests,
+                tool_call_count=tool_call_count,
+                usage=usage.snapshot(),
+            )
+
         return self._limit(
             run_id=run.run_id,
             step=self._limits.max_model_steps,
@@ -404,6 +482,60 @@ class AgentLoop:
             usage=usage.snapshot(),
             limit_name="max_model_steps",
             details={"allowed": self._limits.max_model_steps},
+        )
+
+    def resume(
+        self,
+        run_id: str,
+        *,
+        cancellation: CancellationToken | None = None,
+    ) -> RuntimeResult:
+        """Continue a running loop from its last encrypted safe checkpoint."""
+
+        if self._transcript_store is None:
+            raise ValueError("resume requires an encrypted transcript store")
+        checkpoint = self._transcript_store.load(run_id)
+        run = self._run_manager.get_run(run_id)
+        return self._execute(
+            user_request="",
+            config=run.config,
+            cancellation=cancellation,
+            resume_checkpoint=checkpoint,
+        )
+
+    def discard_checkpoint(self, run_id: str) -> None:
+        """Delete recoverable sensitive context after its retention window ends."""
+
+        if self._transcript_store is not None:
+            self._transcript_store.delete(run_id)
+
+    def _save_checkpoint(
+        self,
+        *,
+        run_id: str,
+        config_digest: str,
+        next_model_step: int,
+        messages: list[ModelMessage],
+        signature_counts: Counter[str],
+        seen_call_ids: set[str],
+        observation_digests: list[str],
+        tool_call_count: int,
+        usage: RuntimeUsage,
+    ) -> None:
+        if self._transcript_store is None:
+            return
+        self._transcript_store.save(
+            TranscriptCheckpoint(
+                run_id=run_id,
+                config_digest=config_digest,
+                next_model_step=next_model_step,
+                messages=tuple(messages),
+                tool_call_count=tool_call_count,
+                signature_counts=dict(signature_counts),
+                seen_call_ids=tuple(sorted(seen_call_ids)),
+                observation_digests=tuple(observation_digests),
+                usage=usage,
+            )
         )
 
     def _check_call_budget(
@@ -504,6 +636,7 @@ class AgentLoop:
             limit_name=limit_name,
             details=details,
         )
+        self.discard_checkpoint(run_id)
         return RuntimeResult(
             run_id=run_id,
             status=RuntimeResultStatus.LIMIT_EXCEEDED,
@@ -529,6 +662,7 @@ class AgentLoop:
             reason=error_code,
             details=details,
         )
+        self.discard_checkpoint(run_id)
         return RuntimeResult(
             run_id=run_id,
             status=RuntimeResultStatus.FAILED,
@@ -566,6 +700,7 @@ class AgentLoop:
                 "usage_complete": usage.complete,
             },
         )
+        self.discard_checkpoint(run_id)
         return RuntimeResult(
             run_id=run_id,
             status=RuntimeResultStatus.CANCELLED,

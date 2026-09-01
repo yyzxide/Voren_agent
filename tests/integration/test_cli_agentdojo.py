@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import base64
 import sqlite3
 import tempfile
 import unittest
@@ -20,6 +21,8 @@ AGENTDOJO_AVAILABLE = importlib.util.find_spec("agentdojo") is not None
 
 @unittest.skipUnless(AGENTDOJO_AVAILABLE, "AgentDojo optional dependency is not installed")
 class AgentDojoCLITest(unittest.TestCase):
+    TRANSCRIPT_KEY = base64.urlsafe_b64encode(b"t" * 32).decode("ascii")
+
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary_directory.cleanup)
@@ -70,6 +73,7 @@ class AgentDojoCLITest(unittest.TestCase):
         exit_code = run_agentdojo(
             self.args(),
             model=model,
+            transcript_key=self.TRANSCRIPT_KEY,
             approval_reader=lambda _: "yes",
             output=output.append,
         )
@@ -99,6 +103,7 @@ class AgentDojoCLITest(unittest.TestCase):
         exit_code = run_agentdojo(
             self.args(),
             model=model,
+            transcript_key=self.TRANSCRIPT_KEY,
             approval_reader=lambda _: "no",
             output=output.append,
         )
@@ -123,6 +128,7 @@ class AgentDojoCLITest(unittest.TestCase):
             self.args(),
             model=ScriptedModelAdapter(()),
             cancellation=cancellation,
+            transcript_key=self.TRANSCRIPT_KEY,
             output=output.append,
         )
 

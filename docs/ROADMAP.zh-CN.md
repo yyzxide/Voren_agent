@@ -91,10 +91,11 @@ Action Core 子切片已完成：
 - 带明确 Deadline 的 Background Responses 轮询；
 - 将 Operator/Deadline Cancellation 传播到 Provider Cancel Endpoint；
 - 在 Run 和 Artifact 中记录取消原因及 Provider Confirmation。
+- 使用 AES-256-GCM 保存绑定冻结配置的 Transcript Checkpoint，并在安全的模型
+  请求边界跨进程恢复上下文与预算。
 
-Phase 1 仍待完成：一次有记录的 Live-model Golden Run、持久加密 Mid-loop
-Transcript Recovery，以及使用当前 Runner 生成的 Live Prompt Injection
-Artifact。当前仅覆盖落在已实现日历动作
+Phase 1 仍待完成：一次有记录的 Live-model Golden Run，以及使用当前 Runner
+生成的 Live Prompt Injection Artifact。当前仅覆盖落在已实现日历动作
 契约内的 `injection_task_2`；需要 `send_email` 的 task 3/4 尚未形成行为评测。
 Contract Test 只能证明 Translation 与 Orchestration，不能证明 Live Model 的
 规划能力或抗注入能力。

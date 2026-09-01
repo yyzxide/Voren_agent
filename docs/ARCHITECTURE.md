@@ -106,8 +106,11 @@ boundary; a recorded live-model run has not yet been performed. The adapter now
 uses background Responses, bounded polling, and the provider cancel endpoint.
 A thread-safe cancellation token flows through the loop; cancellation stops
 local tool processing and records whether provider cancellation was confirmed.
-Compaction and durable mid-loop transcript recovery remain pending. Input,
-output, cached, cache-write, and reasoning tokens from
+Compaction remains pending. Mid-loop transcripts are checkpointed at safe model
+request boundaries as AES-256-GCM ciphertext. The key remains outside the event
+database, and recovery restores context, limits, provenance evidence, and usage
+only for a run that is still durably `running`. Input, output, cached,
+cache-write, and reasoning tokens from
 Responses are validated at the provider boundary and accumulated into run
 results, events, and evaluation artifacts. A call without usage is explicitly
 marked incomplete rather than treated as zero-cost.

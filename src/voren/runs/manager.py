@@ -85,6 +85,11 @@ class RunManager:
             ),
         )
 
+    def get_run(self, run_id: str) -> RunRecord:
+        """Load durable run state without exposing the store to the runtime."""
+
+        return self._store.get_run(run_id)
+
     def propose_action(
         self,
         run_id: str,

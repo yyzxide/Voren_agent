@@ -91,10 +91,11 @@ Completed in the action-core sub-slice:
 - background Responses polling with explicit deadlines;
 - operator/deadline cancellation propagated to the provider cancel endpoint;
 - cancellation reason and provider-confirmation evidence in runs and artifacts.
+- AES-256-GCM transcript checkpoints bound to the frozen run config, with
+  retained budgets and process-restart recovery at safe model-request boundaries.
 
-Still pending in Phase 1: one recorded live-model golden run, durable encrypted
-mid-loop transcript recovery, and a live prompt-injection artifact from the
-current runner. Coverage currently
+Still pending in Phase 1: one recorded live-model golden run and a live
+prompt-injection artifact from the current runner. Coverage currently
 includes only `injection_task_2`, which falls inside the implemented calendar
 action contract; tasks 3/4 require a `send_email` action that does not exist yet.
 Contract tests prove translation and orchestration, not live model planning or

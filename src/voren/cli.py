@@ -45,6 +45,7 @@ from voren.runtime.cancellation import CancellationToken
 from voren.runtime.models import RuntimeLimits, RuntimeResultStatus, RuntimeUsage
 from voren.runtime.ports import ModelAdapter
 from voren.runtime.tools import external_action_tool
+from voren.runtime.transcripts import SQLiteTranscriptStore, TranscriptKeyError
 
 
 Output = Callable[[str], Any]
@@ -144,6 +145,7 @@ def run_agentdojo(
     *,
     model: ModelAdapter | None = None,
     cancellation: CancellationToken | None = None,
+    transcript_key: str | None = None,
     approval_reader: ApprovalReader = input,
     output: Output = print,
 ) -> int:
@@ -165,6 +167,23 @@ def run_agentdojo(
     args.database.parent.mkdir(parents=True, exist_ok=True)
     ledger = SQLiteOperationLedger(args.database)
     store = SQLiteRunStore(args.database)
+    encoded_transcript_key = transcript_key or os.environ.get(
+        "VOREN_TRANSCRIPT_KEY"
+    )
+    if not encoded_transcript_key:
+        store.close()
+        ledger.close()
+        raise TranscriptKeyError(
+            "set VOREN_TRANSCRIPT_KEY to a URL-safe base64-encoded 32-byte key"
+        )
+    try:
+        transcript_store = SQLiteTranscriptStore.from_base64_key(
+            args.database, encoded_key=encoded_transcript_key
+        )
+    except Exception:
+        store.close()
+        ledger.close()
+        raise
     try:
         gateway = ActionGateway(
             definitions=(action_definition,),
@@ -189,6 +208,7 @@ def run_agentdojo(
                 ),
             ),
             run_manager=manager,
+            transcript_store=transcript_store,
             limits=RuntimeLimits(
                 max_model_steps=args.max_model_steps,
                 max_tool_calls=args.max_tool_calls,
@@ -248,15 +268,18 @@ def run_agentdojo(
         try:
             receipt = manager.resume_with_approval(result.run_id, approval)
         except ApprovalRejectedError:
+            loop.discard_checkpoint(result.run_id)
             output("action rejected; no external commit was attempted")
             _print_trace(store, result.run_id, output)
             return 2
 
+        loop.discard_checkpoint(result.run_id)
         output(f"receipt: {receipt.status.value}")
         output(f"verification passed: {receipt.verification.passed}")
         _print_trace(store, result.run_id, output)
         return 0 if receipt.verification.passed else 1
     finally:
+        transcript_store.close()
         store.close()
         ledger.close()
 

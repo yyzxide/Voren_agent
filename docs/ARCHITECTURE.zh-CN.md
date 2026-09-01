@@ -100,8 +100,9 @@ HTTPS Responses API Adapter 与交互式 AgentDojo CLI 已经实现 Provider
 Boundary，但尚未执行有记录的 Live-model Run。Provider Timeout Cancellation
 已经通过 Background Responses、受限轮询和 Provider Cancel Endpoint 实现。
 线程安全 Cancellation Token 会贯穿 Loop；取消后本地不再处理 Tool，并记录
-Provider 是否确认取消。Compaction 与持久 Mid-loop Transcript Recovery 仍未
-实现。Responses 返回的
+Provider 是否确认取消。Compaction 仍未实现。Mid-loop Transcript 会在安全的
+模型请求边界保存为 AES-256-GCM 密文；密钥不进入事件数据库，且只有持久状态
+仍为 `running` 的 Run 才能恢复上下文、限制、来源证据和 Usage。Responses 返回的
 Input、Output、Cached、Cache-write 和 Reasoning Token 已在 Provider Boundary
 验证，并累计到 Run Result、Event 和 Evaluation Artifact；缺少 Usage 的调用会
 被明确标记为不完整，而不是按零成本处理。
