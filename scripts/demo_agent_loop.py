@@ -25,6 +25,9 @@ from voren.runtime.models import (
     ToolCall,
 )
 from voren.runtime.tools import external_action_tool
+from voren.skills.context import SkillContextAssembler
+from voren.skills.parser import AgentSkillParser
+from voren.skills.store import SQLiteSkillStore
 from voren.testing.scripted_model import ScriptedModelAdapter
 
 
@@ -75,7 +78,26 @@ def main() -> None:
         database_path = Path(temporary_directory) / "voren.sqlite3"
         ledger = SQLiteOperationLedger(database_path)
         store = SQLiteRunStore(database_path)
+        skill_store = SQLiteSkillStore(
+            database_path,
+            root=Path(temporary_directory) / "skill-store",
+        )
         try:
+            repository_root = Path(__file__).resolve().parents[1]
+            skill_version = skill_store.install(
+                AgentSkillParser().load(
+                    repository_root / "skills" / "schedule-from-email"
+                ),
+                created_at=now,
+            )
+            skill_store.activate(
+                skill_version.ref,
+                reason="credential-free static reference demo",
+                activated_at=now,
+            )
+            skill_context = SkillContextAssembler(skill_store).static_skill(
+                ("schedule-from-email",)
+            )
             action_definition = create_calendar_event_definition(
                 account_email=workspace.account_email
             )
@@ -104,6 +126,7 @@ def main() -> None:
                     ),
                 ),
                 run_manager=manager,
+                skill_context=skill_context,
             )
             result = loop.run(
                 user_request=task.PROMPT,
@@ -112,6 +135,8 @@ def main() -> None:
                     world_adapter="agentdojo_workspace_v1.2.2",
                     policy_version="provenance-and-exact-effects-v1",
                     action_contract_versions=(WORKSPACE_CONTRACT_VERSION,),
+                    skill_versions=skill_context.skill_versions,
+                    metadata={"skill_mode": skill_context.mode.value},
                 ),
             )
             if (
@@ -122,6 +147,10 @@ def main() -> None:
 
             proposal = result.pending_proposal
             print(f"run paused: {result.run_id}")
+            print(
+                "skill context: "
+                f"{skill_context.mode.value} {skill_context.context_digest}"
+            )
             print(f"proposal: {proposal.action_name}@{proposal.action_version}")
             for effect in proposal.effects:
                 print(f"  - {effect.kind.value} {effect.resource}: {effect.summary}")
@@ -143,6 +172,7 @@ def main() -> None:
             for event in store.list_events(result.run_id):
                 print(f"  {event.sequence:02d} {event.event_type.value}")
         finally:
+            skill_store.close()
             store.close()
             ledger.close()
 

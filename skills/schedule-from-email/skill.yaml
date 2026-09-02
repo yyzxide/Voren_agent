@@ -3,7 +3,7 @@ scope:
   - email-calendar-scheduling
 tool_scope:
   - search_emails
-  - search_calendar_events
+  - get_day_calendar_events
   - create_calendar_event
 effect_scope:
   - calendar.events:create

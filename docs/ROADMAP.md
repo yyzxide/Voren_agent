@@ -113,10 +113,13 @@ Exit criteria:
 Status: **in progress**. Agent Skills-compatible parsing, progressive loading
 APIs, content-addressed immutable versions, an atomic active pointer, exact
 RunConfig skill references, and the first hand-written scheduling skill are
-implemented. See [Phase 2 Static Skill Store](implementation/PHASE2_STATIC_SKILL_STORE.md).
+implemented. Explicit `no_skill`/`static_skill` runtime contexts now freeze and
+load exact versions, enforce context size and tool compatibility, and emit a
+metadata-only audit event. See [Phase 2 Static Skill Store](implementation/PHASE2_STATIC_SKILL_STORE.md)
+and [Version-Pinned Skill Context](implementation/PHASE2_SKILL_CONTEXT.md).
 
-Profile/Episode stores, trust-aware context assembly, runtime skill activation,
-and reproducible `no_skill`/`static_skill` evaluation modes remain pending.
+Profile/Episode stores, semantic skill routing, and paired `no_skill`/
+`static_skill` evaluation artifacts remain pending.
 
 Implement:
 

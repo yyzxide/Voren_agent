@@ -59,7 +59,7 @@ class SkillStoreTest(unittest.TestCase):
             "  - email-calendar-scheduling\n"
             "tool_scope:\n"
             "  - search_emails\n"
-            "  - search_calendar_events\n"
+            "  - get_day_calendar_events\n"
             "effect_scope:\n"
             "  - calendar.events:create\n"
             "evaluation_suites:\n"
@@ -119,7 +119,7 @@ class SkillStoreTest(unittest.TestCase):
         self.assertIn(b"duration is missing", resource.content)
         self.assertEqual(
             loaded.version.contract.tool_scope,
-            ("search_emails", "search_calendar_events"),
+            ("search_emails", "get_day_calendar_events"),
         )
         with sqlite3.connect(self.database) as connection:
             row = connection.execute(
@@ -250,6 +250,8 @@ class SkillStoreTest(unittest.TestCase):
 
         self.assertEqual(package.metadata.name, "schedule-from-email")
         self.assertIn("approval boundary", package.instructions)
+        self.assertIn("get_day_calendar_events", package.contract.tool_scope)
+        self.assertNotIn("search_calendar_events", package.contract.tool_scope)
         self.assertIn("agentdojo-workspace-user-task-18", package.contract.evaluation_suites)
 
 

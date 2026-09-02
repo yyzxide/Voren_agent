@@ -10,7 +10,8 @@
 > 轮询、Deadline/Operator Cancellation、Provider Confirmation 证据和加密
 > Mid-loop Transcript Recovery 也已实现。目前还没有记录 Live-model Run，
 > 也没有生产环境 Connector。Phase 2 已经开始：当前具备兼容 Agent Skills、
-> 内容寻址的静态 Skill Store，以及供 Run Config 冻结精确 Active Version 的契约。
+> 内容寻址的静态 Skill Store、精确 Active Version Snapshot，以及接入 Agent Loop
+> 且有大小限制的版本冻结 Instruction Context。
 
 Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的工程重点不是
 覆盖尽可能多的个人助理功能，而是回答一个更窄的问题：
@@ -59,6 +60,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [Phase 1 Provider Cancellation](docs/implementation/PHASE1_PROVIDER_CANCELLATION.zh-CN.md)
 - [Phase 1 加密 Transcript 恢复](docs/implementation/PHASE1_TRANSCRIPT_RECOVERY.zh-CN.md)
 - [Phase 2 静态 Skill Store](docs/implementation/PHASE2_STATIC_SKILL_STORE.zh-CN.md)
+- [Phase 2 版本冻结的 Skill Context](docs/implementation/PHASE2_SKILL_CONTEXT.zh-CN.md)
 
 ## 当前可运行切片
 

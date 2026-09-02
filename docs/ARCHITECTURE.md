@@ -275,8 +275,10 @@ Agent Skills metadata, a Voren sidecar, content-addressed package objects, an
 atomic SQLite active pointer, progressive-load APIs, and exact version refs in
 `RunConfig`. Installation never implies activation. The portable experimental
 `allowed-tools` field is retained only as a discovery hint and cannot grant a
-runtime capability. Context assembly and learned-candidate lifecycle remain
-separate follow-up slices.
+runtime capability. The context slice adds explicit `no_skill` and
+`static_skill` context snapshots: exact verified versions enter the system
+context under a byte limit, must match `RunConfig`, and cannot request tools
+outside the runtime registry. Learned-candidate lifecycle remains separate.
 
 ### 4.8 Learning control
 

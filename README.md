@@ -12,8 +12,9 @@
 > provider-confirmation evidence are implemented. Encrypted mid-loop transcript
 > recovery now preserves context and budgets across process restarts. A recorded
 > live-model run and production connectors do not exist. Phase 2 has started
-> with an Agent Skills-compatible, content-addressed static skill store and an
-> exact active-version snapshot contract for run configs.
+> with an Agent Skills-compatible, content-addressed static skill store, exact
+> active-version snapshots, and bounded version-pinned instructions wired into
+> the agent loop.
 
 Voren is a planned single-agent assistant for email and calendar work. Its
 engineering focus is not broad personal-assistant coverage, but a narrower
@@ -65,6 +66,7 @@ the first release.
 - [Phase 1 provider cancellation](docs/implementation/PHASE1_PROVIDER_CANCELLATION.md)
 - [Phase 1 encrypted transcript recovery](docs/implementation/PHASE1_TRANSCRIPT_RECOVERY.md)
 - [Phase 2 static skill store](docs/implementation/PHASE2_STATIC_SKILL_STORE.md)
+- [Phase 2 version-pinned skill context](docs/implementation/PHASE2_SKILL_CONTEXT.md)
 
 ## Current executable slice
 

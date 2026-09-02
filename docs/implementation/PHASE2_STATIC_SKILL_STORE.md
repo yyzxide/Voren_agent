@@ -88,14 +88,14 @@ before content enters model context.
 
 ## Current boundary
 
-This slice deliberately does not yet:
+This storage slice deliberately does not itself:
 
-- inject activated instructions into `AgentLoop` context;
 - implement Profile or Episode stores;
 - select skills semantically;
 - create model-written candidates; or
 - evaluate, promote, reject, or roll back learned versions.
 
-Those are subsequent Phase 2 and Phase 3 slices. The foreground loop currently
-has no store reference or write path, so tool observations cannot install or
-activate a skill through this implementation.
+The following [version-pinned context slice](PHASE2_SKILL_CONTEXT.md) now injects
+an explicitly selected, frozen version into `AgentLoop`. The foreground loop
+still has no skill-store write path, so tool observations cannot install or
+activate a skill.

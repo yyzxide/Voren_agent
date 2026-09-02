@@ -1,5 +1,10 @@
 """Versioned, progressively loaded procedural skills."""
 
+from voren.skills.context import (
+    SkillContextAssembler,
+    SkillContextMode,
+    SkillContextSnapshot,
+)
 from voren.skills.models import (
     ActiveSkillSummary,
     AgentSkillMetadata,
@@ -19,6 +24,9 @@ __all__ = [
     "AgentSkillParser",
     "LoadedSkill",
     "SQLiteSkillStore",
+    "SkillContextAssembler",
+    "SkillContextMode",
+    "SkillContextSnapshot",
     "SkillContract",
     "SkillFile",
     "SkillFormatError",

@@ -32,6 +32,7 @@ from voren.runtime.transcripts import (
     SQLiteTranscriptStore,
     TranscriptCheckpoint,
 )
+from voren.skills.context import SkillContextMode, SkillContextSnapshot
 
 
 SYSTEM_INSTRUCTION = """You are Voren, an email and calendar assistant.
@@ -105,12 +106,14 @@ class AgentLoop:
         run_manager: RunManager,
         limits: RuntimeLimits | None = None,
         transcript_store: SQLiteTranscriptStore | None = None,
+        skill_context: SkillContextSnapshot | None = None,
     ) -> None:
         self._model = model
         self._read_tools = read_tools
         self._run_manager = run_manager
         self._limits = limits or RuntimeLimits()
         self._transcript_store = transcript_store
+        self._skill_context = skill_context or SkillContextSnapshot.no_skill()
 
         read_definitions = tuple(
             ToolDefinition(
@@ -130,6 +133,12 @@ class AgentLoop:
         self._tools = tools
         self._read_names = {tool.name for tool in read_definitions}
         self._action_names = {tool.name for tool in action_tools}
+        missing_skill_tools = set(self._skill_context.tool_scope) - set(names)
+        if missing_skill_tools:
+            raise ValueError(
+                "skill context requests unavailable tools: "
+                f"{sorted(missing_skill_tools)}"
+            )
 
     def run(
         self,
@@ -154,10 +163,38 @@ class AgentLoop:
         resume_checkpoint: TranscriptCheckpoint | None,
     ) -> RuntimeResult:
         cancellation = cancellation or CancellationToken()
+        if config.skill_versions != self._skill_context.skill_versions:
+            raise ValueError(
+                "run config skill_versions do not match assembled skill context"
+            )
         if resume_checkpoint is None:
             run = self._run_manager.start_new_run(config)
+            self._run_manager.record_runtime_event(
+                run.run_id,
+                RunEventType.SKILL_CONTEXT_ASSEMBLED,
+                dedupe_key="skill_context.assembled",
+                payload={
+                    "mode": self._skill_context.mode.value,
+                    "skill_versions": [
+                        ref.model_dump(mode="json")
+                        for ref in self._skill_context.skill_versions
+                    ],
+                    "context_digest": self._skill_context.context_digest,
+                    "instruction_bytes": self._skill_context.instruction_bytes,
+                    "tool_scope": list(self._skill_context.tool_scope),
+                    "effect_scope": list(self._skill_context.effect_scope),
+                    "trust": (
+                        "none"
+                        if self._skill_context.mode is SkillContextMode.NO_SKILL
+                        else "configured_static"
+                    ),
+                },
+            )
             messages = [
-                ModelMessage(role=MessageRole.SYSTEM, content=SYSTEM_INSTRUCTION),
+                ModelMessage(
+                    role=MessageRole.SYSTEM,
+                    content=self._system_instruction(),
+                ),
                 ModelMessage(role=MessageRole.USER, content=user_request),
             ]
             signature_counts: Counter[str] = Counter()
@@ -187,7 +224,9 @@ class AgentLoop:
                 config != run.config
                 or run.config_digest != resume_checkpoint.config_digest
             ):
-                raise ValueError("resume checkpoint does not match the frozen run config")
+                raise ValueError(
+                    "resume checkpoint does not match the frozen run config"
+                )
             messages = list(resume_checkpoint.messages)
             signature_counts = resume_checkpoint.restored_signature_counts()
             seen_call_ids = set(resume_checkpoint.seen_call_ids)
@@ -502,6 +541,12 @@ class AgentLoop:
             cancellation=cancellation,
             resume_checkpoint=checkpoint,
         )
+
+    def _system_instruction(self) -> str:
+        if self._skill_context.mode is SkillContextMode.NO_SKILL:
+            return SYSTEM_INSTRUCTION
+        base = SYSTEM_INSTRUCTION.rstrip()
+        return f"{base}\n\n{self._skill_context.rendered_instructions}\n"
 
     def discard_checkpoint(self, run_id: str) -> None:
         """Delete recoverable sensitive context after its retention window ends."""

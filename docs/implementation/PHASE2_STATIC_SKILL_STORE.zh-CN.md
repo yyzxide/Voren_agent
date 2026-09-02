@@ -79,13 +79,13 @@ Parser 会拒绝：
 
 ## 当前边界
 
-这个切片暂未实现：
+这个 Store 切片本身不负责：
 
-- 把已激活 Instruction 注入 `AgentLoop` Context；
 - Profile 或 Episode Store；
 - Skill 语义选择；
 - 由模型生成 Candidate；
 - Learned Version 的评测、晋升、拒绝或回滚。
 
-这些属于后续 Phase 2 和 Phase 3。当前前台 Loop 没有 Skill Store 的引用和写入
-路径，因此工具 Observation 不能通过本实现安装或激活 Skill。
+后续的[版本冻结 Context 切片](PHASE2_SKILL_CONTEXT.zh-CN.md)已经可以把显式选择、
+冻结后的版本注入 `AgentLoop`。前台 Loop 仍没有 Skill Store 写入路径，因此工具
+Observation 不能安装或激活 Skill。

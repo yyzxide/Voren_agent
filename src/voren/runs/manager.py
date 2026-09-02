@@ -146,7 +146,7 @@ class RunManager:
         dedupe_key: str,
         payload: dict[str, Any],
     ) -> None:
-        """Append metadata about an in-flight model/tool boundary.
+        """Append metadata about an in-flight context/model/tool boundary.
 
         Callers must keep raw prompts and tool payloads out of this event stream.
         The runtime uses digests, counts, names, and trust labels instead.
@@ -159,6 +159,7 @@ class RunManager:
                 f"{run.status.value!r}"
             )
         allowed_types = {
+            RunEventType.SKILL_CONTEXT_ASSEMBLED,
             RunEventType.MODEL_REQUESTED,
             RunEventType.MODEL_RESPONDED,
             RunEventType.TOOL_CALLED,

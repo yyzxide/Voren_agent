@@ -112,10 +112,13 @@ Contract Test 只能证明 Translation 与 Orchestration，不能证明 Live Mod
 状态：**进行中**。兼容 Agent Skills 的解析、Progressive-loading API、内容寻址
 不可变版本、原子 Active Pointer、精确 RunConfig Skill Reference，以及第一个
 人工编写的 Scheduling Skill 已实现。详见
-[Phase 2 静态 Skill Store](implementation/PHASE2_STATIC_SKILL_STORE.zh-CN.md)。
+[Phase 2 静态 Skill Store](implementation/PHASE2_STATIC_SKILL_STORE.zh-CN.md)。显式的
+`no_skill`/`static_skill` Runtime Context 现在会冻结并加载精确版本、限制 Context
+大小、校验 Tool Compatibility，并产生只含 Metadata 的审计事件。详见
+[版本冻结的 Skill Context](implementation/PHASE2_SKILL_CONTEXT.zh-CN.md)。
 
-Profile/Episode Store、带 Trust 的 Context Assembly、Runtime Skill Activation，
-以及可复现的 `no_skill`/`static_skill` 评测模式仍待实现。
+Profile/Episode Store、Semantic Skill Routing，以及配对的 `no_skill`/
+`static_skill` Evaluation Artifact 仍待实现。
 
 实现：
 

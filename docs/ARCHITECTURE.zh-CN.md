@@ -261,7 +261,10 @@ draft -> candidate -> evaluating -> active -> superseded -> archived
 Sidecar、内容寻址 Package Object、原子 SQLite Active Pointer、Progressive-load
 API，以及写入 `RunConfig` 的精确 Version Ref。安装不代表激活；可移植格式中仍属
 实验性的 `allowed-tools` 只保留为 Discovery Hint，不能授予 Runtime Capability。
-Context Assembly 和 Learned-candidate Lifecycle 属于后续切片。
+后续 Phase 2 切片已经加入显式 `no_skill` 与 `static_skill` Context Snapshot：只有
+精确且通过校验的版本才能在字节限制内进入 System Context，其引用必须与
+`RunConfig` 一致，申请的工具也不能超出 Runtime Registry。Learned-candidate
+Lifecycle 仍属于后续切片。
 
 ### 4.8 Learning Control
 

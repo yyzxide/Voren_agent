@@ -30,6 +30,7 @@ class RunStatus(StrEnum):
 class RunEventType(StrEnum):
     RUN_CREATED = "run.created"
     RUN_STARTED = "run.started"
+    SKILL_CONTEXT_ASSEMBLED = "skill_context.assembled"
     MODEL_REQUESTED = "model.requested"
     MODEL_RESPONDED = "model.responded"
     TOOL_CALLED = "tool.called"
