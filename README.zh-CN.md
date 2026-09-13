@@ -2,6 +2,10 @@
 
 [English](README.md)
 
+[2026-09-14 作品集审计](docs/reviews/2026-09-14-PORTFOLIO-AUDIT.zh-CN.md)记录了
+最新验证与调整后的交付顺序。动作并发领取、外部提交后且 Receipt 落盘前的崩溃
+窗口仍待修复；现有确定性测试通过不代表所有恢复路径已经完善。
+
 > 当前状态：Phase 1 进行中。安全动作核心、持久 Approval Pause、带 Provenance
 > Label 的 AgentDojo Read、有界 Loop、Responses API Adapter 和交互式 CLI 已经
 > 实现。可复现的 Agent Behavior/Runtime Enforcement 双模式评测与完整性绑定
@@ -101,5 +105,5 @@ voren eval-agentdojo \
 ```
 
 该命令会调用在线模型并可能产生费用，因此 Case 与 Mode 都必须显式选择。
-当前 79 个自动化测试使用 Scripted Model，不构成 Live Model Quality 或抗注入
-结果。
+自动化测试不调用在线模型，不构成 Live Model Quality 或抗注入结果。带日期的
+实测结果见上方作品集审计。

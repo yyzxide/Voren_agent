@@ -2,6 +2,11 @@
 
 [简体中文](README.zh-CN.md)
 
+The [2026-09-14 portfolio audit](docs/reviews/2026-09-14-PORTFOLIO-AUDIT.zh-CN.md)
+records current verification and the revised delivery order. Concurrent operation
+claims and the external-commit-before-receipt crash window still need correction;
+passing scripted tests must not be read as a complete recovery guarantee.
+
 > Status: Phase 1 in progress. The safe-action core, durable approval pause,
 > provenance-labelled AgentDojo reads, bounded loop, Responses API adapter, and
 > interactive CLI are implemented. A reproducible agent-behavior/runtime-
@@ -109,5 +114,6 @@ voren eval-agentdojo \
 ```
 
 This command calls an online model and may incur cost, so both cases and modes
-must be selected explicitly. The current 79 automated tests use scripted models
-and are not live-model quality or prompt-injection results.
+must be selected explicitly. The automated tests do not call a live model and
+are not live-model quality or prompt-injection results. For a dated test result,
+see the portfolio audit above.
