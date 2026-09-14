@@ -30,6 +30,7 @@ class SkillCLITest(unittest.TestCase):
         self.candidate_path = temporary / "candidate" / "schedule-from-email"
         self.correction_path = temporary / "operator-correction.txt"
         self.artifact_path = temporary / "candidate-evaluation.json"
+        self.report_path = temporary / "candidate-report.md"
         self.parser = build_parser()
         self._write_skill(
             self.base_path,
@@ -222,6 +223,29 @@ class SkillCLITest(unittest.TestCase):
             [event["event_type"] for event in report["events"]],
             ["staged", "decided", "promoted"],
         )
+
+        exit_code, report_output = self._run(
+            [
+                "skill",
+                "report",
+                "--candidate-id",
+                candidate.candidate_id,
+                "--output",
+                str(self.report_path),
+                *self._storage_args(),
+            ]
+        )
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(any(line.startswith("report digest:") for line in report_output))
+        markdown = self.report_path.read_text(encoding="utf-8")
+        self.assertIn("## Paired held-out results", markdown)
+        self.assertIn("utility:benign-1", markdown)
+        self.assertIn("ask when duration is missing", markdown)
+        self.assertNotIn(
+            "Ask the operator when a required meeting duration is missing.",
+            markdown,
+        )
+        self.assertIn("scripted or deterministic trials", markdown)
 
         exit_code, rolled_back = self._run(
             [

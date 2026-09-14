@@ -153,7 +153,10 @@ Artifact，详见
 的 `skill eval-agentdojo` Artifact-generation Command。Durable-learning Router
 与 Integrity-bound Evidence Store 也已完成，详见
 [Phase 3 Durable Learning Router](implementation/PHASE3_DURABLE_LEARNING_ROUTER.zh-CN.md)。
-Learning Baseline Comparison Report 仍待实现。
+确定性 Markdown Report 现已汇总精确 Evidence Metadata、Skill Diff、Paired
+Base/Candidate Result、Decision 与 Lifecycle Audit，详见
+[Phase 3 Candidate Report](implementation/PHASE3_CANDIDATE_REPORT.zh-CN.md)。
+Direct-reflection 与 Gated-learning 的 Ablation 仍待实现。
 
 实现：
 

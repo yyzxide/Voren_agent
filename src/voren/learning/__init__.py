@@ -38,6 +38,7 @@ from voren.learning.runner import (
     EvaluationInfrastructureFailure,
     PairedEvaluationRunner,
 )
+from voren.learning.report import render_candidate_report, write_candidate_report
 from voren.learning.service import SkillCandidateService
 from voren.learning.store import (
     CandidatePromotionError,
@@ -71,6 +72,7 @@ __all__ = [
     "PairedCaseResult",
     "PairedEvaluationRunner",
     "read_candidate_evaluation",
+    "render_candidate_report",
     "SQLiteCandidateStore",
     "SkillCandidate",
     "SkillCandidateService",
@@ -78,4 +80,5 @@ __all__ = [
     "SkillModelFactory",
     "TrialMeasurement",
     "write_candidate_evaluation",
+    "write_candidate_report",
 ]

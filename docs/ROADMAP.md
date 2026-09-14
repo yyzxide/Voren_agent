@@ -157,7 +157,10 @@ The explicit install/stage/decide/inspect/promote/rollback CLI is complete; see
 explicit paid `skill eval-agentdojo` Artifact-generation command. The durable-
 learning router and integrity-bound Evidence Store are complete; see
 [Phase 3 Durable Learning Router](implementation/PHASE3_DURABLE_LEARNING_ROUTER.md).
-The comparison report for learning baselines remains pending.
+A deterministic Markdown report now combines exact Evidence metadata, Skill
+Diff, paired base/candidate results, decision, and lifecycle audit; see
+[Phase 3 Candidate Report](implementation/PHASE3_CANDIDATE_REPORT.md).
+A direct-reflection versus gated-learning ablation remains pending.
 
 Implement:
 

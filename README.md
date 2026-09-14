@@ -82,6 +82,7 @@ the first release.
 - [Phase 3 AgentDojo Skill evaluator](docs/implementation/PHASE3_AGENTDOJO_SKILL_EVALUATOR.md)
 - [Phase 3 Skill lifecycle CLI](docs/implementation/PHASE3_SKILL_CLI.md)
 - [Phase 3 durable learning router](docs/implementation/PHASE3_DURABLE_LEARNING_ROUTER.md)
+- [Phase 3 candidate decision report](docs/implementation/PHASE3_CANDIDATE_REPORT.md)
 
 ## Current executable slice
 
@@ -114,6 +115,8 @@ voren skill eval-agentdojo --candidate-id candidate-001 \
 voren skill decide --candidate-id candidate-001 \
   --artifact .voren/artifacts/candidate-001.json
 voren skill inspect --candidate-id candidate-001
+voren skill report --candidate-id candidate-001 \
+  --output .voren/reports/candidate-001.md
 voren skill promote --candidate-id candidate-001 \
   --reason 'reviewed held-out evaluation'
 voren skill rollback --candidate-id candidate-001 \

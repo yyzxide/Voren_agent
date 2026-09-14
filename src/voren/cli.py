@@ -43,6 +43,7 @@ from voren.learning.evidence import (
 )
 from voren.learning.models import CandidateStatus
 from voren.learning.runner import PairedEvaluationRunner
+from voren.learning.report import render_candidate_report, write_candidate_report
 from voren.learning.service import SkillCandidateService
 from voren.learning.store import CandidateStoreError, SQLiteCandidateStore
 from voren.providers.openai_responses import (
@@ -305,6 +306,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_skill_storage_arguments(inspect)
     inspect.set_defaults(handler=run_skill_inspect)
+
+    report = skill_commands.add_parser(
+        "report", help="Generate a Markdown candidate decision report."
+    )
+    report.add_argument("--candidate-id", required=True)
+    report.add_argument("--output", type=Path, required=True)
+    _add_skill_storage_arguments(report)
+    report.set_defaults(handler=run_skill_report)
 
     promote = skill_commands.add_parser(
         "promote", help="Atomically activate an accepted candidate."
@@ -903,6 +912,35 @@ def _evidence_for_inspection(artifact, *, include_payload: bool) -> dict:
     if not include_payload:
         payload.pop("payload")
     return payload
+
+
+def run_skill_report(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    skills, candidates = _open_skill_stores(args)
+    try:
+        candidate = candidates.get(args.candidate_id)
+        evidence = tuple(
+            candidates.get_evidence(item.evidence_id)
+            for item in candidate.evidence
+        )
+        evaluations = candidates.list_evaluations(candidate.candidate_id)
+        events = candidates.list_events(candidate.candidate_id)
+        report = render_candidate_report(
+            candidate=candidate,
+            evidence=evidence,
+            evaluations=evaluations,
+            events=events,
+        )
+        digest = write_candidate_report(args.output, report)
+        output(f"candidate report: {args.output}")
+        output(f"report digest: {digest}")
+        return 0
+    finally:
+        candidates.close()
+        skills.close()
 
 
 def run_skill_promote(

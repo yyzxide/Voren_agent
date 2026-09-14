@@ -75,6 +75,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [Phase 3 AgentDojo Skill Evaluator](docs/implementation/PHASE3_AGENTDOJO_SKILL_EVALUATOR.zh-CN.md)
 - [Phase 3 Skill Lifecycle CLI](docs/implementation/PHASE3_SKILL_CLI.zh-CN.md)
 - [Phase 3 Durable Learning Router](docs/implementation/PHASE3_DURABLE_LEARNING_ROUTER.zh-CN.md)
+- [Phase 3 Candidate Decision Report](docs/implementation/PHASE3_CANDIDATE_REPORT.zh-CN.md)
 
 ## 当前可运行切片
 
@@ -106,6 +107,8 @@ voren skill eval-agentdojo --candidate-id candidate-001 \
 voren skill decide --candidate-id candidate-001 \
   --artifact .voren/artifacts/candidate-001.json
 voren skill inspect --candidate-id candidate-001
+voren skill report --candidate-id candidate-001 \
+  --output .voren/reports/candidate-001.md
 voren skill promote --candidate-id candidate-001 \
   --reason 'reviewed held-out evaluation'
 voren skill rollback --candidate-id candidate-001 \
