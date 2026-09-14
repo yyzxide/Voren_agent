@@ -15,6 +15,7 @@ from voren.evaluation.agentdojo import (
 from voren.evaluation.models import (
     ApprovalOutcome,
     EvaluationMode,
+    EvaluationSelection,
     ExperimentConfig,
 )
 from voren.runtime.models import ModelResponse, ModelUsage, ToolCall
@@ -32,7 +33,7 @@ class AgentDojoEvaluationTest(unittest.TestCase):
         self.database = Path(self.temporary_directory.name) / "evaluation.sqlite3"
         self.manifest = phase1_smoke_manifest()
 
-    def config(self, experiment_id: str) -> ExperimentConfig:
+    def config(self, experiment_id: str, selections) -> ExperimentConfig:
         prompt_digest, tool_digest, attack_digest = evaluation_input_digests()
         return ExperimentConfig(
             experiment_id=experiment_id,
@@ -49,6 +50,10 @@ class AgentDojoEvaluationTest(unittest.TestCase):
             dataset_version=self.manifest.dataset_version,
             attack_template_version=self.manifest.attack_template_version,
             attack_template_digest=attack_digest,
+            selected_trials=tuple(
+                EvaluationSelection(case_id=case.case_id, mode=mode)
+                for case, mode in selections
+            ),
             sampling={"temperature": 0},
         )
 
@@ -173,7 +178,7 @@ class AgentDojoEvaluationTest(unittest.TestCase):
         )
 
         artifact = runner.run(
-            config=self.config("benign-experiment"),
+            config=self.config("benign-experiment", selections),
             manifest=self.manifest,
             selections=selections,
         )
@@ -201,7 +206,7 @@ class AgentDojoEvaluationTest(unittest.TestCase):
             case_ids=("benign_user_18",),
             modes=(EvaluationMode.RUNTIME_ENFORCEMENT,),
         )
-        mislabeled = self.config("mislabeled-experiment").model_copy(
+        mislabeled = self.config("mislabeled-experiment", selections).model_copy(
             update={"tool_schema_digest": "0" * 64}
         )
 
@@ -211,6 +216,62 @@ class AgentDojoEvaluationTest(unittest.TestCase):
                 manifest=self.manifest,
                 selections=selections,
             )
+
+    def test_runner_rejects_config_that_mislabels_selected_trials(self) -> None:
+        runner = AgentDojoEvaluationRunner(
+            model_factory=self.benign_model,
+            database=self.database,
+        )
+        selections = select_trials(
+            self.manifest,
+            case_ids=("benign_user_18",),
+            modes=(EvaluationMode.RUNTIME_ENFORCEMENT,),
+        )
+        mislabeled = self.config(
+            "mislabeled-selection", selections
+        ).model_copy(
+            update={
+                "selected_trials": (
+                    EvaluationSelection(
+                        case_id="benign_user_18",
+                        mode=EvaluationMode.AGENT_BEHAVIOR,
+                    ),
+                )
+            }
+        )
+
+        with self.assertRaises(ValueError):
+            runner.run(
+                config=mislabeled,
+                manifest=self.manifest,
+                selections=selections,
+            )
+
+    def test_all_expands_only_manifest_supported_case_mode_pairs(self) -> None:
+        selections = select_trials(
+            self.manifest,
+            case_ids=("all",),
+            modes=(
+                EvaluationMode.AGENT_BEHAVIOR,
+                EvaluationMode.RUNTIME_ENFORCEMENT,
+            ),
+        )
+
+        self.assertEqual(len(selections), 11)
+        self.assertIn(
+            (
+                self.manifest.cases[0],
+                EvaluationMode.AGENT_BEHAVIOR,
+            ),
+            selections,
+        )
+        self.assertNotIn(
+            (
+                self.manifest.cases[0],
+                EvaluationMode.RUNTIME_ENFORCEMENT,
+            ),
+            selections,
+        )
 
     def test_same_injected_action_succeeds_only_without_enforcement(self) -> None:
         runner = AgentDojoEvaluationRunner(
@@ -227,7 +288,7 @@ class AgentDojoEvaluationTest(unittest.TestCase):
         )
 
         artifact = runner.run(
-            config=self.config("attack-experiment"),
+            config=self.config("attack-experiment", selections),
             manifest=self.manifest,
             selections=selections,
         )
@@ -285,7 +346,7 @@ class AgentDojoEvaluationTest(unittest.TestCase):
         )
 
         artifact = runner.run(
-            config=self.config("email-attack-experiment"),
+            config=self.config("email-attack-experiment", selections),
             manifest=self.manifest,
             selections=selections,
         )

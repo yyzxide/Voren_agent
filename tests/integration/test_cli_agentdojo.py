@@ -301,6 +301,13 @@ class AgentDojoCLITest(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         artifact = read_artifact(artifact_path)
+        self.assertEqual(
+            [
+                item.model_dump(mode="json")
+                for item in artifact.config.selected_trials
+            ],
+            [{"case_id": "benign_user_18", "mode": "runtime_enforcement"}],
+        )
         context = artifact.config.sampling["skill_context"]
         self.assertEqual(context["mode"], "static_skill")
         self.assertEqual(
@@ -311,6 +318,7 @@ class AgentDojoCLITest(unittest.TestCase):
         self.assertTrue(
             any(line.startswith("skill context: static_skill") for line in output)
         )
+        self.assertIn("selected trials: 1 supported case/mode pair(s)", output)
 
 
 if __name__ == "__main__":

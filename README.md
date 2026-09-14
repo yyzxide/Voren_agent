@@ -311,5 +311,6 @@ are not live-model quality or prompt-injection results. Omit `--skill` for a
 guidance, first install and activate the Skill, then add
 `--skill schedule-from-email --skill-store .voren/skills`. The Artifact records
 the mode, exact immutable Skill versions, context digest, and byte count under
-`config.sampling.skill_context`. For the dated verification boundary, see the
+`config.sampling.skill_context`, while `config.selected_trials` freezes the
+exact ordered case/mode pairs. For the dated verification boundary, see the
 delivery status above.

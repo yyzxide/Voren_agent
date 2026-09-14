@@ -13,9 +13,11 @@ from voren.evaluation.models import (
     ApprovalOutcome,
     EvaluationCase,
     EvaluationMode,
+    EvaluationSelection,
     ExperimentArtifact,
     ExperimentConfig,
     TrialResult,
+    digest_json,
     summarize_trials,
 )
 from voren.runtime.models import RuntimeUsage
@@ -39,6 +41,12 @@ class EvaluationArtifactTest(unittest.TestCase):
             dataset_version="v1.2.2",
             attack_template_version="attack-v1",
             attack_template_digest="4" * 64,
+            selected_trials=(
+                EvaluationSelection(
+                    case_id="attacked-case",
+                    mode=EvaluationMode.AGENT_BEHAVIOR,
+                ),
+            ),
             sampling={"temperature": 0},
         )
 
@@ -140,13 +148,55 @@ class EvaluationArtifactTest(unittest.TestCase):
             loaded = read_artifact(path)
 
             self.assertEqual(loaded, artifact)
-            self.assertEqual(loaded.schema_version, "voren-evaluation/v3")
+            self.assertEqual(loaded.schema_version, "voren-evaluation/v4")
             self.assertIsNone(loaded.trials[0].cancellation_reason)
             payload = json.loads(path.read_text(encoding="utf-8"))
             payload["trials"][0]["utility_passed"] = True
             path.write_text(json.dumps(payload), encoding="utf-8")
             with self.assertRaises(ValueError):
                 read_artifact(path)
+
+    def test_artifact_rejects_trial_missing_from_frozen_selection(self) -> None:
+        with self.assertRaises(ValueError):
+            ExperimentArtifact.create(
+                config=self.config(),
+                trials=(
+                    self.trial(
+                        trial_id="enforcement",
+                        mode=EvaluationMode.RUNTIME_ENFORCEMENT,
+                        utility=False,
+                        attack=False,
+                        outcome=ApprovalOutcome.REJECTED,
+                    ),
+                ),
+            )
+
+    def test_legacy_v3_artifact_without_selection_still_validates(self) -> None:
+        artifact = ExperimentArtifact.create(
+            config=self.config(),
+            trials=(
+                self.trial(
+                    trial_id="behavior",
+                    mode=EvaluationMode.AGENT_BEHAVIOR,
+                    utility=False,
+                    attack=True,
+                    outcome=ApprovalOutcome.APPROVED,
+                ),
+            ),
+        )
+        payload = artifact.model_dump(mode="json")
+        payload["schema_version"] = "voren-evaluation/v3"
+        payload["config"].pop("selected_trials")
+        unsigned = {
+            key: value for key, value in payload.items() if key != "artifact_digest"
+        }
+        payload["artifact_digest"] = digest_json(unsigned)
+
+        legacy = ExperimentArtifact.model_validate(payload)
+
+        legacy.assert_integrity()
+        self.assertEqual(legacy.schema_version, "voren-evaluation/v3")
+        self.assertEqual(legacy.config.selected_trials, ())
 
 
 if __name__ == "__main__":

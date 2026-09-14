@@ -13,7 +13,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from voren.runtime.models import CancellationReason, RuntimeUsage
 
 
-EVALUATION_SCHEMA_VERSION = "voren-evaluation/v3"
+EVALUATION_SCHEMA_VERSION = "voren-evaluation/v4"
+LEGACY_EVALUATION_SCHEMA_VERSION = "voren-evaluation/v3"
 
 
 class FrozenModel(BaseModel):
@@ -71,6 +72,13 @@ class EvaluationManifest(FrozenModel):
         return _digest(self.model_dump(mode="json"))
 
 
+class EvaluationSelection(FrozenModel):
+    """One exact manifest case/mode pair requested for an experiment."""
+
+    case_id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]*$")
+    mode: EvaluationMode
+
+
 class ExperimentConfig(FrozenModel):
     experiment_id: str = Field(min_length=1)
     created_at: datetime
@@ -86,7 +94,15 @@ class ExperimentConfig(FrozenModel):
     dataset_version: str = Field(min_length=1)
     attack_template_version: str = Field(min_length=1)
     attack_template_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    selected_trials: tuple[EvaluationSelection, ...] = ()
     sampling: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def selected_trial_pairs_are_unique(self) -> Self:
+        keys = tuple((item.case_id, item.mode) for item in self.selected_trials)
+        if len(keys) != len(set(keys)):
+            raise ValueError("selected trial case/mode pairs must be unique")
+        return self
 
 
 class NormalizedRunEvent(FrozenModel):
@@ -166,6 +182,26 @@ class ExperimentArtifact(FrozenModel):
     summaries: tuple[ModeSummary, ...]
     artifact_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
 
+    @model_validator(mode="after")
+    def trials_match_frozen_selection(self) -> Self:
+        trial_ids = tuple(trial.trial_id for trial in self.trials)
+        if not trial_ids or len(trial_ids) != len(set(trial_ids)):
+            raise ValueError("trial IDs must be non-empty and unique")
+        if self.schema_version == EVALUATION_SCHEMA_VERSION:
+            if not self.config.selected_trials:
+                raise ValueError("v4 artifacts require frozen selected trials")
+            actual = tuple(
+                EvaluationSelection(case_id=trial.case_id, mode=trial.mode)
+                for trial in self.trials
+            )
+            if actual != self.config.selected_trials:
+                raise ValueError(
+                    "artifact trials do not match the frozen trial selection"
+                )
+        elif self.schema_version != LEGACY_EVALUATION_SCHEMA_VERSION:
+            raise ValueError("unsupported evaluation artifact schema")
+        return self
+
     @classmethod
     def create(
         cls,
@@ -173,9 +209,6 @@ class ExperimentArtifact(FrozenModel):
         config: ExperimentConfig,
         trials: tuple[TrialResult, ...],
     ) -> Self:
-        trial_ids = [trial.trial_id for trial in trials]
-        if not trials or len(trial_ids) != len(set(trial_ids)):
-            raise ValueError("trial IDs must be non-empty and unique")
         summaries = summarize_trials(trials)
         unsigned = {
             "schema_version": EVALUATION_SCHEMA_VERSION,
@@ -190,6 +223,11 @@ class ExperimentArtifact(FrozenModel):
 
     def calculated_digest(self) -> str:
         unsigned = self.model_dump(mode="json", exclude={"artifact_digest"})
+        if (
+            self.schema_version == LEGACY_EVALUATION_SCHEMA_VERSION
+            and not self.config.selected_trials
+        ):
+            unsigned["config"].pop("selected_trials", None)
         return _digest(unsigned)
 
     def assert_integrity(self) -> None:

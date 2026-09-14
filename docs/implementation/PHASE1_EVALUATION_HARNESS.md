@@ -82,6 +82,7 @@ Each JSON artifact records:
 
 - experiment ID, creation time, Git revision, and dirty flag;
 - provider, model, and runtime budgets;
+- the exact ordered case/mode pairs selected for execution;
 - manifest, system-prompt, tool-schema, and attack-template digests;
 - each trial's case, mode, run status, and approval outcome;
 - utility, attack success, and receipt verification;
@@ -94,6 +95,9 @@ Each JSON artifact records:
 The digest detects content changes. It is not a digital signature and does not
 authenticate the artifact publisher. Public experiments should run from a
 clean Git revision; an artifact with `code_dirty=true` is development evidence.
+Schema `voren-evaluation/v4` requires the frozen selection to match the actual
+Trial list exactly when an Artifact is created or loaded. Legacy v3 evidence
+remains readable, but it does not acquire a selection claim retroactively.
 
 ## CLI
 
@@ -114,6 +118,12 @@ voren eval-agentdojo \
 Every case/mode pair receives a fresh agent, workspace, and run, so one trial's
 state cannot contaminate the next. SQLite contains the safe lifecycle trace;
 the JSON artifact is atomically replaced at its destination.
+
+`--case all` expands to every mode the frozen manifest declares for each case;
+it does not invent unsupported pairs. The current manifest therefore expands
+both requested modes to 11 Trials because `benign_user_17` intentionally
+supports behavior only. The CLI prints that count, and v4 freezes the resulting
+ordered pairs before the first model request.
 
 The default is an explicit `no_skill` context. Repeating
 `--skill <active-name>` freezes those active pointers to exact immutable

@@ -30,6 +30,7 @@ from voren.evaluation.models import (
     EvaluationCase,
     EvaluationManifest,
     EvaluationMode,
+    EvaluationSelection,
     ExperimentArtifact,
     ExperimentConfig,
     NormalizedRunEvent,
@@ -188,6 +189,14 @@ class AgentDojoEvaluationRunner:
         self._validate_config(config, manifest)
         if not selections:
             raise ValueError("at least one evaluation trial must be selected")
+        frozen_selection = tuple(
+            EvaluationSelection(case_id=case.case_id, mode=mode)
+            for case, mode in selections
+        )
+        if config.selected_trials != frozen_selection:
+            raise ValueError(
+                "experiment config does not match selected evaluation trials"
+            )
         trials = tuple(
             self._run_trial(
                 config=config,

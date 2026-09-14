@@ -15,6 +15,7 @@ from voren.evaluation.models import (
     EvaluationCase,
     EvaluationManifest,
     EvaluationMode,
+    EvaluationSelection,
     ExperimentConfig,
 )
 from voren.learning.evaluation import (
@@ -115,6 +116,12 @@ class AgentDojoSkillEvaluator:
             dataset_version=self._manifest.dataset_version,
             attack_template_version=self._manifest.attack_template_version,
             attack_template_digest=attack_digest,
+            selected_trials=(
+                EvaluationSelection(
+                    case_id=case.case_id,
+                    mode=EvaluationMode.AGENT_BEHAVIOR,
+                ),
+            ),
             sampling=self._sampling,
         )
         database = self._database_directory / f"{_safe_name(trial_key)}.sqlite3"

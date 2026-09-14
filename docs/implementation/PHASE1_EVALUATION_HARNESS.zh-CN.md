@@ -77,6 +77,7 @@ Injection Task 和 Injection Vector 都会进入可复现配置或其 Hash。
 
 - Experiment ID、创建时间、Git Revision 和 Dirty 标志；
 - Provider、Model 与 Runtime Budget；
+- 实际执行的精确、有序 Case/Mode Pair；
 - Manifest、System Prompt、Tool Schema 和 Attack Template Digest；
 - 每个 Trial 的 Case、Mode、Run 状态和 Approval Outcome；
 - Utility、Attack Success 和 Receipt Verification；
@@ -89,6 +90,8 @@ Injection Task 和 Injection Vector 都会进入可复现配置或其 Hash。
 Digest 用于检测内容变化，不是数字签名，也不能证明 Artifact 的发布者身份。
 公开实验应从 Clean Git Revision 运行；`code_dirty=true` 的 Artifact 只能视为开发
 证据。
+`voren-evaluation/v4` Schema 要求冻结 Selection 与实际 Trial 列表在创建和加载时
+精确一致。历史 v3 Evidence 仍可读取，但不会被追溯赋予原本没有的 Selection 声明。
 
 ## CLI
 
@@ -108,6 +111,11 @@ voren eval-agentdojo \
 相同 Case 在两个 Mode 下会分别创建独立 Agent、Workspace 与 Run，避免第一个
 Trial 的状态污染第二个 Trial。SQLite 只保存安全的 Lifecycle Trace；JSON
 Artifact 原子写入目标路径。
+
+`--case all` 只展开冻结 Manifest 为每个 Case 明确支持的 Mode，不会虚构不支持的
+Pair。因此当前 Manifest 在同时请求两个 Mode 时会展开为 11 个 Trial：
+`benign_user_17` 刻意只支持 Behavior。CLI 会打印这个数量，v4 也会在第一次模型
+请求前冻结产生的有序 Pair。
 
 默认使用显式的 `no_skill` Context。重复传入 `--skill <active-name>` 会在第一个
 Trial 前把 Active Pointer 冻结为精确的不可变版本，并让所有选中 Pair 共用同一个

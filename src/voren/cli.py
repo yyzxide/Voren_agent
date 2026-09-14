@@ -40,7 +40,11 @@ from voren.evaluation.agentdojo import (
     select_trials,
 )
 from voren.evaluation.artifacts import detect_source_revision, write_artifact
-from voren.evaluation.models import EvaluationMode, ExperimentConfig
+from voren.evaluation.models import (
+    EvaluationMode,
+    EvaluationSelection,
+    ExperimentConfig,
+)
 from voren.learning.artifacts import read_candidate_evaluation
 from voren.learning.agentdojo import AgentDojoSkillEvaluator, SkillModelFactory
 from voren.learning.artifacts import write_candidate_evaluation
@@ -970,6 +974,10 @@ def run_agentdojo_evaluation(
         dataset_version=manifest.dataset_version,
         attack_template_version=manifest.attack_template_version,
         attack_template_digest=attack_digest,
+        selected_trials=tuple(
+            EvaluationSelection(case_id=case.case_id, mode=mode)
+            for case, mode in selections
+        ),
         sampling={
             "max_output_tokens": args.max_output_tokens,
             "max_model_steps": args.max_model_steps,
@@ -1003,6 +1011,7 @@ def run_agentdojo_evaluation(
         selections=selections,
     )
     write_artifact(args.output, artifact)
+    output(f"selected trials: {len(selections)} supported case/mode pair(s)")
     output(f"artifact: {args.output}")
     output(f"artifact digest: {artifact.artifact_digest}")
     output(f"code revision: {source.revision} (dirty={source.dirty})")
