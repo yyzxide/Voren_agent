@@ -10,7 +10,7 @@ The earlier [portfolio audit](docs/reviews/2026-09-14-PORTFOLIO-AUDIT.zh-CN.md)
 is retained as a historical defect baseline; its open findings are not the
 current repository state.
 
-> Status: the credential-free portfolio baseline is implemented. The bounded
+> Status: the portfolio code and credential-free evidence baseline are complete. The bounded
 > runtime, atomic action claim, observation-only crash reconciliation, durable
 > approval/resume, explicit Responses-provider capability profiles, typed
 > Memory and source-bound Knowledge, deterministic Skill routing, gated
@@ -18,8 +18,9 @@ current repository state.
 > Workspace connector are connected through the same runtime. A dated
 > live-model golden/injection run and No-Skill/static-Skill comparison are now
 > preserved as raw integrity-checked evidence; the Skill sample regressed and is
-> not presented as an improvement. The remaining external gate is a redacted
-> Google test-account smoke run.
+> not presented as an improvement. The code now also exports a redacted,
+> integrity-checked Google smoke artifact. Running that optional deployment
+> attestation still requires a dedicated external test account.
 
 Voren is a single-agent assistant for email and calendar work. Its
 engineering focus is not broad personal-assistant coverage, but a narrower
@@ -291,8 +292,10 @@ voren google --model 'your-model-id' \
 ```
 
 This command requires explicit approval before either reversible write. The
-repository has deterministic HTTP-contract coverage; a real-account run is not
-claimed until a dated redacted live-smoke artifact exists.
+repository has deterministic HTTP-contract coverage and a strict redacted
+artifact exporter; a real-account run is not claimed until a dated live-smoke
+artifact exists. Follow the [Google live-smoke runbook](docs/GOOGLE_LIVE_SMOKE.md)
+to execute and export the two required read-to-verified-action paths.
 
 To run an explicitly labelled evaluation and write a machine-readable artifact:
 

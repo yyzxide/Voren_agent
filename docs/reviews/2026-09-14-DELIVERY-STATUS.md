@@ -9,10 +9,10 @@ a real Google account.
 
 ## Verified baseline
 
-- implementation revision: `aa88086`;
+- implementation revision: `6d9d779` (CI workflow maintenance: `529cb96`);
 - clean locked installation: CPython 3.12 on Linux x86-64 using `pylock.toml`;
-- local result: 195 of 195 unit and integration tests passed;
-- remote result: [GitHub Actions run 34819584876](https://github.com/yyzxide/Voren_agent/actions/runs/34819584876) passed;
+- local result: 201 of 201 unit and integration tests passed;
+- remote result: [GitHub Actions run 34831675034](https://github.com/yyzxide/Voren_agent/actions/runs/34831675034) passed with the current Node 24-based official Actions;
 - the suite is credential-free and does not call a live model or Google account.
 
 The test suite includes a real subprocess/TCP/HTTP browser-service boundary,
@@ -32,6 +32,11 @@ and the complete bounded Skill lifecycle.
 
 `aa88086` additionally binds the resolved endpoint and every provider-returned
 model name to schema-v5 evaluation evidence while preserving v3/v4 reads.
+`7cadfbd` adds a redacted Google live-smoke schema/exporter that rejects test
+doubles, incomplete coverage, dirty revisions, ungrounded actions, and
+unverified receipts; `14f318c` makes the required Run IDs visible in the CLI;
+`6d9d779` further enforces the fixed Action/Read/Effect allowlist and the
+Proposal-to-Approval-to-Receipt digest chain.
 
 ## Demonstrable paths
 
@@ -57,13 +62,16 @@ No-Skill/static-Skill execution gates. The requested alias
 Static-Skill sample was worse on utility and more expensive in tokens, so it is
 recorded as negative evidence rather than an improvement claim.
 
-## Evidence still required from external systems
+## Optional external deployment attestation
 
-- one redacted smoke artifact from a dedicated Google test account.
+- run the two-path [Google live-smoke procedure](../GOOGLE_LIVE_SMOKE.md) with a
+  dedicated test account and publish its reviewed redacted artifact.
 
-The dated model results are one small stochastic sample, not a general model or
-prompt-injection benchmark. Until the separate Google artifact exists, the
-repository does **not** claim successful access to a real Google account.
+This is not an unfinished code path: the live/test boundary, strict coverage
+validator, redaction projection, integrity digest, CLI, and runbook are
+implemented and tested. It remains external evidence because this repository
+has no Google credential. Until the artifact exists, the repository does
+**not** claim successful access to a real Google account.
 
 ## Explicit non-claims
 

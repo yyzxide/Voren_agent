@@ -220,10 +220,11 @@ Live 样本与确定性测试分开报告，不能扩展为通用安全结论。
 
 ## 7. Phase 5：一个真实 Connector
 
-实现状态：**Connector 与确定性 HTTP Contract 已于 2026-09-14 完成；需 Credential
-的 Smoke 尚未执行**。Gmail/Google Calendar Read、Gmail Draft 和私人 Calendar
-Hold 复用受控 Workspace 的 Provenance、Approval、Operation Ledger、Receipt、
-Verification、Reconciliation、CLI 与 Web 边界。当前不声称真实账号运行成功。
+实现状态：**Connector、确定性 HTTP Contract 与脱敏 Live-smoke Export 已于
+2026-09-14 完成；可选的 Credential Attestation 尚未执行**。Gmail/Google Calendar
+Read、Gmail Draft 和私人 Calendar Hold 复用受控 Workspace 的 Provenance、
+Approval、Operation Ledger、Receipt、Verification、Reconciliation、CLI 与 Web
+边界。没有外部 Artifact 时，不声称真实账号运行成功。
 
 只有受控系统稳定之后，才添加一个供应商体系，最可能是 Gmail 与 Google
 Calendar，并保持保守默认策略。

@@ -227,11 +227,12 @@ Exit criteria:
 
 ## 7. Phase 5: one real connector
 
-Implementation status: **connector and deterministic HTTP contracts complete
-on 2026-09-14; credentialed smoke pending**. Gmail and Google Calendar reads,
-Gmail draft creation, and private calendar holds use the same provenance,
-approval, operation-ledger, receipt, verification, reconciliation, CLI, and Web
-boundaries as the controlled workspace. No real-account success is claimed.
+Implementation status: **connector, deterministic HTTP contracts, and redacted
+live-smoke export complete on 2026-09-14; optional credentialed attestation
+pending**. Gmail and Google Calendar reads, Gmail draft creation, and private
+calendar holds use the same provenance, approval, operation-ledger, receipt,
+verification, reconciliation, CLI, and Web boundaries as the controlled
+workspace. No real-account success is claimed without the external artifact.
 
 Only after the controlled system is stable, add one provider family, most
 likely Gmail plus Google Calendar, with conservative defaults.

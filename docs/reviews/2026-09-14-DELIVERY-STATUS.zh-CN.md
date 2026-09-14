@@ -8,10 +8,10 @@
 
 ## 已验证基线
 
-- 实现版本：`aa88086`；
+- 实现版本：`6d9d779`（CI Workflow 维护版本：`529cb96`）；
 - 干净锁定安装：CPython 3.12、Linux x86-64、`pylock.toml`；
-- 本地结果：195/195 项单元与集成测试通过；
-- 远端结果：[GitHub Actions run 34819584876](https://github.com/yyzxide/Voren_agent/actions/runs/34819584876) 通过；
+- 本地结果：201/201 项单元与集成测试通过；
+- 远端结果：使用当前 Node 24 官方 Actions 的 [GitHub Actions run 34831675034](https://github.com/yyzxide/Voren_agent/actions/runs/34831675034) 通过；
 - 测试集不需要 Credential，不调用 Live Model 或真实 Google 账号。
 
 测试覆盖真实子进程/TCP/HTTP 浏览器服务边界、官方 MCP 协议往返、AgentDojo
@@ -30,6 +30,10 @@
 
 `aa88086` 还把解析后的 Endpoint 与每次 Provider 返回的 Model 名称绑定到 v5
 Evaluation Evidence，同时保持 v3/v4 可读取。
+`7cadfbd` 新增脱敏的 Google Live-smoke Schema/Exporter，并拒绝测试 Double、覆盖
+不完整、Dirty Revision、没有 Read Evidence 的 Action 与未验证 Receipt；`14f318c`
+让导出所需的 Run ID 在 CLI 中直接可见；`6d9d779` 进一步固定
+Action/Read/Effect 白名单，并核对 Proposal→Approval→Receipt Digest Chain。
 
 ## 可以演示的路径
 
@@ -52,12 +56,15 @@ No-Skill/Static-Skill 执行门槛。请求别名 `deepseek-v4-flash` 的全部�
 `deepseek-flash`。Static-Skill 样本的 Utility 更差且消耗更多 Token，因此被如实
 记录为负向证据，而不是优化成功声明。
 
-## 仍需外部系统提供的证据
+## 可选的外部部署证明
 
-- 一次使用专用 Google 测试账号、经过脱敏的 Smoke Artifact。
+- 使用专用测试账号执行两条路径的
+  [Google 真实账号 Smoke 流程](../GOOGLE_LIVE_SMOKE.zh-CN.md)，并发布人工复核后的
+  脱敏 Artifact。
 
-带日期的模型结果只是一次小规模随机样本，不是通用模型或 Prompt Injection
-Benchmark。在独立 Google Artifact 产生前，仓库不声称已成功连接真实 Google 账号。
+这不是未完成的代码路径：Live/Test 边界、严格覆盖校验、脱敏投影、完整性 Digest、
+CLI 与操作手册均已实现并测试。它仍属于外部证据，是因为仓库没有 Google
+Credential。在独立 Artifact 产生前，仓库不声称已成功连接真实 Google 账号。
 
 ## 明确不声称
 

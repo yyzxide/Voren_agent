@@ -56,8 +56,11 @@ Read Provenance、稳定 Calendar ID、Draft-only 行为、精确 Receipt、明�
 HTTP 响应丢失，以及进程重启后不重发的 Reconciliation。
 
 CI 不具备 Google Credential，因此这些测试证明的是 Translation 和故障语义，不是
-真实 Google 账号已经成功运行。带日期的 Live Smoke Artifact 仍是人工 Release
-Gate，并且绝不能包含邮箱正文或 Token。
+真实 Google 账号已经成功运行。新增的 `export-google-smoke` 命令只接受覆盖完整的
+Live-boundary Suite，将其绑定到同一个干净源码 Revision 与精确模型 Endpoint，并
+生成经过完整性校验的脱敏 Artifact。带日期的真实 Artifact 仍是外部 Release
+Attestation，而且绝不能包含邮箱正文或 Token。操作步骤见
+[真实账号 Smoke 手册](../GOOGLE_LIVE_SMOKE.zh-CN.md)。
 
 ## CLI 纵向切片
 

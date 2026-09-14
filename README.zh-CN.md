@@ -9,14 +9,14 @@
 [作品集审计](docs/reviews/2026-09-14-PORTFOLIO-AUDIT.zh-CN.md)作为历史缺陷基线保留；
 其中当时未修复的结论不代表当前仓库状态。
 
-> 当前状态：无需 Credential 的作品集实现基线已经完成。有界 Runtime、原子动作
+> 当前状态：作品集代码与无需 Credential 的证据基线已经完成。有界 Runtime、原子动作
 > Claim、只观察不重发的崩溃 Reconciliation、持久审批与恢复、显式 Responses
 > Provider 能力 Profile、类型化 Memory 与绑定来源的 Knowledge、确定性 Skill
 > 路由、受门禁保护的 Candidate 学习、本地 Web/SSE Walkthrough，以及保守的
 > Google Workspace Connector 已接入同一 Runtime。带日期的 Live-model 黄金/注入
 > Run 与 No-Skill/Static-Skill 对比现已保存为原始、通过完整性校验的证据；Skill
-> 样本发生退化，因此不会包装成优化成功。剩余外部门槛是一份脱敏的 Google 测试
-> 账号 Smoke Run。
+> 样本发生退化，因此不会包装成优化成功。代码现在也能导出经过完整性校验的脱敏
+> Google Smoke Artifact；可选的部署证明仍需使用专用外部测试账号实际执行。
 
 Voren 是一个面向邮件与日程工作的单 Agent 助手。它的工程重点不是
 覆盖尽可能多的个人助理功能，而是回答一个更窄的问题：
@@ -269,8 +269,10 @@ voren google --model 'your-model-id' \
   '阅读项目更新邮件并准备回复草稿，不要发送。'
 ```
 
-两个可逆写操作都必须先得到显式审批。仓库已有确定性 HTTP Contract Coverage；在
-生成带日期且脱敏的 Live-smoke Artifact 前，不声称真实账号已经成功运行。
+两个可逆写操作都必须先得到显式审批。仓库已有确定性 HTTP Contract Coverage 与
+严格的脱敏 Artifact Exporter；在生成带日期的 Live-smoke Artifact 前，不声称真实
+账号已经成功运行。两条“读取到已验证动作”的执行与导出步骤见
+[Google 真实账号 Smoke 操作手册](docs/GOOGLE_LIVE_SMOKE.zh-CN.md)。
 
 要运行明确标注模式的评测并生成机器可读 Artifact：
 

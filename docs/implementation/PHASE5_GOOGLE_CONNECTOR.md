@@ -65,9 +65,12 @@ behavior, exact receipt verification, definitive authorization failure, lost
 HTTP responses, and post-restart reconciliation without resending.
 
 No Google credential is present in CI, so these tests prove translation and
-failure semantics rather than a live Google account run. A dated live smoke
-artifact remains a manual release gate and must never include mailbox content
-or tokens.
+failure semantics rather than a live Google account run. The
+`export-google-smoke` command now accepts only a complete live-boundary suite,
+binds it to one clean source revision and exact model endpoint, and writes an
+integrity-checked redacted artifact. A dated live artifact remains an external
+release attestation and must never include mailbox content or tokens. See the
+[live-smoke runbook](../GOOGLE_LIVE_SMOKE.md).
 
 ## CLI vertical slice
 
