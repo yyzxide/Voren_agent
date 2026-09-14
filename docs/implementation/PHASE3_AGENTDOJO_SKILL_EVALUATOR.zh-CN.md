@@ -38,3 +38,8 @@ Cancellation，都会先写入底层 Artifact，再被转换为显式 Infrastruc
 Candidate Request 分别包含不同的精确指令，每个 Run 记录一个冻结 Skill
 Version，两个底层 Artifact 均可读取且完整性有效，Paired Artifact 引用它们的
 精确 Digest。该测试不声称 Live Model 得到了提升。
+
+`voren skill eval-agentdojo` 在不合并 Decision 的前提下公开这条路径。它会在任何
+模型调用之前拒绝重复 Selection 与不完整的 Security/Utility Coverage，要求使用
+Skill Contract 声明的 Suite，写入全部 Artifact，打印每个 Pair 的两侧结果，并
+让 Candidate 保持 Staged。

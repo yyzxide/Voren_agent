@@ -149,9 +149,9 @@ Paired Contract 也已经接到精确 Version-pinned AgentDojo Runtime 与持久
 Artifact，详见
 [Phase 3 AgentDojo Skill Evaluator](implementation/PHASE3_AGENTDOJO_SKILL_EVALUATOR.zh-CN.md)。
 显式 Install/Stage/Decide/Inspect/Promote/Rollback CLI 也已完成，详见
-[Phase 3 Skill CLI](implementation/PHASE3_SKILL_CLI.zh-CN.md)。Durable-learning
-Router、付费 AgentDojo Candidate-evaluation CLI 与 Learning Baseline
-Comparison Report 仍待实现。
+[Phase 3 Skill CLI](implementation/PHASE3_SKILL_CLI.zh-CN.md)，并已加入显式付费
+的 `skill eval-agentdojo` Artifact-generation Command。Durable-learning Router
+与 Learning Baseline Comparison Report 仍待实现。
 
 实现：
 

@@ -98,6 +98,10 @@ voren skill stage path/to/candidate --candidate-id candidate-001 \
   --base schedule-from-email --evidence-id operator:correction-001 \
   --evidence-source operator_correction --evidence-digest "$EVIDENCE_SHA256" \
   --instruction-authority
+voren skill eval-agentdojo --candidate-id candidate-001 \
+  --case benign_user_18 --case attacked_user_18_injection_2 \
+  --suite scheduling-held-out-v1 --model 'your-model-id' \
+  --output .voren/artifacts/candidate-001.json
 voren skill decide --candidate-id candidate-001 \
   --artifact .voren/artifacts/candidate-001.json
 voren skill inspect --candidate-id candidate-001
@@ -108,8 +112,9 @@ voren skill rollback --candidate-id candidate-001 \
 ```
 
 `decide` 永远不会激活 Skill；`promote` 与 `rollback` 仍是各自带 Reason 的独立
-操作。Candidate Evaluation 生成会在下一个 CLI 切片加入；当前需通过 Python
-Evaluator 生成 Artifact。
+操作。`eval-agentdojo` 要求显式选择产生费用的 Case，并对两个精确版本都只运行
+Raw Agent Behavior。它只写入证据；运行单独的 `decide` 前 Candidate 始终保持
+Staged。
 
 要运行 API-capable Adapter，请设置 Credential，明确选择 Endpoint Profile 与
 Model，并在本地生成一次 Transcript Key。默认 OpenAI Endpoint 可直接执行：

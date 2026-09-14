@@ -7,10 +7,12 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from voren.cli import build_parser
 from voren.evaluation.agentdojo import phase1_smoke_manifest
 from voren.evaluation.artifacts import read_artifact
 from voren.evaluation.models import EvaluationMode
 from voren.learning.agentdojo import AgentDojoSkillEvaluator
+from voren.learning.artifacts import read_candidate_evaluation
 from voren.learning.evaluation import EvaluationCaseKind, HeldOutCase
 from voren.learning.models import EvidenceRef, EvidenceSource
 from voren.learning.runner import PairedEvaluationRunner
@@ -99,7 +101,7 @@ class AgentDojoSkillEvaluatorTest(unittest.TestCase):
             ),
         )
 
-    def test_exact_base_and_candidate_contexts_produce_durable_trials(self) -> None:
+    def _stage_candidate(self, candidate_id: str):
         base_text = "Check the email, then check the calendar."
         candidate_text = "Check email and calendar; ask when duration is missing."
         self._write_skill(base_text)
@@ -112,12 +114,11 @@ class AgentDojoSkillEvaluatorTest(unittest.TestCase):
             activated_at=self.now,
         )
         self._write_skill(candidate_text)
-        service = SkillCandidateService(
+        candidate = SkillCandidateService(
             skills=self.skills,
             candidates=self.candidates,
-        )
-        candidate = service.stage(
-            candidate_id="candidate-agentdojo-1",
+        ).stage(
+            candidate_id=candidate_id,
             base_ref=base.ref,
             package=self.parser.load(self.source),
             evidence=(
@@ -129,6 +130,12 @@ class AgentDojoSkillEvaluatorTest(unittest.TestCase):
                 ),
             ),
             created_at=self.now + timedelta(minutes=1),
+        )
+        return base, candidate, base_text, candidate_text
+
+    def test_exact_base_and_candidate_contexts_produce_durable_trials(self) -> None:
+        base, candidate, base_text, candidate_text = self._stage_candidate(
+            "candidate-agentdojo-1"
         )
 
         adapters: dict[str, ScriptedModelAdapter] = {}
@@ -197,6 +204,69 @@ class AgentDojoSkillEvaluatorTest(unittest.TestCase):
                 if event.event_type == "skill_context.assembled"
             )
             self.assertEqual(len(context_event.payload["skill_versions"]), 1)
+
+    def test_cli_generates_paired_artifact_without_deciding_or_promoting(self) -> None:
+        _base, candidate, _base_text, _candidate_text = self._stage_candidate(
+            "candidate-agentdojo-cli"
+        )
+        output_path = self.temporary / "paired-candidate.json"
+        args = build_parser().parse_args(
+            [
+                "skill",
+                "eval-agentdojo",
+                "--candidate-id",
+                candidate.candidate_id,
+                "--case",
+                "benign_user_18",
+                "--case",
+                "attacked_user_18_injection_2",
+                "--suite",
+                "scheduling-held-out-v1",
+                "--model",
+                "scripted-model",
+                "--evaluation-id",
+                "candidate-agentdojo-cli-eval",
+                "--output",
+                str(output_path),
+                "--trial-databases",
+                str(self.temporary / "cli-trial-databases"),
+                "--trial-artifacts",
+                str(self.temporary / "cli-trial-artifacts"),
+                "--database",
+                str(self.database),
+                "--skill-store",
+                str(self.temporary / "skill-store"),
+            ]
+        )
+
+        def model_factory(_ref, _case, mode):
+            self.assertIs(mode, EvaluationMode.AGENT_BEHAVIOR)
+            return ScriptedModelAdapter(self._responses())
+
+        lines: list[str] = []
+        exit_code = args.handler(
+            args,
+            model_factory=model_factory,
+            output=lines.append,
+        )
+
+        self.assertEqual(exit_code, 0)
+        artifact = read_candidate_evaluation(output_path)
+        self.assertEqual(len(artifact.pairs), 2)
+        self.assertEqual(
+            {pair.case.kind for pair in artifact.pairs},
+            {EvaluationCaseKind.BENIGN, EvaluationCaseKind.ATTACK},
+        )
+        self.assertEqual(
+            self.candidates.get(candidate.candidate_id).status.value,
+            "staged",
+        )
+        self.assertEqual(self.skills.freeze_active(), (candidate.base_ref,))
+        self.assertEqual(
+            len(tuple((self.temporary / "cli-trial-artifacts").glob("*.json"))),
+            4,
+        )
+        self.assertTrue(any("evaluation never promotes" in line for line in lines))
 
 
 if __name__ == "__main__":

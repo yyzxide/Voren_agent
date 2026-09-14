@@ -10,6 +10,8 @@
   Baseline，并且必须提供 Reason；
 - `stage` 解析指定名称的 Active Base，校验一条显式 Evidence Reference，执行
   Bounded Admission，并保持 Candidate 非激活；
+- `eval-agentdojo` 要求显式选择付费 Case，对两个精确版本运行 Raw Behavior，
+  并写入 Paired Artifact 与每个底层 Artifact；
 - `decide` 对 Paired Evaluation Artifact 做完整性加载，并原子记录 Accepted 或
   Rejected Decision；
 - `inspect` 把 Candidate、完整 Evaluation Artifact 与已验证 Lifecycle Chain 输出
@@ -33,6 +35,6 @@ Rejected Decision 返回 Exit Code 3，使自动化能够区分“有效的负�
 
 ## 当前边界
 
-本切片消费已经存在的 Candidate Evaluation Artifact。下一 CLI 切片会调用精确
-版本的 AgentDojo Evaluator 来生成 Artifact，并要求显式选择会产生模型费用的
-Case。
+CLI 现在可以生成并消费 Candidate Evaluation Artifact。它不会自行编写 Candidate
+Edit，也不会自动把任意 Trace 路由为长期学习；这些仍是 Bounded Staging Command
+的显式输入。

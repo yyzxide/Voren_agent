@@ -11,6 +11,8 @@ boundaries:
   for a manually managed baseline and requires a reason;
 - `stage` resolves the named active base, validates one explicit evidence
   reference, applies bounded admission, and leaves the candidate inactive;
+- `eval-agentdojo` requires explicit paid cases, runs raw behavior against both
+  exact versions, and writes the paired Artifact plus every underlying Artifact;
 - `decide` integrity-loads a paired evaluation Artifact and atomically records
   an accepted or rejected decision;
 - `inspect` emits the candidate, complete evaluation artifacts, and verified
@@ -35,6 +37,6 @@ negative policy decision from malformed input or infrastructure failure.
 
 ## Current boundary
 
-This slice consumes an existing Candidate Evaluation Artifact. The next CLI
-slice invokes the exact-version AgentDojo evaluator to produce one, with paid
-model cases selected explicitly.
+The CLI now produces and consumes Candidate Evaluation Artifacts. It does not
+author the candidate edit itself or automatically route arbitrary traces into
+durable learning; those remain explicit inputs to the bounded staging command.

@@ -43,3 +43,9 @@ model. It checks that base and candidate requests contain their different exact
 instructions, each run records one frozen Skill version, two underlying
 artifacts are readable and integrity-valid, and the paired artifact references
 their exact digests. It does not claim live-model improvement.
+
+`voren skill eval-agentdojo` exposes this path without combining it with a
+decision. It rejects duplicate selections and incomplete security/utility
+coverage before any model call, requires the suite declared by the Skill
+contract, writes all artifacts, prints both sides of each pair, and leaves the
+candidate staged.

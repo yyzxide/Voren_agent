@@ -34,7 +34,11 @@ from voren.evaluation.agentdojo import (
 from voren.evaluation.artifacts import detect_source_revision, write_artifact
 from voren.evaluation.models import EvaluationMode, ExperimentConfig
 from voren.learning.artifacts import read_candidate_evaluation
-from voren.learning.models import EvidenceRef, EvidenceSource
+from voren.learning.agentdojo import AgentDojoSkillEvaluator, SkillModelFactory
+from voren.learning.artifacts import write_candidate_evaluation
+from voren.learning.evaluation import EvaluationCaseKind, HeldOutCase
+from voren.learning.models import CandidateStatus, EvidenceRef, EvidenceSource
+from voren.learning.runner import PairedEvaluationRunner
 from voren.learning.service import SkillCandidateService
 from voren.learning.store import CandidateStoreError, SQLiteCandidateStore
 from voren.providers.openai_responses import (
@@ -209,6 +213,63 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_skill_storage_arguments(stage)
     stage.set_defaults(handler=run_skill_stage)
+
+    skill_evaluation = skill_commands.add_parser(
+        "eval-agentdojo",
+        help="Run paid paired AgentDojo trials and write a candidate artifact.",
+    )
+    skill_evaluation.add_argument("--candidate-id", required=True)
+    skill_evaluation.add_argument(
+        "--case",
+        action="append",
+        required=True,
+        choices=("all", *(case.case_id for case in phase1_smoke_manifest().cases)),
+        help="Held-out Case ID; repeat or pass 'all'.",
+    )
+    skill_evaluation.add_argument(
+        "--suite",
+        required=True,
+        help="Evaluation suite declared by the Skill contract.",
+    )
+    skill_evaluation.add_argument(
+        "--model",
+        help="Responses API model ID; alternatively set VOREN_MODEL.",
+    )
+    skill_evaluation.add_argument(
+        "--base-url",
+        help="Responses-compatible API base URL; defaults to OPENAI_BASE_URL.",
+    )
+    skill_evaluation.add_argument(
+        "--provider-profile",
+        choices=tuple(item.value for item in ResponsesProviderProfile),
+        help=(
+            "Explicit endpoint capabilities; alternatively set "
+            "VOREN_RESPONSES_PROFILE. Required with a custom base URL."
+        ),
+    )
+    skill_evaluation.add_argument("--evaluation-id")
+    skill_evaluation.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="Destination for the paired candidate evaluation Artifact.",
+    )
+    skill_evaluation.add_argument(
+        "--trial-databases",
+        type=Path,
+        default=Path(".voren/candidate-trials/databases"),
+    )
+    skill_evaluation.add_argument(
+        "--trial-artifacts",
+        type=Path,
+        default=Path(".voren/candidate-trials/artifacts"),
+    )
+    skill_evaluation.add_argument("--timeout-seconds", type=float, default=60.0)
+    skill_evaluation.add_argument("--max-output-tokens", type=int, default=2_048)
+    skill_evaluation.add_argument("--max-model-steps", type=int, default=8)
+    skill_evaluation.add_argument("--max-tool-calls", type=int, default=12)
+    _add_skill_storage_arguments(skill_evaluation)
+    skill_evaluation.set_defaults(handler=run_skill_agentdojo_evaluation)
 
     decide = skill_commands.add_parser(
         "decide", help="Accept or reject a staged candidate from an artifact."
@@ -567,6 +628,147 @@ def run_skill_stage(
     finally:
         candidates.close()
         skills.close()
+
+
+def run_skill_agentdojo_evaluation(
+    args: argparse.Namespace,
+    *,
+    model_factory: SkillModelFactory | None = None,
+    output: Output = print,
+) -> int:
+    model_name = args.model or os.environ.get("VOREN_MODEL")
+    if not model_name:
+        raise ModelConfigurationError("pass --model or set VOREN_MODEL")
+    manifest = phase1_smoke_manifest()
+    case_ids = tuple(args.case)
+    if "all" in case_ids and case_ids != ("all",):
+        raise ValueError("'all' cannot be combined with explicit case IDs")
+    selected_ids = (
+        tuple(case.case_id for case in manifest.cases)
+        if case_ids == ("all",)
+        else case_ids
+    )
+    if len(selected_ids) != len(set(selected_ids)):
+        raise ValueError("candidate evaluation Case IDs must be unique")
+    available = {case.case_id: case for case in manifest.cases}
+    selected = tuple(available[case_id] for case_id in selected_ids)
+    cases = tuple(
+        HeldOutCase(
+            case_id=case.case_id,
+            kind=(
+                EvaluationCaseKind.ATTACK
+                if case.injection_task_id is not None
+                else EvaluationCaseKind.BENIGN
+            ),
+        )
+        for case in selected
+    )
+    if not any(case.kind is EvaluationCaseKind.BENIGN for case in cases):
+        raise ValueError("candidate evaluation requires at least one benign Case")
+    if not any(case.kind is EvaluationCaseKind.ATTACK for case in cases):
+        raise ValueError("candidate evaluation requires at least one attack Case")
+
+    skills, candidates = _open_skill_stores(args)
+    try:
+        candidate = candidates.get(args.candidate_id)
+        if candidate.status is not CandidateStatus.STAGED:
+            raise ValueError("only a staged candidate can start paid evaluation")
+        contract = skills.get_version(candidate.base_ref).contract
+        if args.suite not in contract.evaluation_suites:
+            raise ValueError("--suite is not declared by the Skill contract")
+        resolved_factory = model_factory
+        if resolved_factory is None:
+
+            def create_model(_ref, _case, _mode):
+                return OpenAIResponsesModelAdapter.from_environment(
+                    model=model_name,
+                    base_url=args.base_url,
+                    timeout_seconds=args.timeout_seconds,
+                    max_output_tokens=args.max_output_tokens,
+                    provider_profile=getattr(args, "provider_profile", None),
+                )
+
+            resolved_factory = create_model
+
+        source = detect_source_revision(Path.cwd())
+        evaluation_id = args.evaluation_id or f"candidate-eval-{uuid4()}"
+        evaluator = AgentDojoSkillEvaluator(
+            evaluation_id=evaluation_id,
+            skills=skills,
+            manifest=manifest,
+            model_factory=resolved_factory,
+            database_directory=args.trial_databases,
+            artifact_directory=args.trial_artifacts,
+            provider=(
+                getattr(args, "provider_profile", None)
+                or os.environ.get("VOREN_RESPONSES_PROFILE")
+                or ResponsesProviderProfile.OPENAI.value
+            ),
+            model=model_name,
+            code_revision=source.revision,
+            code_dirty=source.dirty,
+            sampling={
+                "max_output_tokens": args.max_output_tokens,
+                "max_model_steps": args.max_model_steps,
+                "max_tool_calls": args.max_tool_calls,
+                "timeout_seconds": args.timeout_seconds,
+                "temperature": "provider_default",
+                "seed": None,
+            },
+            limits=RuntimeLimits(
+                max_model_steps=args.max_model_steps,
+                max_tool_calls=args.max_tool_calls,
+            ),
+        )
+        artifact = PairedEvaluationRunner().run(
+            evaluation_id=evaluation_id,
+            candidate=candidate,
+            suite_id=args.suite,
+            manifest_digest=manifest.calculated_digest(),
+            cases=cases,
+            evaluator=evaluator,
+            created_at=datetime.now(UTC),
+        )
+        write_candidate_evaluation(args.output, artifact)
+        output(f"candidate evaluation: {args.output}")
+        output(f"artifact digest: {artifact.artifact_digest}")
+        output(f"candidate remains: {candidate.status.value}")
+        for pair in artifact.pairs:
+            output(
+                _candidate_pair_summary(pair.case.case_id, "base", pair.base)
+            )
+            output(
+                _candidate_pair_summary(
+                    pair.case.case_id, "candidate", pair.candidate
+                )
+            )
+        output(
+            "next: review the Artifact, then run 'voren skill decide'; "
+            "evaluation never promotes automatically"
+        )
+        return 0
+    finally:
+        candidates.close()
+        skills.close()
+
+
+def _candidate_pair_summary(case_id: str, label: str, result) -> str:
+    measurement = result.measurement
+    if measurement.infrastructure_error_code is not None:
+        return (
+            f"{case_id} {label}: infrastructure_error="
+            f"{measurement.infrastructure_error_code}"
+        )
+    attack = (
+        "n/a"
+        if measurement.attack_success is None
+        else str(measurement.attack_success).lower()
+    )
+    return (
+        f"{case_id} {label}: utility="
+        f"{str(measurement.utility_passed).lower()}, attack_success={attack}, "
+        f"run={measurement.run_id}"
+    )
 
 
 def run_skill_decide(

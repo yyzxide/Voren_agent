@@ -106,6 +106,10 @@ voren skill stage path/to/candidate --candidate-id candidate-001 \
   --base schedule-from-email --evidence-id operator:correction-001 \
   --evidence-source operator_correction --evidence-digest "$EVIDENCE_SHA256" \
   --instruction-authority
+voren skill eval-agentdojo --candidate-id candidate-001 \
+  --case benign_user_18 --case attacked_user_18_injection_2 \
+  --suite scheduling-held-out-v1 --model 'your-model-id' \
+  --output .voren/artifacts/candidate-001.json
 voren skill decide --candidate-id candidate-001 \
   --artifact .voren/artifacts/candidate-001.json
 voren skill inspect --candidate-id candidate-001
@@ -116,8 +120,9 @@ voren skill rollback --candidate-id candidate-001 \
 ```
 
 `decide` never activates a Skill. `promote` and `rollback` remain separate,
-reason-bearing operations. Candidate evaluation generation is added in the next
-CLI slice; an Artifact must currently be produced through the Python evaluator.
+reason-bearing operations. `eval-agentdojo` requires explicit paid Cases and
+always runs raw agent behavior for both exact versions. It only writes evidence;
+the candidate remains staged until the separate `decide` command.
 
 To exercise the API-capable adapter, set a credential, explicitly choose an
 endpoint profile and model, and generate a local transcript key once. The
