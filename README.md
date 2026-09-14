@@ -163,10 +163,10 @@ effects and one approve/reject decision. Lifecycle events are replayed over SSE,
 and browser-visible snapshots survive refresh. Demo mode is visibly labelled as
 deterministic and still writes only to a disposable AgentDojo workspace.
 
-The Web runtime uses `.voren/voren.sqlite3` and `.voren/skills` for the reviewed
-Skill lifecycle by default while retaining `.voren/web.sqlite3` for browser-run
-snapshots. After the checked-in Skill is installed and activated, the page shows
-the exact auto-routed Skill version for a scheduling request:
+The Web runtime reads imported Knowledge and the reviewed Skill lifecycle from
+`.voren/voren.sqlite3` by default, while retaining `.voren/web.sqlite3` only for
+browser-run snapshots. After the checked-in Skill is installed and activated,
+the page shows the exact auto-routed Skill version for a scheduling request:
 
 ```bash
 voren skill install skills/schedule-from-email --activate \
@@ -174,9 +174,10 @@ voren skill install skills/schedule-from-email --activate \
 voren-web
 ```
 
-`VOREN_SKILL_DATABASE`, `VOREN_SKILL_STORE`, and
+`VOREN_KNOWLEDGE_DATABASE`, `VOREN_SKILL_DATABASE`, `VOREN_SKILL_STORE`, and
 `VOREN_WEB_SKILL_ROUTING=disabled` can override or disable that connection.
-Health output reports the routing mode and active-Skill count.
+Health output reports the exact Knowledge database, routing mode, and
+active-Skill count.
 
 The same page can explicitly select the production-shaped connector with
 `VOREN_WEB_MODE=live VOREN_WEB_WORKSPACE=google voren-web`. Model readiness and

@@ -64,6 +64,9 @@ def create_app(
     selected_database = database or Path(
         os.environ.get("VOREN_WEB_DATABASE", ".voren/web.sqlite3")
     )
+    selected_knowledge_database = Path(
+        os.environ.get("VOREN_KNOWLEDGE_DATABASE", ".voren/voren.sqlite3")
+    )
     selected_skill_database = Path(
         os.environ.get("VOREN_SKILL_DATABASE", ".voren/voren.sqlite3")
     )
@@ -93,6 +96,7 @@ def create_app(
             workspace_factory=workspace_factory,
             workspace_name=selected_workspace,
             workspace_recoverable=selected_workspace == "google",
+            knowledge_database=selected_knowledge_database,
             skill_database=selected_skill_database,
             skill_store_root=selected_skill_store,
             skill_routing_mode=SkillRoutingMode(routing_value),
@@ -128,7 +132,7 @@ def create_app(
                 else "controlled_agentdojo_workspace"
             ),
             live_model_configured=_live_model_configured(),
-            knowledge_database=str(active_service.database),
+            knowledge_database=str(active_service.knowledge_database),
             skill_routing_mode=active_service.skill_routing_mode.value,
             active_skill_count=active_service.active_skill_count(),
             skill_database=str(active_service.skill_database),

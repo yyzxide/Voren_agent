@@ -151,9 +151,9 @@ Action Proposal 时才展示精确 Effects 和一次批准/拒绝。Lifecycle Ev
 回放，浏览器可见 Snapshot 刷新后仍可读取。Demo Mode 会明确标注为确定性脚本，
 且外部写入仍只发生在一次性 AgentDojo Workspace。
 
-Web Runtime 默认使用 `.voren/voren.sqlite3` 与 `.voren/skills` 连接经过审查的 Skill
-Lifecycle，同时继续用 `.voren/web.sqlite3` 保存 Browser Run Snapshot。安装并激活
-仓库内 Skill 后，页面会在日程请求上展示自动路由到的精确 Skill Version：
+Web Runtime 默认从 `.voren/voren.sqlite3` 读取已导入 Knowledge 和经过审查的 Skill
+Lifecycle，同时只用 `.voren/web.sqlite3` 保存 Browser Run Snapshot。安装并激活仓库
+内 Skill 后，页面会在日程请求上展示自动路由到的精确 Skill Version：
 
 ```bash
 voren skill install skills/schedule-from-email --activate \
@@ -161,9 +161,9 @@ voren skill install skills/schedule-from-email --activate \
 voren-web
 ```
 
-可用 `VOREN_SKILL_DATABASE`、`VOREN_SKILL_STORE` 覆盖默认位置，或用
-`VOREN_WEB_SKILL_ROUTING=disabled` 关闭连接。Health 会报告 Routing Mode 与 Active
-Skill 数量。
+可用 `VOREN_KNOWLEDGE_DATABASE`、`VOREN_SKILL_DATABASE`、`VOREN_SKILL_STORE`
+覆盖默认位置，或用 `VOREN_WEB_SKILL_ROUTING=disabled` 关闭 Skill 连接。Health 会
+报告精确 Knowledge Database、Routing Mode 与 Active Skill 数量。
 
 同一页面可通过 `VOREN_WEB_MODE=live VOREN_WEB_WORKSPACE=google voren-web` 显式
 选择面向真实供应商的 Connector。页面会分别披露 Model 与 Google Workspace 的

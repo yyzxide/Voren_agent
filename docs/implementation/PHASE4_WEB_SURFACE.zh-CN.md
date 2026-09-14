@@ -44,16 +44,16 @@ Model 或 Workspace 配置缺失时返回 HTTP 503，同时释放 Request Reserv
 
 ## 连接 Skill Lifecycle
 
-Web 默认与 CLI 使用同一个经过审查的 Active Skill Store：`.voren/voren.sqlite3` 与
-`.voren/skills`。Browser Run Snapshot 仍保存在 `.voren/web.sqlite3`，因此加入路由
-不会迁移或丢弃已有 Web 状态。两处位置可分别通过 `VOREN_SKILL_DATABASE` 与
-`VOREN_SKILL_STORE` 配置。
+Web 默认与 CLI 使用同一个已导入 Knowledge Database 和经过审查的 Active Skill
+Store：`.voren/voren.sqlite3` 与 `.voren/skills`。Browser Run Snapshot 仍保存在
+`.voren/web.sqlite3`，因此建立连接不会迁移或丢弃已有 Web 状态。位置可分别通过
+`VOREN_KNOWLEDGE_DATABASE`、`VOREN_SKILL_DATABASE` 与 `VOREN_SKILL_STORE` 配置。
 
 每次请求都会在第一次 Model Call 前执行确定性的 Metadata Router。选中的精确版本
 与不含 Request 原文的 Routing Evidence 同时持久化到底层 RunConfig 和 Browser 可见
 Run Snapshot。页面会明确显示 `no_skill` 或选中的 `name@version`，不会暗示所有请求
 都使用了已学习指导。`VOREN_WEB_SKILL_ROUTING=disabled` 提供显式 Web Baseline，
-Health Response 会报告 Routing Mode 与 Active Skill 数量。
+Health Response 会报告精确 Knowledge Database、Routing Mode 与 Active Skill 数量。
 
 ## Event 交付
 
@@ -68,12 +68,13 @@ Health Response 会报告 Routing Mode 与 Active Skill 数量。
 
 `tests/integration/test_web_app.py` 覆盖静态页面与可读字号、Health/Mode Disclosure、
 无 Credential 问候、绑定来源的知识回答、路由到的精确 Skill Version、立即执行的
-日程流程、错误 Digest、批准后的 Receipt、拒绝、重复 Submission/Decision、冲突 Request ID、重启后丢失内存
-Workspace、SSE 回放，以及模型配置失败后的重试。
+日程流程、错误 Digest、批准后的 Receipt、拒绝、重复 Submission/Decision、冲突
+Request ID、重启后丢失内存 Workspace、SSE 回放，以及模型配置失败后的重试。
 
 `tests/integration/test_web_http_process.py` 补充进程边界验收路径：它在随机 Loopback
-端口冷启动已安装的 Web 入口，通过真实 TCP/HTTP 加载页面、路由已安装的 Active
-Skill、提交日程任务、批准绑定精确 Effect 的 Digest、消费终态 SSE，再使用同一 SQLite 数据库重启 Server，验证
+端口冷启动已安装的 Web 入口，通过真实 TCP/HTTP 加载页面、查询已导入且绑定来源的
+文档、路由已安装的 Active Skill、提交日程任务、批准绑定精确 Effect 的 Digest、
+消费终态 SSE，再使用同一 SQLite 数据库重启 Server，验证
 已完成 Receipt 仍能恢复。该路径只使用确定性 Demo Workspace，不需要模型或 Google
 Credential。
 

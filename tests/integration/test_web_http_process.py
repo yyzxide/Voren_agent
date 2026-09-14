@@ -12,8 +12,11 @@ import unittest
 import urllib.error
 import urllib.request
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
+from voren.knowledge.models import KnowledgeDocument, KnowledgeSourceKind
+from voren.knowledge.store import SQLiteKnowledgeStore
 from voren.skills.parser import AgentSkillParser
 from voren.skills.store import SQLiteSkillStore
 
@@ -45,6 +48,19 @@ class VorenWebHTTPProcessTest(unittest.TestCase):
         skill_store.activate(version.ref, reason="reviewed process-boundary test")
         skill_store.close()
         self.skill_ref = version.ref
+        knowledge_store = SQLiteKnowledgeStore(self.database)
+        document = KnowledgeDocument.create(
+            document_id="meeting:process-boundary",
+            title="Process-boundary review",
+            source_uri="meeting://process-boundary",
+            source_kind=KnowledgeSourceKind.MEETING_NOTE,
+            content="Voren 的进程边界评审定于周四下午。",
+            created_at=datetime(2026, 9, 14, 12, 0, tzinfo=UTC),
+        )
+        knowledge_store.install(document)
+        knowledge_store.activate(document.ref, reason="reviewed HTTP fixture")
+        knowledge_store.close()
+        self.knowledge_ref = document.ref
         self.port = self._unused_loopback_port()
         self.base_url = f"http://127.0.0.1:{self.port}"
         self.process: subprocess.Popen[str] | None = None
@@ -63,6 +79,20 @@ class VorenWebHTTPProcessTest(unittest.TestCase):
         self.assertFalse(health["live_model_configured"])
         self.assertEqual(health["skill_routing_mode"], "auto")
         self.assertEqual(health["active_skill_count"], 1)
+        self.assertEqual(health["knowledge_database"], str(self.database))
+
+        knowledge = self._request_json(
+            "/api/runs",
+            method="POST",
+            payload={
+                "client_request_id": f"knowledge:http-e2e:{uuid.uuid4()}",
+                "request": "进程边界评审安排在什么时候？",
+            },
+        )
+        self.assertEqual(knowledge["status"], "completed")
+        self.assertIn("周四下午", knowledge["final_text"])
+        self.assertIn("meeting://process-boundary", knowledge["final_text"])
+        self.assertIn(self.knowledge_ref.version_id, knowledge["final_text"])
 
         pending = self._request_json(
             "/api/runs",
@@ -121,6 +151,7 @@ class VorenWebHTTPProcessTest(unittest.TestCase):
         environment.update(
             {
                 "VOREN_WEB_DATABASE": str(self.database),
+                "VOREN_KNOWLEDGE_DATABASE": str(self.database),
                 "VOREN_SKILL_DATABASE": str(self.database),
                 "VOREN_SKILL_STORE": str(self.skill_store_root),
                 "VOREN_WEB_HOST": "127.0.0.1",

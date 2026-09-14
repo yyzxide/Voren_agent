@@ -92,6 +92,7 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
         self.assertFalse(health.json()["live_model_configured"])
         self.assertEqual(health.json()["skill_routing_mode"], "auto")
         self.assertEqual(health.json()["active_skill_count"], 0)
+        self.assertEqual(health.json()["knowledge_database"], str(self.database))
         self.assertEqual(health.json()["skill_database"], str(self.database))
         self.assertIn("font: 16px/1.6", css.text)
         javascript = self.client.get("/static/app.js")

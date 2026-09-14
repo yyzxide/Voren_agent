@@ -149,6 +149,7 @@ class VorenWebService:
         workspace_factory: WorkspaceFactory = create_agentdojo_web_workspace,
         workspace_name: str = "agentdojo",
         workspace_recoverable: bool = False,
+        knowledge_database: Path | None = None,
         skill_database: Path | None = None,
         skill_store_root: Path | None = None,
         skill_routing_mode: SkillRoutingMode = SkillRoutingMode.AUTO,
@@ -159,6 +160,8 @@ class VorenWebService:
         self.mode = mode
         self.workspace_name = workspace_name
         self.workspace_recoverable = workspace_recoverable
+        self.knowledge_database = knowledge_database or database
+        self.knowledge_database.parent.mkdir(parents=True, exist_ok=True)
         self.skill_database = skill_database or database
         self.skill_database.parent.mkdir(parents=True, exist_ok=True)
         self.skill_store_root = skill_store_root or (database.parent / "skills")
@@ -203,7 +206,7 @@ class VorenWebService:
                 run_id=run_id,
             )
             raise
-        knowledge_store = SQLiteKnowledgeStore(self.database)
+        knowledge_store = SQLiteKnowledgeStore(self.knowledge_database)
         ledger = SQLiteOperationLedger(self.database)
         run_store = SQLiteRunStore(self.database)
         try:
