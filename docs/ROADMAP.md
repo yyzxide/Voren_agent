@@ -152,7 +152,9 @@ audit are complete; see
 The paired contract is now connected to the exact version-pinned AgentDojo
 runtime and durable underlying artifacts; see
 [Phase 3 AgentDojo Skill Evaluator](implementation/PHASE3_AGENTDOJO_SKILL_EVALUATOR.md).
-The durable-learning router, a public CLI/report, and a comparison report for
+The explicit install/stage/decide/inspect/promote/rollback CLI is complete; see
+[Phase 3 Skill CLI](implementation/PHASE3_SKILL_CLI.md). The durable-learning
+router, paid AgentDojo candidate-evaluation CLI, and comparison report for
 learning baselines remain pending.
 
 Implement:

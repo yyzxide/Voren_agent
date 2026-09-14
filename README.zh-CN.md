@@ -73,6 +73,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [Phase 3 配对评测](docs/implementation/PHASE3_PAIRED_EVALUATION.zh-CN.md)
 - [Phase 3 晋升与回滚](docs/implementation/PHASE3_PROMOTION_ROLLBACK.zh-CN.md)
 - [Phase 3 AgentDojo Skill Evaluator](docs/implementation/PHASE3_AGENTDOJO_SKILL_EVALUATOR.zh-CN.md)
+- [Phase 3 Skill Lifecycle CLI](docs/implementation/PHASE3_SKILL_CLI.zh-CN.md)
 
 ## 当前可运行切片
 
@@ -87,6 +88,28 @@ Agent Loop Demo 会执行带 Provenance Label 的邮件与日历读取，在外�
 AgentDojo 官方 `user_task_18` Utility Grader 验证最终状态。它使用确定性
 Scripted Model，不连接真实邮件或日历账号。单独的 Lifecycle Demo 还会在等待
 Approval 时关闭并重建 SQLite Runtime。
+
+Skill Lifecycle 通过另一组显式 Subcommand 操作：
+
+```bash
+voren skill install skills/schedule-from-email --activate \
+  --reason 'reviewed baseline'
+voren skill stage path/to/candidate --candidate-id candidate-001 \
+  --base schedule-from-email --evidence-id operator:correction-001 \
+  --evidence-source operator_correction --evidence-digest "$EVIDENCE_SHA256" \
+  --instruction-authority
+voren skill decide --candidate-id candidate-001 \
+  --artifact .voren/artifacts/candidate-001.json
+voren skill inspect --candidate-id candidate-001
+voren skill promote --candidate-id candidate-001 \
+  --reason 'reviewed held-out evaluation'
+voren skill rollback --candidate-id candidate-001 \
+  --reason 'post-promotion regression'
+```
+
+`decide` 永远不会激活 Skill；`promote` 与 `rollback` 仍是各自带 Reason 的独立
+操作。Candidate Evaluation 生成会在下一个 CLI 切片加入；当前需通过 Python
+Evaluator 生成 Artifact。
 
 要运行 API-capable Adapter，请设置 Credential，明确选择 Endpoint Profile 与
 Model，并在本地生成一次 Transcript Key。默认 OpenAI Endpoint 可直接执行：

@@ -80,6 +80,7 @@ the first release.
 - [Phase 3 paired evaluation](docs/implementation/PHASE3_PAIRED_EVALUATION.md)
 - [Phase 3 promotion and rollback](docs/implementation/PHASE3_PROMOTION_ROLLBACK.md)
 - [Phase 3 AgentDojo Skill evaluator](docs/implementation/PHASE3_AGENTDOJO_SKILL_EVALUATOR.md)
+- [Phase 3 Skill lifecycle CLI](docs/implementation/PHASE3_SKILL_CLI.md)
 
 ## Current executable slice
 
@@ -95,6 +96,28 @@ operator approval and verifies the resulting state with AgentDojo's official
 `user_task_18` utility grader. It uses a deterministic scripted model and does
 not connect to a real email or calendar account. The separate lifecycle demo
 also closes and rebuilds the SQLite-backed runtime while approval is pending.
+
+The Skill lifecycle is separately available through explicit subcommands:
+
+```bash
+voren skill install skills/schedule-from-email --activate \
+  --reason 'reviewed baseline'
+voren skill stage path/to/candidate --candidate-id candidate-001 \
+  --base schedule-from-email --evidence-id operator:correction-001 \
+  --evidence-source operator_correction --evidence-digest "$EVIDENCE_SHA256" \
+  --instruction-authority
+voren skill decide --candidate-id candidate-001 \
+  --artifact .voren/artifacts/candidate-001.json
+voren skill inspect --candidate-id candidate-001
+voren skill promote --candidate-id candidate-001 \
+  --reason 'reviewed held-out evaluation'
+voren skill rollback --candidate-id candidate-001 \
+  --reason 'post-promotion regression'
+```
+
+`decide` never activates a Skill. `promote` and `rollback` remain separate,
+reason-bearing operations. Candidate evaluation generation is added in the next
+CLI slice; an Artifact must currently be produced through the Python evaluator.
 
 To exercise the API-capable adapter, set a credential, explicitly choose an
 endpoint profile and model, and generate a local transcript key once. The

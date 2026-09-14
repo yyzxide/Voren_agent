@@ -33,6 +33,10 @@ from voren.evaluation.agentdojo import (
 )
 from voren.evaluation.artifacts import detect_source_revision, write_artifact
 from voren.evaluation.models import EvaluationMode, ExperimentConfig
+from voren.learning.artifacts import read_candidate_evaluation
+from voren.learning.models import EvidenceRef, EvidenceSource
+from voren.learning.service import SkillCandidateService
+from voren.learning.store import CandidateStoreError, SQLiteCandidateStore
 from voren.providers.openai_responses import (
     ModelConfigurationError,
     OpenAIResponsesModelAdapter,
@@ -47,6 +51,8 @@ from voren.runtime.models import RuntimeLimits, RuntimeResultStatus, RuntimeUsag
 from voren.runtime.ports import ModelAdapter
 from voren.runtime.tools import external_action_tool
 from voren.runtime.transcripts import SQLiteTranscriptStore, TranscriptKeyError
+from voren.skills.parser import AgentSkillParser, SkillFormatError
+from voren.skills.store import SQLiteSkillStore
 
 
 Output = Callable[[str], Any]
@@ -56,7 +62,9 @@ ApprovalReader = Callable[[str], str]
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="voren",
-        description="Run Voren against the controlled AgentDojo workspace.",
+        description=(
+            "Run Voren in AgentDojo and manage evidence-gated Skill versions."
+        ),
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
     agentdojo = subcommands.add_parser(
@@ -154,7 +162,100 @@ def build_parser() -> argparse.ArgumentParser:
     evaluation.add_argument("--max-model-steps", type=int, default=8)
     evaluation.add_argument("--max-tool-calls", type=int, default=12)
     evaluation.set_defaults(handler=run_agentdojo_evaluation)
+    skills = subcommands.add_parser(
+        "skill",
+        help="Manage immutable Skills and evidence-gated candidates.",
+    )
+    skill_commands = skills.add_subparsers(dest="skill_command", required=True)
+
+    install = skill_commands.add_parser(
+        "install", help="Install an immutable Skill package."
+    )
+    install.add_argument("path", type=Path)
+    _add_skill_storage_arguments(install)
+    install.add_argument(
+        "--activate",
+        action="store_true",
+        help="Activate this manually managed baseline after installing it.",
+    )
+    install.add_argument("--reason", help="Required when --activate is used.")
+    install.set_defaults(handler=run_skill_install)
+
+    stage = skill_commands.add_parser(
+        "stage", help="Stage a bounded inactive candidate from one evidence item."
+    )
+    stage.add_argument("path", type=Path, help="Candidate Skill package path.")
+    stage.add_argument("--candidate-id", required=True)
+    stage.add_argument("--base", required=True, help="Active base Skill name.")
+    stage.add_argument("--evidence-id", required=True)
+    stage.add_argument(
+        "--evidence-source",
+        required=True,
+        choices=tuple(source.value for source in EvidenceSource),
+    )
+    stage.add_argument(
+        "--evidence-digest", required=True, help="SHA-256 of durable evidence."
+    )
+    stage.add_argument(
+        "--instruction-authority",
+        action="store_true",
+        help="Required only for an operator_correction evidence source.",
+    )
+    stage.add_argument(
+        "--evidence-case",
+        action="append",
+        default=[],
+        help="Evaluation case used as learning evidence; repeat as needed.",
+    )
+    _add_skill_storage_arguments(stage)
+    stage.set_defaults(handler=run_skill_stage)
+
+    decide = skill_commands.add_parser(
+        "decide", help="Accept or reject a staged candidate from an artifact."
+    )
+    decide.add_argument("--candidate-id", required=True)
+    decide.add_argument("--artifact", type=Path, required=True)
+    _add_skill_storage_arguments(decide)
+    decide.set_defaults(handler=run_skill_decide)
+
+    inspect = skill_commands.add_parser(
+        "inspect", help="Print one candidate, evaluations, and audit events as JSON."
+    )
+    inspect.add_argument("--candidate-id", required=True)
+    _add_skill_storage_arguments(inspect)
+    inspect.set_defaults(handler=run_skill_inspect)
+
+    promote = skill_commands.add_parser(
+        "promote", help="Atomically activate an accepted candidate."
+    )
+    promote.add_argument("--candidate-id", required=True)
+    promote.add_argument("--reason", required=True)
+    _add_skill_storage_arguments(promote)
+    promote.set_defaults(handler=run_skill_promote)
+
+    rollback = skill_commands.add_parser(
+        "rollback", help="Atomically restore a promoted candidate's exact base."
+    )
+    rollback.add_argument("--candidate-id", required=True)
+    rollback.add_argument("--reason", required=True)
+    _add_skill_storage_arguments(rollback)
+    rollback.set_defaults(handler=run_skill_rollback)
     return parser
+
+
+def _add_skill_storage_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--database",
+        type=Path,
+        default=Path(".voren/voren.sqlite3"),
+        help="SQLite Skill and candidate database.",
+    )
+    parser.add_argument(
+        "--skill-store",
+        type=Path,
+        default=Path(".voren/skills"),
+        help="Content-addressed immutable Skill object directory.",
+    )
 
 
 def run_agentdojo(
@@ -405,6 +506,182 @@ def run_agentdojo_evaluation(
     return 0
 
 
+def run_skill_install(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    if args.activate and not (args.reason or "").strip():
+        raise ValueError("--activate requires --reason")
+    if not args.activate and args.reason is not None:
+        raise ValueError("--reason is only valid together with --activate")
+    args.database.parent.mkdir(parents=True, exist_ok=True)
+    store = SQLiteSkillStore(
+        args.database,
+        root=args.skill_store,
+        parser=AgentSkillParser(),
+    )
+    try:
+        version = store.install(AgentSkillParser().load(args.path))
+        output(
+            f"installed: {version.ref.name}@{version.ref.version_id} (inactive)"
+        )
+        if args.activate:
+            store.activate(version.ref, reason=args.reason)
+            output(f"active: {version.ref.name}@{version.ref.version_id}")
+        return 0
+    finally:
+        store.close()
+
+
+def run_skill_stage(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    skills, candidates = _open_skill_stores(args)
+    try:
+        base_ref = skills.freeze_active((args.base,))[0]
+        evidence = EvidenceRef(
+            evidence_id=args.evidence_id,
+            source=EvidenceSource(args.evidence_source),
+            digest=args.evidence_digest,
+            instruction_authority=args.instruction_authority,
+            evaluation_case_ids=tuple(args.evidence_case),
+        )
+        candidate = SkillCandidateService(
+            skills=skills,
+            candidates=candidates,
+        ).stage(
+            candidate_id=args.candidate_id,
+            base_ref=base_ref,
+            package=AgentSkillParser().load(args.path),
+            evidence=(evidence,),
+        )
+        output(f"candidate: {candidate.candidate_id}")
+        output(f"status: {candidate.status.value}")
+        output(f"base: {candidate.base_ref.version_id}")
+        output(f"candidate version: {candidate.candidate_ref.version_id}")
+        output(f"diff digest: {candidate.diff.diff_digest}")
+        return 0
+    finally:
+        candidates.close()
+        skills.close()
+
+
+def run_skill_decide(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    artifact = read_candidate_evaluation(args.artifact)
+    skills, candidates = _open_skill_stores(args)
+    try:
+        candidate = SkillCandidateService(
+            skills=skills,
+            candidates=candidates,
+        ).decide(
+            candidate_id=args.candidate_id,
+            artifact=artifact,
+        )
+        output(f"candidate: {candidate.candidate_id}")
+        output(f"decision: {candidate.status.value}")
+        output(f"reason: {candidate.decision_reason}")
+        output(f"evaluation digest: {candidate.evaluation_artifact_digest}")
+        return 0 if candidate.status.value == "accepted" else 3
+    finally:
+        candidates.close()
+        skills.close()
+
+
+def run_skill_inspect(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    skills, candidates = _open_skill_stores(args)
+    try:
+        candidate = candidates.get(args.candidate_id)
+        payload = {
+            "candidate": candidate.model_dump(mode="json"),
+            "evaluations": [
+                artifact.model_dump(mode="json")
+                for artifact in candidates.list_evaluations(args.candidate_id)
+            ],
+            "events": [
+                event.model_dump(mode="json")
+                for event in candidates.list_events(args.candidate_id)
+            ],
+        }
+        output(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0
+    finally:
+        candidates.close()
+        skills.close()
+
+
+def run_skill_promote(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    skills, candidates = _open_skill_stores(args)
+    try:
+        candidate = SkillCandidateService(
+            skills=skills,
+            candidates=candidates,
+        ).promote(candidate_id=args.candidate_id, reason=args.reason)
+        output(f"candidate: {candidate.candidate_id}")
+        output(f"status: {candidate.status.value}")
+        output(
+            f"active: {candidate.candidate_ref.name}@"
+            f"{candidate.candidate_ref.version_id}"
+        )
+        return 0
+    finally:
+        candidates.close()
+        skills.close()
+
+
+def run_skill_rollback(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    skills, candidates = _open_skill_stores(args)
+    try:
+        candidate = SkillCandidateService(
+            skills=skills,
+            candidates=candidates,
+        ).rollback(candidate_id=args.candidate_id, reason=args.reason)
+        output(f"candidate: {candidate.candidate_id}")
+        output(f"status: {candidate.status.value}")
+        output(
+            f"active: {candidate.base_ref.name}@{candidate.base_ref.version_id}"
+        )
+        return 0
+    finally:
+        candidates.close()
+        skills.close()
+
+
+def _open_skill_stores(
+    args: argparse.Namespace,
+) -> tuple[SQLiteSkillStore, SQLiteCandidateStore]:
+    args.database.parent.mkdir(parents=True, exist_ok=True)
+    skills = SQLiteSkillStore(
+        args.database,
+        root=args.skill_store,
+        parser=AgentSkillParser(),
+    )
+    try:
+        candidates = SQLiteCandidateStore(args.database)
+    except Exception:
+        skills.close()
+        raise
+    return skills, candidates
+
+
 def _print_usage(usage: RuntimeUsage, output: Output) -> None:
     output(
         "model usage: "
@@ -442,7 +719,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return int(args.handler(args))
-    except (ModelConfigurationError, AgentDojoDependencyError, ValueError) as error:
+    except (
+        ModelConfigurationError,
+        AgentDojoDependencyError,
+        CandidateStoreError,
+        SkillFormatError,
+        ValueError,
+    ) as error:
         parser.error(str(error))
     return 2
 

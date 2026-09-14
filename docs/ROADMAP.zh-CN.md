@@ -148,8 +148,10 @@ Compare-and-swap Promotion/Rollback 与带完整性链的 Lifecycle Audit 已完
 Paired Contract 也已经接到精确 Version-pinned AgentDojo Runtime 与持久底层
 Artifact，详见
 [Phase 3 AgentDojo Skill Evaluator](implementation/PHASE3_AGENTDOJO_SKILL_EVALUATOR.zh-CN.md)。
-Durable-learning Router、公开 CLI/Report 与 Learning Baseline Comparison
-Report 仍待实现。
+显式 Install/Stage/Decide/Inspect/Promote/Rollback CLI 也已完成，详见
+[Phase 3 Skill CLI](implementation/PHASE3_SKILL_CLI.zh-CN.md)。Durable-learning
+Router、付费 AgentDojo Candidate-evaluation CLI 与 Learning Baseline
+Comparison Report 仍待实现。
 
 实现：
 

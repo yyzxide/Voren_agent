@@ -1,6 +1,10 @@
 """Offline, evidence-gated Skill candidate lifecycle."""
 
 from voren.learning.agentdojo import AgentDojoSkillEvaluator, SkillModelFactory
+from voren.learning.artifacts import (
+    read_candidate_evaluation,
+    write_candidate_evaluation,
+)
 from voren.learning.evaluation import (
     CandidateEvaluationArtifact,
     CandidateTrialResult,
@@ -58,10 +62,12 @@ __all__ = [
     "HeldOutCase",
     "PairedCaseResult",
     "PairedEvaluationRunner",
+    "read_candidate_evaluation",
     "SQLiteCandidateStore",
     "SkillCandidate",
     "SkillCandidateService",
     "SkillDiff",
     "SkillModelFactory",
     "TrialMeasurement",
+    "write_candidate_evaluation",
 ]

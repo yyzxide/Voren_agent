@@ -242,6 +242,18 @@ class SQLiteCandidateStore:
         artifact.assert_integrity()
         return artifact
 
+    def list_evaluations(
+        self, candidate_id: str
+    ) -> tuple[CandidateEvaluationArtifact, ...]:
+        rows = self._connection.execute(
+            """SELECT evaluation_id FROM skill_candidate_evaluations
+               WHERE candidate_id = ? ORDER BY created_at, evaluation_id""",
+            (candidate_id,),
+        ).fetchall()
+        return tuple(
+            self.get_evaluation(str(row["evaluation_id"])) for row in rows
+        )
+
     def promote(
         self,
         *,
