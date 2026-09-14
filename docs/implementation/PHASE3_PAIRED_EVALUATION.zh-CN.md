@@ -39,5 +39,5 @@ Provider Timeout 等显式分类的 Infrastructure Failure 不携带 Utility/Sec
 
 Runner 定义了编排和 Artifact Contract；具体 Evaluator 仍需执行冻结 Runtime，
 并为每次 Trial 生成底层 Run Artifact。当前确定性测试证明的是绑定、Policy、
-持久化和故障语义，不代表 Live Model 质量。Promotion 与 Rollback 在下一切片
-实现。
+持久化和故障语义，不代表 Live Model 质量。Promotion 与 Rollback 见后续实现
+说明。

@@ -146,7 +146,11 @@ candidates are complete. See
 An integrity-bound paired held-out runner and deterministic acceptance policy
 are also complete; see
 [Phase 3 Paired Evaluation](implementation/PHASE3_PAIRED_EVALUATION.md).
-Atomic promotion and rollback remain pending.
+Atomic compare-and-swap promotion/rollback and an integrity-chained lifecycle
+audit are complete; see
+[Phase 3 Promotion and Rollback](implementation/PHASE3_PROMOTION_ROLLBACK.md).
+A concrete frozen-runtime evaluator, durable-learning router, and comparison
+report for learning baselines remain pending.
 
 Implement:
 

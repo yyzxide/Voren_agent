@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import sqlite3
 import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
@@ -21,7 +23,11 @@ from voren.learning.runner import (
     PairedEvaluationRunner,
 )
 from voren.learning.service import SkillCandidateService
-from voren.learning.store import CandidateStoreError, SQLiteCandidateStore
+from voren.learning.store import (
+    CandidatePromotionError,
+    CandidateStoreError,
+    SQLiteCandidateStore,
+)
 from voren.skills.parser import AgentSkillParser
 from voren.skills.store import SQLiteSkillStore
 
@@ -267,6 +273,186 @@ class SkillCandidateEvaluationTest(unittest.TestCase):
                 artifact=tampered,
                 decided_at=self.now + timedelta(minutes=3),
             )
+
+    def test_accepted_candidate_promotes_with_integrity_chained_events(self) -> None:
+        candidate = self._stage()
+        artifact = self._run(candidate, self._improving_outcomes(candidate))
+        self.service.decide(
+            candidate_id=candidate.candidate_id,
+            artifact=artifact,
+            decided_at=self.now + timedelta(minutes=3),
+        )
+
+        promoted = self.service.promote(
+            candidate_id=candidate.candidate_id,
+            reason="operator approved held-out report",
+            promoted_at=self.now + timedelta(minutes=4),
+        )
+
+        self.assertIs(promoted.status, CandidateStatus.PROMOTED)
+        self.assertEqual(self.skills.freeze_active(), (candidate.candidate_ref,))
+        events = self.candidates.list_events(candidate.candidate_id)
+        self.assertEqual(
+            tuple(event.event_type.value for event in events),
+            ("staged", "decided", "promoted"),
+        )
+        self.assertEqual(events[1].event_digest, events[2].previous_event_digest)
+        self.assertEqual(events[2].active_from, candidate.base_ref)
+        self.assertEqual(events[2].active_to, candidate.candidate_ref)
+
+        retried = self.service.promote(
+            candidate_id=candidate.candidate_id,
+            reason="same request retried",
+            promoted_at=self.now + timedelta(hours=1),
+        )
+        self.assertEqual(retried, promoted)
+        self.assertEqual(len(self.candidates.list_events(candidate.candidate_id)), 3)
+
+    def test_rollback_restores_exact_base_and_is_idempotent(self) -> None:
+        candidate = self._stage()
+        artifact = self._run(candidate, self._improving_outcomes(candidate))
+        self.service.decide(
+            candidate_id=candidate.candidate_id,
+            artifact=artifact,
+            decided_at=self.now + timedelta(minutes=3),
+        )
+        self.service.promote(
+            candidate_id=candidate.candidate_id,
+            reason="operator promotion",
+            promoted_at=self.now + timedelta(minutes=4),
+        )
+
+        rolled_back = self.service.rollback(
+            candidate_id=candidate.candidate_id,
+            reason="regression observed after promotion",
+            rolled_back_at=self.now + timedelta(minutes=5),
+        )
+
+        self.assertIs(rolled_back.status, CandidateStatus.ROLLED_BACK)
+        self.assertEqual(self.skills.freeze_active(), (candidate.base_ref,))
+        events = self.candidates.list_events(candidate.candidate_id)
+        self.assertEqual(events[-1].event_type.value, "rolled_back")
+        self.assertEqual(events[-1].active_from, candidate.candidate_ref)
+        self.assertEqual(events[-1].active_to, candidate.base_ref)
+
+        retried = self.service.rollback(
+            candidate_id=candidate.candidate_id,
+            reason="duplicate rollback request",
+            rolled_back_at=self.now + timedelta(hours=1),
+        )
+        self.assertEqual(retried, rolled_back)
+        self.assertEqual(len(self.candidates.list_events(candidate.candidate_id)), 4)
+
+    def test_rejected_candidate_cannot_promote(self) -> None:
+        candidate = self._stage()
+        outcomes = {
+            ("benign-1", candidate.base_ref): (True, None),
+            ("benign-1", candidate.candidate_ref): (False, None),
+            ("attack-1", candidate.base_ref): (True, False),
+            ("attack-1", candidate.candidate_ref): (True, False),
+        }
+        self.service.decide(
+            candidate_id=candidate.candidate_id,
+            artifact=self._run(candidate, outcomes),
+            decided_at=self.now + timedelta(minutes=3),
+        )
+
+        with self.assertRaises(CandidatePromotionError):
+            self.service.promote(
+                candidate_id=candidate.candidate_id,
+                reason="must not bypass rejection",
+                promoted_at=self.now + timedelta(minutes=4),
+            )
+
+        self.assertEqual(self.skills.freeze_active(), (candidate.base_ref,))
+        self.assertEqual(len(self.candidates.list_events(candidate.candidate_id)), 2)
+
+    def test_stale_active_pointer_aborts_promotion_transaction(self) -> None:
+        candidate = self._stage()
+        artifact = self._run(candidate, self._improving_outcomes(candidate))
+        accepted = self.service.decide(
+            candidate_id=candidate.candidate_id,
+            artifact=artifact,
+            decided_at=self.now + timedelta(minutes=3),
+        )
+        self._write_skill("Use a separate manually reviewed version.")
+        manual = self.skills.install(
+            self.parser.load(self.source),
+            created_at=self.now + timedelta(minutes=4),
+        )
+        self.skills.activate(
+            manual.ref,
+            reason="independent manual release",
+            activated_at=self.now + timedelta(minutes=5),
+        )
+
+        with self.assertRaisesRegex(CandidatePromotionError, "evaluated base"):
+            self.service.promote(
+                candidate_id=candidate.candidate_id,
+                reason="stale promotion",
+                promoted_at=self.now + timedelta(minutes=6),
+            )
+
+        self.assertEqual(self.candidates.get(candidate.candidate_id), accepted)
+        self.assertEqual(self.skills.freeze_active(), (manual.ref,))
+        self.assertEqual(len(self.candidates.list_events(candidate.candidate_id)), 2)
+
+    def test_rollback_does_not_overwrite_a_later_active_version(self) -> None:
+        candidate = self._stage()
+        artifact = self._run(candidate, self._improving_outcomes(candidate))
+        self.service.decide(
+            candidate_id=candidate.candidate_id,
+            artifact=artifact,
+            decided_at=self.now + timedelta(minutes=3),
+        )
+        promoted = self.service.promote(
+            candidate_id=candidate.candidate_id,
+            reason="operator promotion",
+            promoted_at=self.now + timedelta(minutes=4),
+        )
+        self._write_skill("Use a newer independently reviewed version.")
+        newer = self.skills.install(
+            self.parser.load(self.source),
+            created_at=self.now + timedelta(minutes=5),
+        )
+        self.skills.activate(
+            newer.ref,
+            reason="later independent release",
+            activated_at=self.now + timedelta(minutes=6),
+        )
+
+        with self.assertRaisesRegex(
+            CandidatePromotionError, "promoted candidate"
+        ):
+            self.service.rollback(
+                candidate_id=candidate.candidate_id,
+                reason="stale rollback",
+                rolled_back_at=self.now + timedelta(minutes=7),
+            )
+
+        self.assertEqual(self.candidates.get(candidate.candidate_id), promoted)
+        self.assertEqual(self.skills.freeze_active(), (newer.ref,))
+        self.assertEqual(len(self.candidates.list_events(candidate.candidate_id)), 3)
+
+    def test_lifecycle_event_content_tampering_is_detected(self) -> None:
+        candidate = self._stage()
+        with sqlite3.connect(self.database) as connection:
+            row = connection.execute(
+                """SELECT event_json FROM skill_candidate_events
+                   WHERE candidate_id = ? AND sequence = 1""",
+                (candidate.candidate_id,),
+            ).fetchone()
+            self.assertIsNotNone(row)
+            payload = json.loads(row[0])
+            payload["reason"] = "rewritten audit history"
+            connection.execute(
+                """UPDATE skill_candidate_events SET event_json = ?
+                   WHERE candidate_id = ? AND sequence = 1""",
+                (json.dumps(payload), candidate.candidate_id),
+            )
+
+        with self.assertRaisesRegex(CandidateStoreError, "integrity"):
+            self.candidates.list_events(candidate.candidate_id)
 
 
 if __name__ == "__main__":

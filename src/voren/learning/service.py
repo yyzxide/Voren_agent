@@ -96,3 +96,29 @@ class SkillCandidateService:
             decision=decision,
             decided_at=decided_at or datetime.now(UTC),
         )
+
+    def promote(
+        self,
+        *,
+        candidate_id: str,
+        reason: str,
+        promoted_at: datetime | None = None,
+    ) -> SkillCandidate:
+        return self._candidates.promote(
+            candidate_id=candidate_id,
+            reason=reason,
+            promoted_at=promoted_at or datetime.now(UTC),
+        )
+
+    def rollback(
+        self,
+        *,
+        candidate_id: str,
+        reason: str,
+        rolled_back_at: datetime | None = None,
+    ) -> SkillCandidate:
+        return self._candidates.rollback(
+            candidate_id=candidate_id,
+            reason=reason,
+            rolled_back_at=rolled_back_at or datetime.now(UTC),
+        )

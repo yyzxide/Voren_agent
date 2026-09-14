@@ -44,5 +44,5 @@ exceptions are not swallowed by the runner.
 The runner defines the orchestration and artifact contract; a concrete evaluator
 still has to run the frozen runtime and produce each underlying run artifact.
 The current deterministic tests prove binding, policy, persistence, and failure
-semantics, not live-model quality. Promotion and rollback are implemented in the
-next slice.
+semantics, not live-model quality. Promotion and rollback are described in the
+following implementation note.

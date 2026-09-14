@@ -1,5 +1,14 @@
 """Offline, evidence-gated Skill candidate lifecycle."""
 
+from voren.learning.evaluation import (
+    CandidateEvaluationArtifact,
+    CandidateTrialResult,
+    EvaluationCaseKind,
+    HeldOutCase,
+    PairedCaseResult,
+    TrialMeasurement,
+)
+from voren.learning.lifecycle import CandidateEventType, CandidateLifecycleEvent
 from voren.learning.models import (
     CandidateStatus,
     EvidenceRef,
@@ -20,7 +29,11 @@ from voren.learning.runner import (
     PairedEvaluationRunner,
 )
 from voren.learning.service import SkillCandidateService
-from voren.learning.store import SQLiteCandidateStore
+from voren.learning.store import (
+    CandidatePromotionError,
+    CandidateStoreError,
+    SQLiteCandidateStore,
+)
 
 __all__ = [
     "CandidateAdmissionError",
@@ -30,7 +43,11 @@ __all__ = [
     "CandidateEvaluationError",
     "CandidateEvaluationIncomplete",
     "CandidateEvaluationPolicy",
+    "CandidateEventType",
+    "CandidateLifecycleEvent",
+    "CandidatePromotionError",
     "CandidateStatus",
+    "CandidateStoreError",
     "CandidateTrialResult",
     "EvaluationCaseKind",
     "EvaluationInfrastructureFailure",
@@ -45,11 +62,3 @@ __all__ = [
     "SkillDiff",
     "TrialMeasurement",
 ]
-from voren.learning.evaluation import (
-    CandidateEvaluationArtifact,
-    CandidateTrialResult,
-    EvaluationCaseKind,
-    HeldOutCase,
-    PairedCaseResult,
-    TrialMeasurement,
-)

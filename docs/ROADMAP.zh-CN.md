@@ -143,7 +143,10 @@ Profile/Episode Store、Semantic Skill Routing，以及配对的 `no_skill`/
 [Phase 3 Candidate 暂存](implementation/PHASE3_CANDIDATE_STAGING.zh-CN.md)。
 绑定完整性校验的 Paired Held-out Runner 与确定性 Acceptance Policy 也已完成，
 详见 [Phase 3 配对评测](implementation/PHASE3_PAIRED_EVALUATION.zh-CN.md)。原子
-Promotion 与 Rollback 仍待实现。
+Compare-and-swap Promotion/Rollback 与带完整性链的 Lifecycle Audit 已完成，
+详见 [Phase 3 晋升与回滚](implementation/PHASE3_PROMOTION_ROLLBACK.zh-CN.md)。
+具体 Frozen-runtime Evaluator、Durable-learning Router 与 Learning Baseline
+Comparison Report 仍待实现。
 
 实现：
 
