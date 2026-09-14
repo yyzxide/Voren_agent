@@ -64,6 +64,7 @@ from voren.runtime.models import RuntimeLimits, RuntimeResultStatus, RuntimeUsag
 from voren.runtime.ports import ModelAdapter
 from voren.runtime.tools import external_action_tool
 from voren.runtime.transcripts import SQLiteTranscriptStore, TranscriptKeyError
+from voren.skills.context import SkillContextAssembler, SkillContextSnapshot
 from voren.skills.parser import AgentSkillParser, SkillFormatError
 from voren.skills.store import SQLiteSkillStore
 
@@ -186,6 +187,21 @@ def build_parser() -> argparse.ArgumentParser:
     evaluation.add_argument("--max-output-tokens", type=int, default=2_048)
     evaluation.add_argument("--max-model-steps", type=int, default=8)
     evaluation.add_argument("--max-tool-calls", type=int, default=12)
+    evaluation.add_argument(
+        "--skill",
+        action="append",
+        default=[],
+        help=(
+            "Explicit active Skill name to freeze into a static_skill trial; "
+            "repeat as needed. Omit for no_skill."
+        ),
+    )
+    evaluation.add_argument(
+        "--skill-store",
+        type=Path,
+        default=Path(".voren/skills"),
+        help="Content-addressed immutable Skill object directory.",
+    )
     evaluation.set_defaults(handler=run_agentdojo_evaluation)
     skills = subcommands.add_parser(
         "skill",
@@ -613,6 +629,24 @@ def run_agentdojo_evaluation(
     if "all" in case_ids and case_ids != ("all",):
         raise ValueError("'all' cannot be combined with explicit case IDs")
     selections = select_trials(manifest, case_ids=case_ids, modes=modes)
+    skill_names = tuple(args.skill)
+    if len(skill_names) != len(set(skill_names)):
+        raise ValueError("evaluation skill names must be unique")
+    if skill_names:
+        args.database.parent.mkdir(parents=True, exist_ok=True)
+        skill_store = SQLiteSkillStore(
+            args.database,
+            root=args.skill_store,
+            parser=AgentSkillParser(),
+        )
+        try:
+            skill_context = SkillContextAssembler(skill_store).static_skill(
+                skill_names
+            )
+        finally:
+            skill_store.close()
+    else:
+        skill_context = SkillContextSnapshot.no_skill()
 
     resolved_model_factory = model_factory
     if resolved_model_factory is None:
@@ -629,7 +663,9 @@ def run_agentdojo_evaluation(
         resolved_model_factory = create_model
 
     source = detect_source_revision(Path.cwd())
-    prompt_digest, tool_digest, attack_digest = evaluation_input_digests()
+    prompt_digest, tool_digest, attack_digest = evaluation_input_digests(
+        skill_context
+    )
     config = ExperimentConfig(
         experiment_id=args.experiment_id or f"eval-{uuid4()}",
         created_at=datetime.now(UTC),
@@ -656,6 +692,15 @@ def run_agentdojo_evaluation(
             "timeout_seconds": args.timeout_seconds,
             "temperature": "provider_default",
             "seed": None,
+            "skill_context": {
+                "mode": skill_context.mode.value,
+                "skill_versions": [
+                    ref.model_dump(mode="json")
+                    for ref in skill_context.skill_versions
+                ],
+                "context_digest": skill_context.context_digest,
+                "instruction_bytes": skill_context.instruction_bytes,
+            },
         },
     )
     runner = AgentDojoEvaluationRunner(
@@ -665,6 +710,7 @@ def run_agentdojo_evaluation(
             max_model_steps=args.max_model_steps,
             max_tool_calls=args.max_tool_calls,
         ),
+        skill_context=skill_context,
     )
     artifact = runner.run(
         config=config,
@@ -675,6 +721,12 @@ def run_agentdojo_evaluation(
     output(f"artifact: {args.output}")
     output(f"artifact digest: {artifact.artifact_digest}")
     output(f"code revision: {source.revision} (dirty={source.dirty})")
+    output(
+        "skill context: "
+        f"{skill_context.mode.value} "
+        f"({len(skill_context.skill_versions)} exact version(s), "
+        f"digest={skill_context.context_digest})"
+    )
     for summary in artifact.summaries:
         attack_rate = (
             "n/a"

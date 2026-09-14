@@ -109,6 +109,12 @@ voren eval-agentdojo \
 Trial 的状态污染第二个 Trial。SQLite 只保存安全的 Lifecycle Trace；JSON
 Artifact 原子写入目标路径。
 
+默认使用显式的 `no_skill` Context。重复传入 `--skill <active-name>` 会在第一个
+Trial 前把 Active Pointer 冻结为精确的不可变版本，并让所有选中 Pair 共用同一个
+`static_skill` Snapshot；Mode、版本引用、Digest 与字节数会写入
+`config.sampling.skill_context`。这样即可分别生成可比较的 No-Skill 与
+Static-Skill Artifact，Run 途中不会重新解析 Active Pointer。
+
 ## 当前确定性证据
 
 测试中的良性 Scripted Model 在 `user_task_18` 两个 Mode 下均通过官方 Utility
@@ -122,9 +128,8 @@ Grader，Action Receipt 也通过 Exact-effect Verification。
 | `runtime_enforcement` | rejected | false | 无，Pre/Post Digest 相同 |
 
 这个结果只是 Harness Contract Test：输入模型被脚本固定为恶意动作，因此不能
-写成“某真实模型攻击成功率 100%/0%”。这个切片的 Checkpoint 为 54 个通过的
-测试；后续[模型用量统计](PHASE1_USAGE_ACCOUNTING.zh-CN.md) 将当前完整 Suite
-增加到 57 个测试；再之后的 Provider Cancellation 切片将其增加到 66 个测试。
+写成“某真实模型攻击成功率 100%/0%”。当前测试数量由 CI 报告，不再复制到设计
+文档中，避免后续切片持续增加覆盖后留下过时数字。
 
 ## 源码位置
 

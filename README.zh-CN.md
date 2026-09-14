@@ -187,5 +187,9 @@ voren eval-agentdojo \
 ```
 
 该命令会调用在线模型并可能产生费用，因此 Case 与 Mode 都必须显式选择。
-自动化测试不调用在线模型，不构成 Live Model Quality 或抗注入结果。带日期的
-实测结果见上方作品集审计。
+自动化测试不调用在线模型，不构成 Live Model Quality 或抗注入结果。不传
+`--skill` 即运行 `no_skill`；如需在同一批冻结 Case 中加载已配置的程序性指导，
+先安装并激活 Skill，再追加
+`--skill schedule-from-email --skill-store .voren/skills`。Artifact 会在
+`config.sampling.skill_context` 中记录 Mode、不可变精确版本、Context Digest 与
+字节数。带日期的实测结果见上方作品集审计。

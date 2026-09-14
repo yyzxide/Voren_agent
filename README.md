@@ -204,5 +204,10 @@ voren eval-agentdojo \
 
 This command calls an online model and may incur cost, so both cases and modes
 must be selected explicitly. The automated tests do not call a live model and
-are not live-model quality or prompt-injection results. For a dated test result,
-see the portfolio audit above.
+are not live-model quality or prompt-injection results. Omit `--skill` for a
+`no_skill` trial. To run the same frozen cases with configured procedural
+guidance, first install and activate the Skill, then add
+`--skill schedule-from-email --skill-store .voren/skills`. The Artifact records
+the mode, exact immutable Skill versions, context digest, and byte count under
+`config.sampling.skill_context`. For a dated test result, see the portfolio
+audit above.

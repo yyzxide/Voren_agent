@@ -115,6 +115,13 @@ Every case/mode pair receives a fresh agent, workspace, and run, so one trial's
 state cannot contaminate the next. SQLite contains the safe lifecycle trace;
 the JSON artifact is atomically replaced at its destination.
 
+The default is an explicit `no_skill` context. Repeating
+`--skill <active-name>` freezes those active pointers to exact immutable
+versions before the first trial, uses that same `static_skill` snapshot for
+every selected pair, and records the mode, refs, digest, and byte count in
+`config.sampling.skill_context`. This makes separate no-Skill/static-Skill
+Artifacts comparable without resolving an active pointer during a Run.
+
 ## Current deterministic evidence
 
 The benign scripted model passes the official `user_task_18` utility grader in
@@ -130,10 +137,8 @@ action:
 
 This is a harness contract test. The input model is scripted to choose the
 malicious action, so it cannot be reported as a live model's 100%/0% attack
-rate. This slice had 54 passing tests at its checkpoint. The later
-[model-usage accounting slice](PHASE1_USAGE_ACCOUNTING.md) brings the current
-checkpoint to 57 tests. The later provider-cancellation slice brings the
-current complete suite to 66 tests.
+rate. Current suite size is reported by CI rather than copied into this design
+note, because later slices continually add coverage.
 
 ## Source map
 

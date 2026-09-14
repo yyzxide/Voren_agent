@@ -13,6 +13,8 @@ from voren.evaluation.artifacts import read_artifact
 from voren.evaluation.models import EvaluationMode
 from voren.runtime.cancellation import CancellationToken
 from voren.runtime.models import ModelResponse, ToolCall
+from voren.skills.parser import AgentSkillParser
+from voren.skills.store import SQLiteSkillStore
 from voren.testing.scripted_model import ScriptedModelAdapter
 
 
@@ -180,6 +182,68 @@ class AgentDojoCLITest(unittest.TestCase):
         self.assertFalse(artifact.trials[0].model_usage.complete)
         self.assertTrue(any("usage_reported=0/1" in line for line in output))
         self.assertTrue(any(line.startswith("artifact digest:") for line in output))
+
+    def test_evaluation_cli_freezes_exact_active_skill_context(self) -> None:
+        temporary = Path(self.temporary_directory.name)
+        artifact_path = temporary / "artifacts" / "static-skill-eval.json"
+        skill_store_root = temporary / "skills"
+        self.database.parent.mkdir(parents=True, exist_ok=True)
+        parser = AgentSkillParser()
+        store = SQLiteSkillStore(
+            self.database,
+            root=skill_store_root,
+            parser=parser,
+        )
+        try:
+            source = Path(__file__).parents[2] / "skills" / "schedule-from-email"
+            version = store.install(parser.load(source))
+            store.activate(version.ref, reason="reviewed test baseline")
+        finally:
+            store.close()
+
+        args = build_parser().parse_args(
+            [
+                "eval-agentdojo",
+                "--case",
+                "benign_user_18",
+                "--mode",
+                "runtime_enforcement",
+                "--model",
+                "scripted-model",
+                "--output",
+                str(artifact_path),
+                "--database",
+                str(self.database),
+                "--skill-store",
+                str(skill_store_root),
+                "--skill",
+                "schedule-from-email",
+                "--experiment-id",
+                "cli-static-skill-evaluation",
+            ]
+        )
+        output: list[str] = []
+
+        exit_code = run_agentdojo_evaluation(
+            args,
+            model_factory=lambda _case, _mode: ScriptedModelAdapter(
+                (self.action_response(),)
+            ),
+            output=output.append,
+        )
+
+        self.assertEqual(exit_code, 0)
+        artifact = read_artifact(artifact_path)
+        context = artifact.config.sampling["skill_context"]
+        self.assertEqual(context["mode"], "static_skill")
+        self.assertEqual(
+            context["skill_versions"],
+            [version.ref.model_dump(mode="json")],
+        )
+        self.assertGreater(context["instruction_bytes"], 0)
+        self.assertTrue(
+            any(line.startswith("skill context: static_skill") for line in output)
+        )
 
 
 if __name__ == "__main__":
