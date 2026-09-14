@@ -27,6 +27,11 @@ from voren.adapters.google_workspace import (
     GoogleWorkspaceConfigurationError,
     GoogleWorkspaceConnector,
 )
+from voren.adapters.google_smoke import (
+    GoogleSmokeArtifact,
+    collect_google_smoke_run,
+    write_google_smoke_artifact,
+)
 from voren.adapters.workspace_contracts import (
     WORKSPACE_CONTRACT_VERSION,
     create_calendar_event_definition,
@@ -202,6 +207,30 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_runtime_skill_arguments(google)
     google.set_defaults(handler=run_google)
+
+    google_smoke = subcommands.add_parser(
+        "export-google-smoke",
+        help="Export a redacted artifact from a complete live Google smoke suite.",
+    )
+    google_smoke.add_argument(
+        "--database",
+        type=Path,
+        default=Path(".voren/voren.sqlite3"),
+        help="SQLite trace database containing the live Google runs.",
+    )
+    google_smoke.add_argument(
+        "--run-id",
+        action="append",
+        required=True,
+        help="Completed live Google run ID; repeat to supply the full suite.",
+    )
+    google_smoke.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="Destination for the redacted integrity-checked JSON artifact.",
+    )
+    google_smoke.set_defaults(handler=run_google_smoke_export)
 
     evaluation = subcommands.add_parser(
         "eval-agentdojo",
@@ -634,10 +663,17 @@ def run_google(
 ) -> int:
     """Run the same controlled loop against a real Google REST boundary."""
 
+    model_was_injected = model is not None
+    connector_was_injected = connector is not None
     resolved_model, model_name, provider_name = _resolve_run_model(args, model)
     active_connector = connector or GoogleWorkspaceConnector(
         GoogleWorkspaceConfig.from_environment()
     )
+    resolved_endpoint = resolve_responses_endpoint(
+        base_url=args.base_url,
+        provider_profile=getattr(args, "provider_profile", None),
+    ).endpoint
+    source_revision = detect_source_revision(Path.cwd())
     draft_action, calendar_action = active_connector.action_definitions
     return _run_workspace_request(
         args,
@@ -661,6 +697,21 @@ def run_google(
         workflow="google_email_calendar",
         world_adapter="google_workspace_rest_v1",
         action_contract_versions=(GOOGLE_WORKSPACE_CONTRACT_VERSION,),
+        execution_metadata={
+            "provider_endpoint": resolved_endpoint,
+            "code_revision": source_revision.revision,
+            "code_dirty": source_revision.dirty,
+            "google_connector_boundary": (
+                "injected_connector"
+                if connector_was_injected
+                else "environment_google_rest"
+            ),
+            "model_adapter_boundary": (
+                "injected_model"
+                if model_was_injected
+                else "environment_responses_api"
+            ),
+        },
         cancellation=cancellation,
         transcript_key=transcript_key,
         approval_reader=approval_reader,
@@ -704,6 +755,7 @@ def _run_workspace_request(
     workflow: str,
     world_adapter: str,
     action_contract_versions: tuple[str, ...],
+    execution_metadata: Mapping[str, Any] | None = None,
     cancellation: CancellationToken | None,
     transcript_key: str | None,
     approval_reader: ApprovalReader,
@@ -793,6 +845,7 @@ def _run_workspace_request(
                     "model": model_name,
                     "provider": provider_name,
                     "skill_routing": skill_route.model_dump(mode="json"),
+                    **(execution_metadata or {}),
                 },
             ),
             cancellation=cancellation,
@@ -856,6 +909,31 @@ def _run_workspace_request(
         transcript_store.close()
         store.close()
         ledger.close()
+
+
+def run_google_smoke_export(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    """Export only a complete, clean-revision, live-boundary Google suite."""
+
+    store = SQLiteRunStore(args.database)
+    try:
+        runs = tuple(
+            collect_google_smoke_run(
+                store.get_run(run_id),
+                store.list_events(run_id),
+            )
+            for run_id in args.run_id
+        )
+        artifact = GoogleSmokeArtifact.create(runs=runs)
+        write_google_smoke_artifact(args.output, artifact)
+        output(f"Google smoke artifact: {args.output}")
+        output(f"artifact digest: {artifact.artifact_digest}")
+        return 0
+    finally:
+        store.close()
 
 
 def _select_runtime_skill_context(

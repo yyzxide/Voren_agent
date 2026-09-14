@@ -91,6 +91,8 @@ class GoogleWorkspaceCLITest(unittest.TestCase):
                 "SELECT config_json, status FROM runs"
             ).fetchone()
         self.assertIn('"world_adapter":"google_workspace_rest_v1"', config_json)
+        self.assertIn('"google_connector_boundary":"injected_connector"', config_json)
+        self.assertIn('"model_adapter_boundary":"injected_model"', config_json)
         self.assertEqual(status, "completed")
 
     def test_rejected_google_action_never_dispatches_http_write(self) -> None:
