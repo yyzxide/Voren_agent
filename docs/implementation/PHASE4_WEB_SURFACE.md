@@ -71,6 +71,14 @@ Receipt, rejection, duplicate submission/decision, conflicting request IDs,
 lost in-memory workspace after restart, SSE replay, and model-configuration
 failure retry.
 
-The test client needs local IPC. Capability-restricted sandboxes skip this test
-class; the complete suite is also run outside that boundary and normal CI runs
-it.
+`tests/integration/test_web_http_process.py` adds a process-boundary acceptance
+path. It cold-starts the installed Web entry point on an ephemeral loopback
+port, uses real TCP/HTTP requests to load the page, submits a scheduling task,
+approves its exact effect digest, consumes the terminal SSE stream, and then
+restarts the server against the same SQLite database to verify that the
+completed receipt remains recoverable. It uses only the deterministic demo
+workspace and never needs a model or Google credential.
+
+The test client and process-boundary acceptance path need local IPC. Capability-
+restricted sandboxes skip tests whose prerequisites are unavailable; the
+complete suite is also run outside that boundary and normal CI runs it.

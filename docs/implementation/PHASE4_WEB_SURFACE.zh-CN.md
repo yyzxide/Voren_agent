@@ -58,5 +58,11 @@ Model 或 Workspace 配置缺失时返回 HTTP 503，同时释放 Request Reserv
 后的 Receipt、拒绝、重复 Submission/Decision、冲突 Request ID、重启后丢失内存
 Workspace、SSE 回放，以及模型配置失败后的重试。
 
-Test Client 需要本地 IPC；能力受限沙箱会按环境跳过整个 Class。完整 Suite 也会在
-该边界外运行，普通 CI 环境会实际执行。
+`tests/integration/test_web_http_process.py` 补充进程边界验收路径：它在随机 Loopback
+端口冷启动已安装的 Web 入口，通过真实 TCP/HTTP 加载页面、提交日程任务、批准绑定
+精确 Effect 的 Digest、消费终态 SSE，再使用同一 SQLite 数据库重启 Server，验证
+已完成 Receipt 仍能恢复。该路径只使用确定性 Demo Workspace，不需要模型或 Google
+Credential。
+
+Test Client 与进程边界验收都需要本地 IPC；能力受限沙箱会跳过前置条件不满足的
+测试。完整 Suite 也会在该边界外运行，普通 CI 环境会实际执行。
