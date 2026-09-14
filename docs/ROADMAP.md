@@ -127,6 +127,8 @@ Typed Profile/Episode stores, evidence-only classification, exact RunConfig
 memory snapshots, bounded model context, redacted CLI inspection, and explicit
 AgentDojo loading are complete; see
 [Typed Memory and Frozen Context](implementation/PHASE2_TYPED_MEMORY.md).
+The Web surface now freezes active operator-authored Profiles by default while
+keeping Episodes explicit-only, and exposes exact references without content.
 Version-pinned `no_skill`/`static_skill` evaluation artifacts are implemented.
 Embedding-based semantic routing is deliberately outside the current acceptance
 boundary rather than being represented as completed.

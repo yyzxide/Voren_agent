@@ -52,6 +52,7 @@ function appendMessage(role, text) {
 function renderRun(run) {
   state.run = run;
   saveSession();
+  renderMemoryContext(run.memory_versions || []);
   renderSkillRoute(run.skill_routing);
   if (run.final_text) appendMessage("agent", run.final_text);
   if (run.error_code) {
@@ -67,6 +68,18 @@ function renderRun(run) {
   }
   renderApproval(run);
   openEvents(run);
+}
+
+function renderMemoryContext(versions) {
+  const label = $("memory-context");
+  if (!versions.length) {
+    label.textContent = "Memory：无 Active Profile";
+    return;
+  }
+  const selected = versions
+    .map((ref) => `${ref.memory_id}@${ref.version_id.slice(0, 12)}`)
+    .join(", ");
+  label.textContent = `Memory：${selected}`;
 }
 
 function renderSkillRoute(route) {
@@ -246,7 +259,7 @@ async function loadHealth() {
   try {
     const health = await api("/api/health");
     $("health-dot").classList.add("ok");
-    $("health-text").textContent = `Runtime 已连接 · ${health.mode} · ${health.workspace} · Active Skills ${health.active_skill_count}`;
+    $("health-text").textContent = `Runtime 已连接 · ${health.mode} · ${health.workspace} · Profiles ${health.active_profile_count} · Skills ${health.active_skill_count}`;
     if (health.mode === "demo") {
       $("mode-banner").textContent = "确定性 AgentDojo 演示：无需 API Key，不代表真实模型质量";
     } else {

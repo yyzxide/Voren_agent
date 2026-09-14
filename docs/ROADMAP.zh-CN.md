@@ -125,7 +125,9 @@ Evidence；详见
 类型化 Profile/Episode Store、只允许从持久 Evidence 分类、精确 RunConfig Memory
 Snapshot、有大小限制的模型 Context、默认脱敏的 CLI Inspect，以及 AgentDojo
 显式加载均已完成，详见
-[类型化 Memory 与冻结 Context](implementation/PHASE2_TYPED_MEMORY.zh-CN.md)。
+[类型化 Memory 与冻结 Context](implementation/PHASE2_TYPED_MEMORY.zh-CN.md)。Web
+现在默认冻结由 Operator Evidence 激活的 Profile，同时保持 Episode 仅显式选择，并且
+只展示精确 Reference，不展示正文。
 Version-pinned `no_skill`/`static_skill` Evaluation Artifact 已实现。基于 Embedding
 的 Semantic Routing 被明确排除在当前验收边界外，不会被包装成已经完成。
 

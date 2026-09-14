@@ -17,6 +17,10 @@ from pathlib import Path
 
 from voren.knowledge.models import KnowledgeDocument, KnowledgeSourceKind
 from voren.knowledge.store import SQLiteKnowledgeStore
+from voren.learning.evidence import DurableLearningRouter
+from voren.learning.store import SQLiteCandidateStore
+from voren.memory.service import MemoryService
+from voren.memory.store import SQLiteMemoryStore
 from voren.skills.parser import AgentSkillParser
 from voren.skills.store import SQLiteSkillStore
 
@@ -61,6 +65,28 @@ class VorenWebHTTPProcessTest(unittest.TestCase):
         knowledge_store.activate(document.ref, reason="reviewed HTTP fixture")
         knowledge_store.close()
         self.knowledge_ref = document.ref
+        evidence_store = SQLiteCandidateStore(self.database)
+        memory_store = SQLiteMemoryStore(self.database)
+        DurableLearningRouter(
+            evidence_store=evidence_store
+        ).record_operator_correction(
+            evidence_id="operator:http-duration",
+            correction="Prefer 30-minute meetings.",
+            operator_ref="operator:http-fixture",
+            created_at=datetime(2026, 9, 14, 12, 0, tzinfo=UTC),
+        )
+        profile = MemoryService(
+            memories=memory_store,
+            evidence_store=evidence_store,
+        ).record_profile_preference(
+            memory_id="preference:meeting-duration",
+            evidence_id="operator:http-duration",
+            reason="reviewed HTTP fixture",
+            created_at=datetime(2026, 9, 14, 12, 0, tzinfo=UTC),
+        )
+        memory_store.close()
+        evidence_store.close()
+        self.memory_ref = profile.ref
         self.port = self._unused_loopback_port()
         self.base_url = f"http://127.0.0.1:{self.port}"
         self.process: subprocess.Popen[str] | None = None
@@ -80,6 +106,9 @@ class VorenWebHTTPProcessTest(unittest.TestCase):
         self.assertEqual(health["skill_routing_mode"], "auto")
         self.assertEqual(health["active_skill_count"], 1)
         self.assertEqual(health["knowledge_database"], str(self.database))
+        self.assertEqual(health["profile_memory_mode"], "active")
+        self.assertEqual(health["active_profile_count"], 1)
+        self.assertEqual(health["memory_database"], str(self.database))
 
         knowledge = self._request_json(
             "/api/runs",
@@ -93,6 +122,10 @@ class VorenWebHTTPProcessTest(unittest.TestCase):
         self.assertIn("周四下午", knowledge["final_text"])
         self.assertIn("meeting://process-boundary", knowledge["final_text"])
         self.assertIn(self.knowledge_ref.version_id, knowledge["final_text"])
+        self.assertEqual(
+            knowledge["memory_versions"],
+            [self.memory_ref.model_dump(mode="json")],
+        )
 
         pending = self._request_json(
             "/api/runs",
@@ -152,6 +185,7 @@ class VorenWebHTTPProcessTest(unittest.TestCase):
             {
                 "VOREN_WEB_DATABASE": str(self.database),
                 "VOREN_KNOWLEDGE_DATABASE": str(self.database),
+                "VOREN_MEMORY_DATABASE": str(self.database),
                 "VOREN_SKILL_DATABASE": str(self.database),
                 "VOREN_SKILL_STORE": str(self.skill_store_root),
                 "VOREN_WEB_HOST": "127.0.0.1",

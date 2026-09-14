@@ -6,6 +6,7 @@ import hashlib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from threading import RLock
 from uuid import uuid4
@@ -28,6 +29,8 @@ from voren.adapters.workspace_contracts import (
     send_email_definition,
 )
 from voren.knowledge.store import SQLiteKnowledgeStore
+from voren.memory.context import MemoryContextAssembler, MemoryContextSnapshot
+from voren.memory.store import SQLiteMemoryStore
 from voren.mcp_bridge.adapter import MCPKnowledgeReadAdapter
 from voren.mcp_bridge.server import create_knowledge_mcp_server
 from voren.observations.read_tools import (
@@ -58,6 +61,11 @@ from voren.web.models import CreateRunRequest, DecideRunRequest, RunView
 
 ModelFactory = Callable[[], ModelAdapter]
 WorkspaceFactory = Callable[[], "WebWorkspaceRuntime"]
+
+
+class WebProfileMemoryMode(StrEnum):
+    ACTIVE = "active"
+    DISABLED = "disabled"
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,6 +158,8 @@ class VorenWebService:
         workspace_name: str = "agentdojo",
         workspace_recoverable: bool = False,
         knowledge_database: Path | None = None,
+        memory_database: Path | None = None,
+        profile_memory_mode: WebProfileMemoryMode = WebProfileMemoryMode.ACTIVE,
         skill_database: Path | None = None,
         skill_store_root: Path | None = None,
         skill_routing_mode: SkillRoutingMode = SkillRoutingMode.AUTO,
@@ -162,6 +172,14 @@ class VorenWebService:
         self.workspace_recoverable = workspace_recoverable
         self.knowledge_database = knowledge_database or database
         self.knowledge_database.parent.mkdir(parents=True, exist_ok=True)
+        self.memory_database = memory_database or database
+        self.memory_database.parent.mkdir(parents=True, exist_ok=True)
+        if profile_memory_mode not in {
+            WebProfileMemoryMode.ACTIVE,
+            WebProfileMemoryMode.DISABLED,
+        }:
+            raise ValueError("Web Profile Memory supports only active or disabled")
+        self.profile_memory_mode = profile_memory_mode
         self.skill_database = skill_database or database
         self.skill_database.parent.mkdir(parents=True, exist_ok=True)
         self.skill_store_root = skill_store_root or (database.parent / "skills")
@@ -236,6 +254,7 @@ class VorenWebService:
                 workspace=workspace,
                 read_tools=runtime_read_tools,
             )
+            memory_context = self._select_memory_context()
             loop = AgentLoop(
                 model=model,
                 read_tools=runtime_read_tools,
@@ -248,6 +267,7 @@ class VorenWebService:
                 ),
                 run_manager=manager,
                 limits=self._limits,
+                memory_context=memory_context,
                 skill_context=skill_context,
             )
             result = loop.run(
@@ -257,11 +277,13 @@ class VorenWebService:
                     world_adapter=workspace.world_adapter,
                     policy_version="provenance-and-approval-v1",
                     action_contract_versions=workspace.contract_versions,
+                    memory_versions=memory_context.memory_versions,
                     skill_versions=skill_context.skill_versions,
                     metadata={
                         "surface": "web",
                         "mode": self.mode,
                         "workspace": workspace.name,
+                        "profile_memory_mode": self.profile_memory_mode.value,
                         "skill_routing": skill_route.model_dump(mode="json"),
                     },
                 ),
@@ -277,6 +299,7 @@ class VorenWebService:
                 usage=result.usage,
                 error_code=result.error_code,
                 error_detail_code=result.error_detail_code,
+                memory_versions=memory_context.memory_versions,
                 skill_routing=skill_route,
                 created_at=now,
                 updated_at=timestamp,
@@ -460,6 +483,23 @@ class VorenWebService:
         )
         try:
             return len(store.discover_active())
+        finally:
+            store.close()
+
+    def active_profile_count(self) -> int:
+        store = SQLiteMemoryStore(self.memory_database)
+        try:
+            return len(store.freeze())
+        finally:
+            store.close()
+
+    def _select_memory_context(self) -> MemoryContextSnapshot:
+        store = SQLiteMemoryStore(self.memory_database)
+        try:
+            assembler = MemoryContextAssembler(store)
+            if self.profile_memory_mode is WebProfileMemoryMode.DISABLED:
+                return assembler.empty()
+            return assembler.current(profile_ids=None, episode_ids=())
         finally:
             store.close()
 

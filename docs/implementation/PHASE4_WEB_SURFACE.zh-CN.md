@@ -42,18 +42,25 @@ Benchmark World；显式选择 `VOREN_WEB_WORKSPACE=google` 时，同一个 Web 
 Model 或 Workspace 配置缺失时返回 HTTP 503，同时释放 Request Reservation，修正
 配置后可以安全重试。
 
-## 连接 Skill Lifecycle
+## 连接 Data 与 Skill Lifecycle
 
-Web 默认与 CLI 使用同一个已导入 Knowledge Database 和经过审查的 Active Skill
-Store：`.voren/voren.sqlite3` 与 `.voren/skills`。Browser Run Snapshot 仍保存在
-`.voren/web.sqlite3`，因此建立连接不会迁移或丢弃已有 Web 状态。位置可分别通过
-`VOREN_KNOWLEDGE_DATABASE`、`VOREN_SKILL_DATABASE` 与 `VOREN_SKILL_STORE` 配置。
+Web 默认与 CLI 使用同一个已导入 Knowledge Database、由 Operator Evidence 激活的
+Profile Memory 和经过审查的 Active Skill Store：`.voren/voren.sqlite3` 与
+`.voren/skills`。Browser Run Snapshot 仍保存在 `.voren/web.sqlite3`，因此建立连接
+不会迁移或丢弃已有 Web 状态。位置可分别通过 `VOREN_KNOWLEDGE_DATABASE`、
+`VOREN_MEMORY_DATABASE`、`VOREN_SKILL_DATABASE` 与 `VOREN_SKILL_STORE` 配置。
+
+在第一次 Model Call 前，Web 会把所有 Active Profile Preference 的精确版本冻结进
+RunConfig，并明确把渲染内容标为没有 Instruction Authority 的 Data。Episode Summary
+仍只允许显式选择，因为把所有历史 Episode 静默塞入每个请求既无关又增加隐私 Context。
+页面只展示 Memory ID 与精确 Version Prefix，不展示 Preference 正文。
 
 每次请求都会在第一次 Model Call 前执行确定性的 Metadata Router。选中的精确版本
 与不含 Request 原文的 Routing Evidence 同时持久化到底层 RunConfig 和 Browser 可见
 Run Snapshot。页面会明确显示 `no_skill` 或选中的 `name@version`，不会暗示所有请求
 都使用了已学习指导。`VOREN_WEB_SKILL_ROUTING=disabled` 提供显式 Web Baseline，
-Health Response 会报告精确 Knowledge Database、Routing Mode 与 Active Skill 数量。
+`VOREN_WEB_PROFILE_MEMORY=disabled` 同样提供不带 Profile 的 Baseline。Health Response
+会报告精确 Data Store、Mode 与 Active 数量。
 
 ## Event 交付
 
@@ -67,16 +74,17 @@ Health Response 会报告精确 Knowledge Database、Routing Mode 与 Active Ski
 ## 验证
 
 `tests/integration/test_web_app.py` 覆盖静态页面与可读字号、Health/Mode Disclosure、
-无 Credential 问候、绑定来源的知识回答、路由到的精确 Skill Version、立即执行的
-日程流程、错误 Digest、批准后的 Receipt、拒绝、重复 Submission/Decision、冲突
-Request ID、重启后丢失内存 Workspace、SSE 回放，以及模型配置失败后的重试。
+无 Credential 问候、绑定来源的知识回答、冻结且无指令权威的 Profile Memory、路由
+到的精确 Skill Version、立即执行的日程流程、错误 Digest、批准后的 Receipt、拒绝、
+重复 Submission/Decision、冲突 Request ID、重启后丢失内存 Workspace、SSE 回放，
+以及模型配置失败后的重试。
 
 `tests/integration/test_web_http_process.py` 补充进程边界验收路径：它在随机 Loopback
 端口冷启动已安装的 Web 入口，通过真实 TCP/HTTP 加载页面、查询已导入且绑定来源的
-文档、路由已安装的 Active Skill、提交日程任务、批准绑定精确 Effect 的 Digest、
-消费终态 SSE，再使用同一 SQLite 数据库重启 Server，验证
-已完成 Receipt 仍能恢复。该路径只使用确定性 Demo Workspace，不需要模型或 Google
-Credential。
+文档、冻结 Active Profile Version、路由已安装的 Active Skill、提交日程任务、批准
+绑定精确 Effect 的 Digest、消费终态 SSE，再使用同一 SQLite 数据库重启 Server，
+验证已完成 Receipt 仍能恢复。该路径只使用确定性 Demo Workspace，不需要模型或
+Google Credential。
 
 Test Client 与进程边界验收都需要本地 IPC；能力受限沙箱会跳过前置条件不满足的
 测试。完整 Suite 也会在该边界外运行，普通 CI 环境会实际执行。

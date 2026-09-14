@@ -42,6 +42,10 @@ if WEB_AVAILABLE:
     )
     from voren.knowledge.models import KnowledgeDocument, KnowledgeSourceKind
     from voren.knowledge.store import SQLiteKnowledgeStore
+    from voren.learning.evidence import DurableLearningRouter
+    from voren.learning.store import SQLiteCandidateStore
+    from voren.memory.service import MemoryService
+    from voren.memory.store import SQLiteMemoryStore
     from voren.providers.openai_responses import ModelConfigurationError
     from voren.runtime.models import ModelResponse, ToolCall
     from voren.skills.parser import AgentSkillParser
@@ -52,6 +56,7 @@ if WEB_AVAILABLE:
     from voren.web.demo_model import DemoWorkspaceModel
     from voren.web.service import (
         VorenWebService,
+        WebProfileMemoryMode,
         create_google_web_workspace,
     )
 
@@ -93,6 +98,9 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
         self.assertEqual(health.json()["skill_routing_mode"], "auto")
         self.assertEqual(health.json()["active_skill_count"], 0)
         self.assertEqual(health.json()["knowledge_database"], str(self.database))
+        self.assertEqual(health.json()["profile_memory_mode"], "active")
+        self.assertEqual(health.json()["active_profile_count"], 0)
+        self.assertEqual(health.json()["memory_database"], str(self.database))
         self.assertEqual(health.json()["skill_database"], str(self.database))
         self.assertIn("font: 16px/1.6", css.text)
         javascript = self.client.get("/static/app.js")
@@ -273,6 +281,80 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
         route = response.json()["skill_routing"]
         self.assertEqual(route["mode"], "disabled")
         self.assertEqual(route["selected_versions"], [])
+
+    def test_web_freezes_active_profile_memory_as_non_authoritative_data(self) -> None:
+        profile = self._activate_profile_preference()
+        model = ScriptedModelAdapter(
+            (ModelResponse(text="The default meeting duration is 30 minutes."),)
+        )
+        memory_service = VorenWebService(
+            database=self.database,
+            model_factory=lambda: model,
+            mode="demo",
+            memory_database=self.service.memory_database,
+            skill_database=self.service.skill_database,
+            skill_store_root=self.service.skill_store_root,
+            clock=lambda: self.now,
+        )
+        client = TestClient(create_app(service=memory_service))
+        self.addCleanup(client.close)
+
+        response = client.post(
+            "/api/runs",
+            json={
+                "client_request_id": "request:profile-memory-001",
+                "request": "How long should the project review be?",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(
+            body["memory_versions"],
+            [profile.ref.model_dump(mode="json")],
+        )
+        self.assertIn(
+            "Prefer 30-minute meetings.",
+            model.requests[0][0][0].content,
+        )
+        events = client.get(
+            f"/api/runs/{body['run_id']}/events"
+        ).json()["events"]
+        memory_event = next(
+            event
+            for event in events
+            if event["event_type"] == "memory_context.assembled"
+        )
+        self.assertFalse(memory_event["payload"]["instruction_authority"])
+        self.assertNotIn("30-minute", str(memory_event["payload"]))
+
+    def test_web_profile_memory_can_be_explicitly_disabled(self) -> None:
+        self._activate_profile_preference()
+        model = ScriptedModelAdapter((ModelResponse(text="No profile loaded."),))
+        disabled_service = VorenWebService(
+            database=self.database,
+            model_factory=lambda: model,
+            mode="demo",
+            memory_database=self.service.memory_database,
+            profile_memory_mode=WebProfileMemoryMode.DISABLED,
+            skill_database=self.service.skill_database,
+            skill_store_root=self.service.skill_store_root,
+            clock=lambda: self.now,
+        )
+        disabled = TestClient(create_app(service=disabled_service))
+        self.addCleanup(disabled.close)
+
+        response = disabled.post(
+            "/api/runs",
+            json={
+                "client_request_id": "request:no-profile-memory-001",
+                "request": "How long should the project review be?",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["memory_versions"], [])
+        self.assertNotIn("30-minute", model.requests[0][0][0].content)
 
     def test_lost_decision_response_recovers_durable_receipt_without_resend(self) -> None:
         pending = self.client.post(
@@ -489,6 +571,31 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
             return version
         finally:
             store.close()
+
+    def _activate_profile_preference(self):
+        evidence = SQLiteCandidateStore(self.service.memory_database)
+        memories = SQLiteMemoryStore(self.service.memory_database)
+        try:
+            DurableLearningRouter(
+                evidence_store=evidence
+            ).record_operator_correction(
+                evidence_id="operator:web-duration",
+                correction="Prefer 30-minute meetings.",
+                operator_ref="operator:web-test",
+                created_at=self.now,
+            )
+            return MemoryService(
+                memories=memories,
+                evidence_store=evidence,
+            ).record_profile_preference(
+                memory_id="preference:meeting-duration",
+                evidence_id="operator:web-duration",
+                reason="explicit Web test preference",
+                created_at=self.now,
+            )
+        finally:
+            memories.close()
+            evidence.close()
 
 
 if __name__ == "__main__":

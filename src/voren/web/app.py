@@ -37,6 +37,7 @@ from voren.web.service import (
     VorenWebService,
     WebApprovalRecoveryRequiredError,
     WebDecisionConflictError,
+    WebProfileMemoryMode,
     create_agentdojo_web_workspace,
     create_google_web_workspace,
 )
@@ -67,6 +68,12 @@ def create_app(
     selected_knowledge_database = Path(
         os.environ.get("VOREN_KNOWLEDGE_DATABASE", ".voren/voren.sqlite3")
     )
+    selected_memory_database = Path(
+        os.environ.get("VOREN_MEMORY_DATABASE", ".voren/voren.sqlite3")
+    )
+    memory_value = os.environ.get("VOREN_WEB_PROFILE_MEMORY", "active").strip()
+    if memory_value not in {"active", "disabled"}:
+        raise ValueError("VOREN_WEB_PROFILE_MEMORY must be 'active' or 'disabled'")
     selected_skill_database = Path(
         os.environ.get("VOREN_SKILL_DATABASE", ".voren/voren.sqlite3")
     )
@@ -97,6 +104,8 @@ def create_app(
             workspace_name=selected_workspace,
             workspace_recoverable=selected_workspace == "google",
             knowledge_database=selected_knowledge_database,
+            memory_database=selected_memory_database,
+            profile_memory_mode=WebProfileMemoryMode(memory_value),
             skill_database=selected_skill_database,
             skill_store_root=selected_skill_store,
             skill_routing_mode=SkillRoutingMode(routing_value),
@@ -133,6 +142,9 @@ def create_app(
             ),
             live_model_configured=_live_model_configured(),
             knowledge_database=str(active_service.knowledge_database),
+            profile_memory_mode=active_service.profile_memory_mode.value,
+            active_profile_count=active_service.active_profile_count(),
+            memory_database=str(active_service.memory_database),
             skill_routing_mode=active_service.skill_routing_mode.value,
             active_skill_count=active_service.active_skill_count(),
             skill_database=str(active_service.skill_database),

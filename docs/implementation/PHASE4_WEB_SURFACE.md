@@ -51,22 +51,30 @@ be mislabeled as deterministic demo mode. Missing model or workspace
 configuration returns HTTP 503 and releases the request reservation so a fixed
 configuration can retry safely.
 
-## Skill lifecycle connection
+## Data and Skill lifecycle connection
 
-Web uses the same imported Knowledge database and reviewed active-Skill store
-as their CLI commands by default: `.voren/voren.sqlite3` plus `.voren/skills`.
-Browser Run snapshots remain in `.voren/web.sqlite3`, so introducing these
-connections does not migrate or discard prior Web state. The locations are
-independently configurable through `VOREN_KNOWLEDGE_DATABASE`,
+Web uses the same imported Knowledge database, active operator-authored Profile
+Memory, and reviewed active-Skill store as their CLI commands by default:
+`.voren/voren.sqlite3` plus `.voren/skills`. Browser Run snapshots remain in
+`.voren/web.sqlite3`, so introducing these connections does not migrate or
+discard prior Web state. Locations are independently configurable through
+`VOREN_KNOWLEDGE_DATABASE`, `VOREN_MEMORY_DATABASE`,
 `VOREN_SKILL_DATABASE`, and `VOREN_SKILL_STORE`.
+
+Before the first model call, Web freezes all active Profile preferences into the
+RunConfig and labels their rendered content as data without instruction
+authority. Episode summaries remain explicit-only because silently adding every
+past episode would be irrelevant, privacy-heavy context. The page exposes only
+Memory IDs and exact version prefixes, not preference content.
 
 Each request runs the deterministic metadata router before the first model call.
 The selected exact version and request-free routing evidence are persisted both
 in the underlying RunConfig and the browser-visible Run snapshot. The page shows
 `no_skill` or the selected `name@version` instead of implying that every request
 uses learned guidance. `VOREN_WEB_SKILL_ROUTING=disabled` provides an explicit
-Web baseline. The Health response reports the exact Knowledge database, routing
-mode, and active-Skill count.
+Web baseline. `VOREN_WEB_PROFILE_MEMORY=disabled` similarly produces a Profile-
+free baseline. The Health response reports exact data stores, modes, and active
+counts.
 
 ## Event delivery
 
@@ -83,19 +91,21 @@ FastAPI 0.135.1 is pinned because this slice uses its built-in
 
 `tests/integration/test_web_app.py` covers the static page and readable font
 baseline, health/mode disclosure, credential-free greeting, source-bound
-knowledge answer, routed exact Skill version, immediate scheduling flow, exact
-Digest mismatch, approved Receipt, rejection, duplicate submission/decision,
+knowledge answer, frozen non-authoritative Profile Memory, routed exact Skill
+version, immediate scheduling flow, exact Digest mismatch, approved Receipt,
+rejection, duplicate submission/decision,
 conflicting request IDs, lost in-memory workspace after restart, SSE replay, and
 model-configuration failure retry.
 
 `tests/integration/test_web_http_process.py` adds a process-boundary acceptance
 path. It cold-starts the installed Web entry point on an ephemeral loopback
 port, uses real TCP/HTTP requests to load the page, queries an imported
-source-bound document, routes an installed active Skill, submits a scheduling
-task, approves its exact effect digest, consumes the terminal SSE stream, and
-then restarts the server against the same SQLite database to verify that the
-completed receipt remains recoverable. It uses only the deterministic demo
-workspace and never needs a model or Google credential.
+source-bound document, freezes an active Profile version, routes an installed
+active Skill, submits a scheduling task, approves its exact effect digest,
+consumes the terminal SSE stream, and then restarts the server against the same
+SQLite database to verify that the completed receipt remains recoverable. It
+uses only the deterministic demo workspace and never needs a model or Google
+credential.
 
 The test client and process-boundary acceptance path need local IPC. Capability-
 restricted sandboxes skip tests whose prerequisites are unavailable; the
