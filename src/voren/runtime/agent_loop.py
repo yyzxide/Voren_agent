@@ -8,6 +8,7 @@ from collections import Counter
 from dataclasses import dataclass
 
 from voren.actions.errors import ActionGatewayError
+from voren.memory.context import MemoryContextSnapshot
 from voren.observations.models import ToolObservation
 from voren.observations.read_tools import ReadToolAdapter
 from voren.runs.manager import RunManager
@@ -106,6 +107,7 @@ class AgentLoop:
         run_manager: RunManager,
         limits: RuntimeLimits | None = None,
         transcript_store: SQLiteTranscriptStore | None = None,
+        memory_context: MemoryContextSnapshot | None = None,
         skill_context: SkillContextSnapshot | None = None,
     ) -> None:
         self._model = model
@@ -113,6 +115,7 @@ class AgentLoop:
         self._run_manager = run_manager
         self._limits = limits or RuntimeLimits()
         self._transcript_store = transcript_store
+        self._memory_context = memory_context or MemoryContextSnapshot.empty()
         self._skill_context = skill_context or SkillContextSnapshot.no_skill()
 
         read_definitions = tuple(
@@ -167,8 +170,27 @@ class AgentLoop:
             raise ValueError(
                 "run config skill_versions do not match assembled skill context"
             )
+        if config.memory_versions != self._memory_context.memory_versions:
+            raise ValueError(
+                "run config memory_versions do not match assembled memory context"
+            )
         if resume_checkpoint is None:
             run = self._run_manager.start_new_run(config)
+            if self._memory_context.memory_versions:
+                self._run_manager.record_runtime_event(
+                    run.run_id,
+                    RunEventType.MEMORY_CONTEXT_ASSEMBLED,
+                    dedupe_key="memory_context.assembled",
+                    payload={
+                        "memory_versions": [
+                            ref.model_dump(mode="json")
+                            for ref in self._memory_context.memory_versions
+                        ],
+                        "context_digest": self._memory_context.context_digest,
+                        "context_bytes": self._memory_context.context_bytes,
+                        "instruction_authority": False,
+                    },
+                )
             self._run_manager.record_runtime_event(
                 run.run_id,
                 RunEventType.SKILL_CONTEXT_ASSEMBLED,
@@ -543,10 +565,12 @@ class AgentLoop:
         )
 
     def _system_instruction(self) -> str:
-        if self._skill_context.mode is SkillContextMode.NO_SKILL:
-            return SYSTEM_INSTRUCTION
-        base = SYSTEM_INSTRUCTION.rstrip()
-        return f"{base}\n\n{self._skill_context.rendered_instructions}\n"
+        sections = [SYSTEM_INSTRUCTION.rstrip()]
+        if self._memory_context.rendered_context:
+            sections.append(self._memory_context.rendered_context)
+        if self._skill_context.mode is not SkillContextMode.NO_SKILL:
+            sections.append(self._skill_context.rendered_instructions)
+        return "\n\n".join(sections) + "\n"
 
     def discard_checkpoint(self, run_id: str) -> None:
         """Delete recoverable sensitive context after its retention window ends."""

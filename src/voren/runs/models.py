@@ -10,6 +10,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from voren.memory.models import MemoryRef
 from voren.skills.models import SkillVersionRef
 
 
@@ -30,6 +31,7 @@ class RunStatus(StrEnum):
 class RunEventType(StrEnum):
     RUN_CREATED = "run.created"
     RUN_STARTED = "run.started"
+    MEMORY_CONTEXT_ASSEMBLED = "memory_context.assembled"
     SKILL_CONTEXT_ASSEMBLED = "skill_context.assembled"
     MODEL_REQUESTED = "model.requested"
     MODEL_RESPONDED = "model.responded"
@@ -54,6 +56,7 @@ class RunConfig(FrozenModel):
     world_adapter: str = Field(min_length=1)
     policy_version: str = Field(min_length=1)
     action_contract_versions: tuple[str, ...]
+    memory_versions: tuple[MemoryRef, ...] = ()
     skill_versions: tuple[SkillVersionRef, ...] = ()
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -62,6 +65,9 @@ class RunConfig(FrozenModel):
         if not self.skill_versions:
             # Preserve digests for Phase 1 runs written before skill pinning existed.
             payload.pop("skill_versions")
+        if not self.memory_versions:
+            # Preserve digests for runs written before memory snapshots existed.
+            payload.pop("memory_versions")
         canonical = json.dumps(
             payload,
             sort_keys=True,

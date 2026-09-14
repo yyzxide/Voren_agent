@@ -117,8 +117,12 @@ Contract Test 只能证明 Translation 与 Orchestration，不能证明 Live Mod
 大小、校验 Tool Compatibility，并产生只含 Metadata 的审计事件。详见
 [版本冻结的 Skill Context](implementation/PHASE2_SKILL_CONTEXT.zh-CN.md)。
 
-Profile/Episode Store、Semantic Skill Routing，以及配对的 `no_skill`/
-`static_skill` Evaluation Artifact 仍待实现。
+类型化 Profile/Episode Store、只允许从持久 Evidence 分类、精确 RunConfig Memory
+Snapshot、有大小限制的模型 Context、默认脱敏的 CLI Inspect，以及 AgentDojo
+显式加载均已完成，详见
+[类型化 Memory 与冻结 Context](implementation/PHASE2_TYPED_MEMORY.zh-CN.md)。
+Semantic Skill Routing 和配对的 `no_skill`/`static_skill` Evaluation Artifact
+仍待实现。
 
 实现：
 

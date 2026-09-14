@@ -70,6 +70,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [Phase 1 加密 Transcript 恢复](docs/implementation/PHASE1_TRANSCRIPT_RECOVERY.zh-CN.md)
 - [Phase 2 静态 Skill Store](docs/implementation/PHASE2_STATIC_SKILL_STORE.zh-CN.md)
 - [Phase 2 版本冻结的 Skill Context](docs/implementation/PHASE2_SKILL_CONTEXT.zh-CN.md)
+- [Phase 2 类型化 Memory 与冻结 Context](docs/implementation/PHASE2_TYPED_MEMORY.zh-CN.md)
 - [Phase 3 Candidate 暂存](docs/implementation/PHASE3_CANDIDATE_STAGING.zh-CN.md)
 - [Phase 3 配对评测](docs/implementation/PHASE3_PAIRED_EVALUATION.zh-CN.md)
 - [Phase 3 晋升与回滚](docs/implementation/PHASE3_PROMOTION_ROLLBACK.zh-CN.md)
@@ -134,6 +135,12 @@ Staged。
 已经 Completed，并且每个 Proposed Operation 都具备精确绑定的 Accepted Approval
 与最终 Verified Receipt 的 Run。`stage` 只接受通过这些 Router 预先持久化的
 Evidence ID，不信任调用方手填的 Digest。
+
+Profile Preference 与 Episode Summary 复用同一个持久 Evidence Boundary，但
+始终属于 Data，不是程序性指令。`voren memory profile`、`memory episode` 和默认
+脱敏的 `memory inspect` 提供公开入口。AgentDojo Run 只有显式传入
+`--profile-memory` 或 `--episode-memory` 才加载对应 Memory，并把精确版本冻结到
+RunConfig。
 
 要运行 API-capable Adapter，请设置 Credential，明确选择 Endpoint Profile 与
 Model，并在本地生成一次 Transcript Key。默认 OpenAI Endpoint 可直接执行：

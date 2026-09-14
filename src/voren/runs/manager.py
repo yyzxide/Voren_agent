@@ -159,6 +159,7 @@ class RunManager:
                 f"{run.status.value!r}"
             )
         allowed_types = {
+            RunEventType.MEMORY_CONTEXT_ASSEMBLED,
             RunEventType.SKILL_CONTEXT_ASSEMBLED,
             RunEventType.MODEL_REQUESTED,
             RunEventType.MODEL_RESPONDED,

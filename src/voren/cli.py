@@ -46,6 +46,9 @@ from voren.learning.runner import PairedEvaluationRunner
 from voren.learning.report import render_candidate_report, write_candidate_report
 from voren.learning.service import SkillCandidateService
 from voren.learning.store import CandidateStoreError, SQLiteCandidateStore
+from voren.memory.context import MemoryContextAssembler
+from voren.memory.service import MemoryService
+from voren.memory.store import MemoryStoreError, SQLiteMemoryStore
 from voren.providers.openai_responses import (
     ModelConfigurationError,
     OpenAIResponsesModelAdapter,
@@ -112,6 +115,18 @@ def build_parser() -> argparse.ArgumentParser:
     agentdojo.add_argument("--max-output-tokens", type=int, default=2_048)
     agentdojo.add_argument("--max-model-steps", type=int, default=8)
     agentdojo.add_argument("--max-tool-calls", type=int, default=12)
+    agentdojo.add_argument(
+        "--profile-memory",
+        action="append",
+        default=[],
+        help="Explicit active profile memory ID to freeze; repeat as needed.",
+    )
+    agentdojo.add_argument(
+        "--episode-memory",
+        action="append",
+        default=[],
+        help="Explicit episode memory ID to freeze; repeat as needed.",
+    )
     agentdojo.set_defaults(handler=run_agentdojo)
 
     evaluation = subcommands.add_parser(
@@ -330,6 +345,53 @@ def build_parser() -> argparse.ArgumentParser:
     rollback.add_argument("--reason", required=True)
     _add_skill_storage_arguments(rollback)
     rollback.set_defaults(handler=run_skill_rollback)
+
+    memories = subcommands.add_parser(
+        "memory",
+        help="Classify durable evidence into typed profile or episode memory.",
+    )
+    memory_commands = memories.add_subparsers(
+        dest="memory_command", required=True
+    )
+    profile = memory_commands.add_parser(
+        "profile", help="Record and activate an operator-authored preference."
+    )
+    profile.add_argument("--memory-id", required=True)
+    profile.add_argument("--evidence-id", required=True)
+    profile.add_argument("--reason", required=True)
+    _add_memory_storage_argument(profile)
+    profile.set_defaults(handler=run_memory_profile)
+
+    episode = memory_commands.add_parser(
+        "episode", help="Record a summary linked to verified Run evidence."
+    )
+    episode.add_argument("path", type=Path, help="UTF-8 episode summary file.")
+    episode.add_argument("--memory-id", required=True)
+    episode.add_argument("--evidence-id", required=True)
+    _add_memory_storage_argument(episode)
+    episode.set_defaults(handler=run_memory_episode)
+
+    memory_inspect = memory_commands.add_parser(
+        "inspect", help="Inspect an exact current memory snapshot as JSON."
+    )
+    memory_inspect.add_argument(
+        "--profile-id",
+        action="append",
+        help="Active profile ID; omit to include all active profiles.",
+    )
+    memory_inspect.add_argument(
+        "--episode-id",
+        action="append",
+        default=[],
+        help="Episode ID to include; repeat as needed.",
+    )
+    memory_inspect.add_argument(
+        "--include-content",
+        action="store_true",
+        help="Include potentially sensitive memory content.",
+    )
+    _add_memory_storage_argument(memory_inspect)
+    memory_inspect.set_defaults(handler=run_memory_inspect)
     return parser
 
 
@@ -345,6 +407,15 @@ def _add_skill_storage_arguments(parser: argparse.ArgumentParser) -> None:
         type=Path,
         default=Path(".voren/skills"),
         help="Content-addressed immutable Skill object directory.",
+    )
+
+
+def _add_memory_storage_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--database",
+        type=Path,
+        default=Path(".voren/voren.sqlite3"),
+        help="SQLite evidence, memory, and run database.",
     )
 
 
@@ -398,7 +469,19 @@ def run_agentdojo(
         store.close()
         ledger.close()
         raise
+    memory_store: SQLiteMemoryStore | None = None
     try:
+        memory_store = SQLiteMemoryStore(args.database)
+        profile_ids = tuple(getattr(args, "profile_memory", ()))
+        episode_ids = tuple(getattr(args, "episode_memory", ()))
+        memory_context = (
+            MemoryContextAssembler(memory_store).current(
+                profile_ids=profile_ids,
+                episode_ids=episode_ids,
+            )
+            if profile_ids or episode_ids
+            else MemoryContextAssembler(memory_store).empty()
+        )
         gateway = ActionGateway(
             definitions=(action_definition,),
             adapter=workspace,
@@ -423,6 +506,7 @@ def run_agentdojo(
             ),
             run_manager=manager,
             transcript_store=transcript_store,
+            memory_context=memory_context,
             limits=RuntimeLimits(
                 max_model_steps=args.max_model_steps,
                 max_tool_calls=args.max_tool_calls,
@@ -435,6 +519,7 @@ def run_agentdojo(
                 world_adapter="agentdojo_workspace_v1.2.2",
                 policy_version="provenance-and-exact-effects-v1",
                 action_contract_versions=(WORKSPACE_CONTRACT_VERSION,),
+                memory_versions=memory_context.memory_versions,
                 metadata={"model": model_name, "provider": provider_name},
             ),
             cancellation=cancellation,
@@ -493,6 +578,8 @@ def run_agentdojo(
         _print_trace(store, result.run_id, output)
         return 0 if receipt.verification.passed else 1
     finally:
+        if memory_store is not None:
+            memory_store.close()
         transcript_store.close()
         store.close()
         ledger.close()
@@ -988,6 +1075,101 @@ def run_skill_rollback(
         skills.close()
 
 
+def run_memory_profile(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    args.database.parent.mkdir(parents=True, exist_ok=True)
+    evidence = SQLiteCandidateStore(args.database)
+    memories = SQLiteMemoryStore(args.database)
+    try:
+        record = MemoryService(
+            memories=memories,
+            evidence_store=evidence,
+        ).record_profile_preference(
+            memory_id=args.memory_id,
+            evidence_id=args.evidence_id,
+            reason=args.reason,
+        )
+        output(f"profile: {record.ref.memory_id}@{record.ref.version_id}")
+        output(f"evidence: {record.evidence_id}@{record.evidence_digest}")
+        output("instruction authority: false")
+        return 0
+    finally:
+        memories.close()
+        evidence.close()
+
+
+def run_memory_episode(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    summary = args.path.read_text(encoding="utf-8")
+    args.database.parent.mkdir(parents=True, exist_ok=True)
+    evidence = SQLiteCandidateStore(args.database)
+    memories = SQLiteMemoryStore(args.database)
+    try:
+        record = MemoryService(
+            memories=memories,
+            evidence_store=evidence,
+        ).record_episode_summary(
+            memory_id=args.memory_id,
+            evidence_id=args.evidence_id,
+            summary=summary,
+        )
+        output(f"episode: {record.ref.memory_id}@{record.ref.version_id}")
+        output(f"evidence: {record.evidence_id}@{record.evidence_digest}")
+        output("instruction authority: false")
+        return 0
+    finally:
+        memories.close()
+        evidence.close()
+
+
+def run_memory_inspect(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    memories = SQLiteMemoryStore(args.database)
+    try:
+        refs = memories.freeze(
+            profile_ids=(
+                None if args.profile_id is None else tuple(args.profile_id)
+            ),
+            episode_ids=tuple(args.episode_id),
+        )
+        snapshot = MemoryContextAssembler(memories).from_frozen(refs)
+        records = []
+        for ref in refs:
+            record = memories.get(ref)
+            item = record.model_dump(mode="json")
+            item["content_bytes"] = len(record.content.encode("utf-8"))
+            if not args.include_content:
+                item.pop("content")
+            records.append(item)
+        output(
+            json.dumps(
+                {
+                    "memory_versions": [
+                        ref.model_dump(mode="json") for ref in refs
+                    ],
+                    "context_digest": snapshot.context_digest,
+                    "context_bytes": snapshot.context_bytes,
+                    "records": records,
+                },
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
+    finally:
+        memories.close()
+
+
 def _open_skill_stores(
     args: argparse.Namespace,
 ) -> tuple[SQLiteSkillStore, SQLiteCandidateStore]:
@@ -1046,6 +1228,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ModelConfigurationError,
         AgentDojoDependencyError,
         CandidateStoreError,
+        MemoryStoreError,
         SkillFormatError,
         ValueError,
     ) as error:

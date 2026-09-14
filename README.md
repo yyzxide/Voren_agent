@@ -77,6 +77,7 @@ the first release.
 - [Phase 1 encrypted transcript recovery](docs/implementation/PHASE1_TRANSCRIPT_RECOVERY.md)
 - [Phase 2 static skill store](docs/implementation/PHASE2_STATIC_SKILL_STORE.md)
 - [Phase 2 version-pinned skill context](docs/implementation/PHASE2_SKILL_CONTEXT.md)
+- [Phase 2 typed memory and frozen context](docs/implementation/PHASE2_TYPED_MEMORY.md)
 - [Phase 3 candidate staging](docs/implementation/PHASE3_CANDIDATE_STAGING.md)
 - [Phase 3 paired evaluation](docs/implementation/PHASE3_PAIRED_EVALUATION.md)
 - [Phase 3 promotion and rollback](docs/implementation/PHASE3_PROMOTION_ROLLBACK.md)
@@ -145,6 +146,12 @@ routes only a completed Run whose proposed operations have exactly bound,
 accepted approvals and final verified receipts. `stage` accepts only evidence
 IDs already persisted through one of these routers; caller-supplied digests are
 not trusted.
+
+Profile preferences and episode summaries use the same persisted evidence
+boundary but remain data, never procedural instructions. `voren memory profile`,
+`memory episode`, and redacted-by-default `memory inspect` expose the typed
+stores. An AgentDojo run loads no memory unless exact IDs are supplied through
+`--profile-memory` or `--episode-memory`; those versions are frozen in RunConfig.
 
 To exercise the API-capable adapter, set a credential, explicitly choose an
 endpoint profile and model, and generate a local transcript key once. The

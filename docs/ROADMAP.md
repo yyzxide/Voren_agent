@@ -118,8 +118,12 @@ load exact versions, enforce context size and tool compatibility, and emit a
 metadata-only audit event. See [Phase 2 Static Skill Store](implementation/PHASE2_STATIC_SKILL_STORE.md)
 and [Version-Pinned Skill Context](implementation/PHASE2_SKILL_CONTEXT.md).
 
-Profile/Episode stores, semantic skill routing, and paired `no_skill`/
-`static_skill` evaluation artifacts remain pending.
+Typed Profile/Episode stores, evidence-only classification, exact RunConfig
+memory snapshots, bounded model context, redacted CLI inspection, and explicit
+AgentDojo loading are complete; see
+[Typed Memory and Frozen Context](implementation/PHASE2_TYPED_MEMORY.md).
+Semantic skill routing and paired `no_skill`/`static_skill` evaluation artifacts
+remain pending.
 
 Implement:
 

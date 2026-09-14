@@ -226,10 +226,11 @@ class SkillStoreTest(unittest.TestCase):
         with self.assertRaises(SkillFormatError):
             self.parser.load(source)
 
-    def test_empty_skill_snapshot_keeps_phase1_run_digest_compatible(self) -> None:
+    def test_empty_context_snapshots_keep_phase1_run_digest_compatible(self) -> None:
         config = self.run_config()
         legacy_payload = config.model_dump(mode="json")
         legacy_payload.pop("skill_versions")
+        legacy_payload.pop("memory_versions")
         canonical = json.dumps(
             legacy_payload,
             sort_keys=True,
