@@ -24,17 +24,23 @@ stops before any later tool call or action proposal. Its terminal state records
 the cancellation reason, partial reported token usage, and whether the provider
 actually confirmed `status=cancelled`.
 
-## Why background Responses are required
+## Background and foreground profiles
 
 The Responses API cancel endpoint accepts only responses created with
-`background=true`. Voren therefore starts each provider request in background
-mode, polls while its status is `queued` or `in_progress`, and parses the normal
-result only after `completed`.
+`background=true`. The OpenAI profile therefore starts each request in
+background mode, polls while its status is `queued` or `in_progress`, and
+parses the normal result only after `completed`.
 
 Voren keeps `store=false`. OpenAI documents that background data is still
 temporarily retained for asynchronous execution and polling and is deleted
 after roughly ten minutes when `store` is false. That is a real privacy
 tradeoff and is not described as zero retention.
+
+The DeepSeek profile does not support background, retrieve, cancel, `include`,
+or `store`, so it uses a synchronous foreground request and omits those fields.
+Cancellation can stop Voren from processing a late output, with
+`provider_confirmed=false`, but cannot claim that remote generation stopped.
+Profiles are explicit; a custom base URL is never used to guess capabilities.
 
 References:
 
@@ -107,8 +113,7 @@ stream; the recovery limitation above is the corresponding tradeoff.
 
 ## Verification boundary
 
-The complete suite contains 66 passing tests. This checkpoint uses scripted
-transport responses; it does not claim that a live provider cancellation has
-been recorded. The web API and active-run registry do not exist yet, so this is
-the cancellation foundation for that interface rather than a shipped Stop
-button.
+This checkpoint uses scripted transport responses; it does not claim that a
+live provider cancellation has been recorded. The web API and active-run
+registry do not exist yet, so this is the cancellation foundation for that
+interface rather than a shipped Stop button.

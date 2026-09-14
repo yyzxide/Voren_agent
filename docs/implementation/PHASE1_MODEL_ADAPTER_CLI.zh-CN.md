@@ -43,7 +43,7 @@ Provider Object 只在这一处 Boundary 被转换。`AgentLoop`、`RunManager`�
 
 ## Request 与数据控制
 
-Adapter 的每次请求都设置：
+OpenAI Profile 的每次请求设置：
 
 ```text
 store = false
@@ -57,9 +57,16 @@ Legal Retention Policy 作出承诺。`parallel_tool_calls=false` 让 Provider R
 符合 Voren 的顺序 Budget 与单 Action Approval Boundary；Runtime 仍会拒绝混合
 或多 Action Batch。
 
+DeepSeek Profile 会省略官方兼容表中不支持或忽略的 `background`、`include`、
+`store` 与 `parallel_tool_calls`，使用无状态 Foreground Request。它不能提供
+Provider-confirmed Cancel；多 Tool 结果仍由 Runtime 校验。
+
+能力依据：[DeepSeek Responses 兼容表](https://api-docs.deepseek.com/zh-cn/guides/responses_api/)。
+
 API Key：
 
-- 只从 `OPENAI_API_KEY` 读取；
+- OpenAI Profile 从 `OPENAI_API_KEY` 读取；DeepSeek Profile 优先读取
+  `DEEPSEEK_API_KEY`，并兼容已有的 `OPENAI_API_KEY`；
 - 不进入 `RunConfig`、Event、SQLite、Request JSON 或 Error Text；
 - 只通过 HTTPS Authorization Header 发送；
 - 只有 `localhost`、`127.0.0.1` 或 `::1` 的兼容 Endpoint 可以使用普通 HTTP。
@@ -120,23 +127,21 @@ voren agentdojo --model 'your-model-id' \
 
 ```bash
 export OPENAI_BASE_URL='https://provider.example/v1'
+export VOREN_RESPONSES_PROFILE='openai'
 voren agentdojo --model 'provider-model-id' 'Summarize the hiking email.'
 ```
+
+自定义 Base URL 必须显式声明 `openai` 或 `deepseek` Profile；未知 Endpoint
+不会静默继承 OpenAI Background 能力。
 
 Command 只操作固定版本 AgentDojo World，不连接生产环境邮件或日历账号。
 
 ## 当前证据
 
-7 个 Provider Test 覆盖 Request Shape、带权限提示的 Tool Description、Function
-Call Parsing、完整 Reasoning Output Replay、畸形 Argument、缺少 Credential、
-HTTPS Enforcement 与 Secret Handling。3 个 CLI Test 覆盖不存在 Auto Approval、
-批准后 Verified，以及拒绝后无 Receipt。另有 1 个 Runtime Test 证明安全的
-Provider Error Code 可以进入 Result 和 Audit Event，而不保存 Provider 原始文本。
-
-加上此前 Suite，这个切片的 Checkpoint 共有 47 个通过的测试。后续
-[双模式 AgentDojo 评测](PHASE1_EVALUATION_HARNESS.zh-CN.md) 将其增加到 54 个
-测试；再之后的[模型用量统计](PHASE1_USAGE_ACCOUNTING.zh-CN.md) 将当前完整
-Suite 增加到 57 个测试；后续 Provider Cancellation 切片将其增加到 66 个测试。
+Provider Test 覆盖 Request Shape、能力 Profile、Foreground/Background 分流、
+带权限提示的 Tool Description、Function Call Parsing、完整 Reasoning Output
+Replay、畸形 Argument、缺少 Credential、HTTPS Enforcement 与 Secret Handling。
+CLI Test 覆盖不存在 Auto Approval、批准后 Verified，以及拒绝后无 Receipt。
 
 ## Phase 1 剩余边界
 

@@ -22,15 +22,20 @@ Runtime 在 Model/Tool Boundary 观察到 Cancellation 后，本地 Run 会在�
 Call 或 Action Proposal 之前停止。它的终态会记录取消原因、Provider 已报告的
 部分 Token Usage，以及 Provider 是否真正确认 `status=cancelled`。
 
-## 为什么必须使用 Background Responses
+## Background 与 Foreground Profile
 
 Responses API 的 Cancel Endpoint 只接受由 `background=true` 创建的 Response。
-所以 Voren 会以 Background Mode 发起每次 Provider 请求，在状态为 `queued` 或
+所以 OpenAI Profile 会以 Background Mode 发起请求，在状态为 `queued` 或
 `in_progress` 时轮询，只在状态变成 `completed` 后解析正常结果。
 
 Voren 仍设置 `store=false`。OpenAI 官方文档说明：为了异步执行和轮询，
 Background 数据仍会被临时保存；`store=false` 时大约十分钟后删除。这是真实的
 隐私取舍，不能描述成“零留存”。
+
+DeepSeek Profile 不支持 Background、Retrieve、Cancel、`include` 或 `store`
+参数，因此使用同步 Foreground Request，并省略这些字段。取消只能阻止 Voren
+继续处理迟到输出，`provider_confirmed=false`；不能声称远端生成已经停止。
+Profile 必须显式配置，自定义 Base URL 不会按域名猜测能力。
 
 参考资料：
 
@@ -99,7 +104,6 @@ Event Stream 不会新增原始 Prompt、Provider Output 或 Response ID；代�
 
 ## 验证边界
 
-当前完整 Suite 共 66 个通过的测试。这个 Checkpoint 使用 Scripted Transport
-Response，不声称已经记录过真实 Provider Cancellation。Web API 和 Active-run
-Registry 仍未实现，所以这是未来 Interface 的取消基础，而不是已经交付的 Stop
-Button。
+这个 Checkpoint 使用 Scripted Transport Response，不声称已经记录过真实
+Provider Cancellation。Web API 和 Active-run Registry 仍未实现，所以这是
+未来 Interface 的取消基础，而不是已经交付的 Stop Button。

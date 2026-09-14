@@ -8,7 +8,8 @@ import os
 import socket
 import time
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlparse
@@ -51,6 +52,59 @@ class ResponsesTransport(Protocol):
     def cancel_response(self, response_id: str) -> dict[str, Any]: ...
 
 
+class ResponsesProviderProfile(StrEnum):
+    OPENAI = "openai"
+    DEEPSEEK = "deepseek"
+
+
+@dataclass(frozen=True, slots=True)
+class ResponsesCapabilities:
+    profile: ResponsesProviderProfile
+    background: bool
+    retrieve: bool
+    cancel: bool
+    parallel_tool_control: bool
+    store_parameter: bool
+    encrypted_reasoning_include: bool
+
+    def __post_init__(self) -> None:
+        if self.background and not self.retrieve:
+            raise ValueError("background Responses require retrieval support")
+        if self.cancel and not self.background:
+            raise ValueError("provider cancellation requires background Responses")
+
+    @classmethod
+    def for_profile(
+        cls, profile: ResponsesProviderProfile | str
+    ) -> ResponsesCapabilities:
+        try:
+            resolved = ResponsesProviderProfile(profile)
+        except ValueError as error:
+            supported = ", ".join(item.value for item in ResponsesProviderProfile)
+            raise ModelConfigurationError(
+                f"unsupported Responses provider profile {profile!r}; choose {supported}"
+            ) from error
+        if resolved is ResponsesProviderProfile.OPENAI:
+            return cls(
+                profile=resolved,
+                background=True,
+                retrieve=True,
+                cancel=True,
+                parallel_tool_control=True,
+                store_parameter=True,
+                encrypted_reasoning_include=True,
+            )
+        return cls(
+            profile=resolved,
+            background=False,
+            retrieve=False,
+            cancel=False,
+            parallel_tool_control=False,
+            store_parameter=False,
+            encrypted_reasoning_include=False,
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class OpenAIResponsesConfig:
     model: str
@@ -58,6 +112,11 @@ class OpenAIResponsesConfig:
     include_encrypted_reasoning: bool = True
     response_timeout_seconds: float = 60.0
     poll_interval_seconds: float = 0.5
+    capabilities: ResponsesCapabilities = field(
+        default_factory=lambda: ResponsesCapabilities.for_profile(
+            ResponsesProviderProfile.OPENAI
+        )
+    )
 
     def __post_init__(self) -> None:
         if not self.model.strip():
@@ -82,7 +141,7 @@ class UrllibResponsesTransport:
         opener: Callable[..., Any] = urlopen,
     ) -> None:
         if not api_key:
-            raise ModelConfigurationError("OPENAI_API_KEY is not set")
+            raise ModelConfigurationError("model provider API key is not set")
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
         normalized_base_url = base_url.rstrip("/")
@@ -222,18 +281,42 @@ class OpenAIResponsesModelAdapter:
         base_url: str | None = None,
         timeout_seconds: float = 60.0,
         max_output_tokens: int = 2_048,
+        provider_profile: ResponsesProviderProfile | str | None = None,
         environment: Mapping[str, str] | None = None,
     ) -> OpenAIResponsesModelAdapter:
         values = environment if environment is not None else os.environ
-        api_key = values.get("OPENAI_API_KEY", "")
-        resolved_base_url = base_url or values.get(
-            "OPENAI_BASE_URL", "https://api.openai.com/v1"
+        configured_base_url = base_url or values.get("OPENAI_BASE_URL")
+        configured_profile = provider_profile or values.get(
+            "VOREN_RESPONSES_PROFILE"
         )
+        if configured_profile is None and configured_base_url is not None:
+            raise ModelConfigurationError(
+                "set --provider-profile or VOREN_RESPONSES_PROFILE when using "
+                "a custom Responses base URL"
+            )
+        capabilities = ResponsesCapabilities.for_profile(
+            configured_profile or ResponsesProviderProfile.OPENAI
+        )
+        resolved_profile = capabilities.profile
+        default_base_urls = {
+            ResponsesProviderProfile.OPENAI: "https://api.openai.com/v1",
+            ResponsesProviderProfile.DEEPSEEK: "https://api.deepseek.com",
+        }
+        resolved_base_url = (
+            configured_base_url or default_base_urls[resolved_profile]
+        )
+        if resolved_profile is ResponsesProviderProfile.DEEPSEEK:
+            api_key = values.get("DEEPSEEK_API_KEY", "") or values.get(
+                "OPENAI_API_KEY", ""
+            )
+        else:
+            api_key = values.get("OPENAI_API_KEY", "")
         return cls(
             config=OpenAIResponsesConfig(
                 model=model,
                 max_output_tokens=max_output_tokens,
                 response_timeout_seconds=timeout_seconds,
+                capabilities=capabilities,
             ),
             transport=UrllibResponsesTransport(
                 api_key=api_key,
@@ -241,6 +324,10 @@ class OpenAIResponsesModelAdapter:
                 timeout_seconds=timeout_seconds,
             ),
         )
+
+    @property
+    def provider_profile(self) -> ResponsesProviderProfile:
+        return self._config.capabilities.profile
 
     def complete(
         self,
@@ -263,12 +350,19 @@ class OpenAIResponsesModelAdapter:
             "input": input_items,
             "tools": [self._serialize_tool(tool) for tool in tools],
             "tool_choice": "auto",
-            "parallel_tool_calls": False,
             "max_output_tokens": self._config.max_output_tokens,
-            "store": False,
-            "background": True,
         }
-        if self._config.include_encrypted_reasoning:
+        capabilities = self._config.capabilities
+        if capabilities.parallel_tool_control:
+            payload["parallel_tool_calls"] = False
+        if capabilities.store_parameter:
+            payload["store"] = False
+        if capabilities.background:
+            payload["background"] = True
+        if (
+            self._config.include_encrypted_reasoning
+            and capabilities.encrypted_reasoning_include
+        ):
             payload["include"] = ["reasoning.encrypted_content"]
         raw_response = self._transport.create_response(payload)
         raw_response = self._await_terminal_response(
@@ -335,6 +429,10 @@ class OpenAIResponsesModelAdapter:
             if status not in {"queued", "in_progress"}:
                 return current
 
+            capabilities = self._config.capabilities
+            if not capabilities.background or not capabilities.retrieve:
+                raise ModelProviderError("nonterminal_foreground_response")
+
             response_id = current.get("id")
             if not isinstance(response_id, str) or not response_id:
                 raise ModelProviderError("missing_background_response_id")
@@ -367,6 +465,12 @@ class OpenAIResponsesModelAdapter:
         *,
         reason: CancellationReason,
     ) -> None:
+        if not self._config.capabilities.cancel:
+            raise ModelRequestCancelled(
+                reason=reason,
+                provider_confirmed=False,
+                detail_code="provider_cancel_unsupported",
+            )
         try:
             response = self._transport.cancel_response(response_id)
         except ModelProviderError as error:

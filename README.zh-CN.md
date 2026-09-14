@@ -80,14 +80,25 @@ AgentDojo 官方 `user_task_18` Utility Grader 验证最终状态。它使用确
 Scripted Model，不连接真实邮件或日历账号。单独的 Lifecycle Demo 还会在等待
 Approval 时关闭并重建 SQLite Runtime。
 
-要运行 API-capable Adapter，请设置 `OPENAI_API_KEY`，明确选择 Endpoint 支持的
-Model，并在本地生成一次 Transcript Key，然后执行：
+要运行 API-capable Adapter，请设置 Credential，明确选择 Endpoint Profile 与
+Model，并在本地生成一次 Transcript Key。默认 OpenAI Endpoint 可直接执行：
 
 ```bash
 export VOREN_TRANSCRIPT_KEY="$(python3 -c 'from voren.runtime.transcripts import SQLiteTranscriptStore; print(SQLiteTranscriptStore.generate_key())')"
 voren agentdojo --model 'your-model-id' \
   'Create an event for the hiking trip with Mark based on my emails.'
 ```
+
+DeepSeek Responses 是无状态前台接口，必须显式选择相应能力 Profile：
+
+```bash
+export DEEPSEEK_API_KEY='your-api-key'
+voren agentdojo --provider-profile deepseek --model deepseek-v4-flash \
+  'Summarize the hiking email.'
+```
+
+自定义 `OPENAI_BASE_URL` 时也必须通过 `--provider-profile` 或
+`VOREN_RESPONSES_PROFILE` 明确声明能力，不能把“格式兼容”当成全部能力相同。
 
 Command 仍然只操作 AgentDojo。Commit 前会显示全部 Proposed Effect，并要求在
 终端进行精确副作用审批；CLI 不提供 Auto Approval 开关。

@@ -6,6 +6,8 @@ from voren.providers.openai_responses import (
     ModelTranscriptError,
     OpenAIResponsesConfig,
     OpenAIResponsesModelAdapter,
+    ResponsesCapabilities,
+    ResponsesProviderProfile,
     ResponsesTransport,
     UrllibResponsesTransport,
 )
@@ -16,6 +18,8 @@ __all__ = [
     "ModelTranscriptError",
     "OpenAIResponsesConfig",
     "OpenAIResponsesModelAdapter",
+    "ResponsesCapabilities",
+    "ResponsesProviderProfile",
     "ResponsesTransport",
     "UrllibResponsesTransport",
 ]

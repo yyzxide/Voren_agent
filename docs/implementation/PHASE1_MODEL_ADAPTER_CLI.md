@@ -49,7 +49,7 @@ provider-neutral models.
 
 ## Request and data controls
 
-Every request made by this adapter sets:
+Every request made by the OpenAI profile sets:
 
 ```text
 store = false
@@ -63,9 +63,18 @@ about every provider's legal retention policy. `parallel_tool_calls=false`
 aligns the provider request with Voren's sequential budget and single-action
 approval boundary; the runtime still rejects a mixed or multi-action batch.
 
+The DeepSeek profile omits `background`, `include`, `store`, and
+`parallel_tool_calls`, which its official compatibility table marks unsupported
+or ignored, and uses a stateless foreground request. It cannot provide
+provider-confirmed cancellation; the runtime still validates multiple tool
+results.
+
+Capability source: [DeepSeek Responses compatibility](https://api-docs.deepseek.com/guides/responses_api/).
+
 The API key:
 
-- is read only from `OPENAI_API_KEY`;
+- is read from `OPENAI_API_KEY` for the OpenAI profile; the DeepSeek profile
+  prefers `DEEPSEEK_API_KEY` and accepts an existing `OPENAI_API_KEY`;
 - never enters `RunConfig`, events, SQLite, request JSON, or error text;
 - is sent only in the HTTPS Authorization header; and
 - may use plain HTTP only for `localhost`, `127.0.0.1`, or `::1` compatible
@@ -133,28 +142,25 @@ For a Responses-compatible endpoint:
 
 ```bash
 export OPENAI_BASE_URL='https://provider.example/v1'
+export VOREN_RESPONSES_PROFILE='openai'
 voren agentdojo --model 'provider-model-id' 'Summarize the hiking email.'
 ```
+
+A custom base URL must explicitly select the `openai` or `deepseek` profile;
+an unknown endpoint never silently inherits OpenAI background capabilities.
 
 The command operates only on the pinned AgentDojo world. It does not connect to
 a production email or calendar account.
 
 ## Current evidence
 
-Seven provider tests cover request shape, provenance-aware tool descriptions,
+Provider tests cover request shape, explicit capabilities,
+foreground/background routing, provenance-aware tool descriptions,
 function-call parsing, complete reasoning-output replay, malformed arguments,
-missing credentials, HTTPS enforcement, and secret handling. Three CLI tests
-cover the absence of auto-approval, verified approval, and rejection without a
+missing credentials, HTTPS enforcement, and secret handling. CLI tests cover
+the absence of auto-approval, verified approval, and rejection without a
 receipt. One runtime test proves a safe provider error code reaches the result
 and audit event without persisting raw provider text.
-
-Together with prior suites, Voren had 47 passing tests at this slice's
-checkpoint. The later
-[dual-mode AgentDojo evaluation](PHASE1_EVALUATION_HARNESS.md) brings the current
-checkpoint to 54 tests. The later
-[model-usage accounting slice](PHASE1_USAGE_ACCOUNTING.md) brings the current
-checkpoint to 57 tests. The later provider-cancellation slice brings the
-current complete suite to 66 tests.
 
 ## Remaining Phase 1 boundary
 

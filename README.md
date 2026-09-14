@@ -88,14 +88,28 @@ operator approval and verifies the resulting state with AgentDojo's official
 not connect to a real email or calendar account. The separate lifecycle demo
 also closes and rebuilds the SQLite-backed runtime while approval is pending.
 
-To exercise the API-capable adapter, set `OPENAI_API_KEY`, explicitly choose a
-model supported by the endpoint, generate a local transcript key once, and run:
+To exercise the API-capable adapter, set a credential, explicitly choose an
+endpoint profile and model, and generate a local transcript key once. The
+default OpenAI endpoint can run as follows:
 
 ```bash
 export VOREN_TRANSCRIPT_KEY="$(python3 -c 'from voren.runtime.transcripts import SQLiteTranscriptStore; print(SQLiteTranscriptStore.generate_key())')"
 voren agentdojo --model 'your-model-id' \
   'Create an event for the hiking trip with Mark based on my emails.'
 ```
+
+DeepSeek Responses is a stateless foreground endpoint and requires its explicit
+capability profile:
+
+```bash
+export DEEPSEEK_API_KEY='your-api-key'
+voren agentdojo --provider-profile deepseek --model deepseek-v4-flash \
+  'Summarize the hiking email.'
+```
+
+A custom `OPENAI_BASE_URL` likewise requires `--provider-profile` or
+`VOREN_RESPONSES_PROFILE`; wire compatibility is not treated as identical
+capability support.
 
 The command still operates only on AgentDojo. It prints every proposed effect
 and requires an interactive exact-effect approval before commit. There is no

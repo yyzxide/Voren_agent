@@ -36,6 +36,7 @@ from voren.evaluation.models import EvaluationMode, ExperimentConfig
 from voren.providers.openai_responses import (
     ModelConfigurationError,
     OpenAIResponsesModelAdapter,
+    ResponsesProviderProfile,
 )
 from voren.runs.manager import RunManager
 from voren.runs.models import RunConfig
@@ -70,6 +71,14 @@ def build_parser() -> argparse.ArgumentParser:
     agentdojo.add_argument(
         "--base-url",
         help="Responses-compatible API base URL; defaults to OPENAI_BASE_URL.",
+    )
+    agentdojo.add_argument(
+        "--provider-profile",
+        choices=tuple(item.value for item in ResponsesProviderProfile),
+        help=(
+            "Explicit endpoint capabilities; alternatively set "
+            "VOREN_RESPONSES_PROFILE. Required with a custom base URL."
+        ),
     )
     agentdojo.add_argument(
         "--database",
@@ -115,6 +124,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Responses-compatible API base URL; defaults to OPENAI_BASE_URL.",
     )
     evaluation.add_argument(
+        "--provider-profile",
+        choices=tuple(item.value for item in ResponsesProviderProfile),
+        help=(
+            "Explicit endpoint capabilities; alternatively set "
+            "VOREN_RESPONSES_PROFILE. Required with a custom base URL."
+        ),
+    )
+    evaluation.add_argument(
         "--output",
         type=Path,
         required=True,
@@ -158,7 +175,13 @@ def run_agentdojo(
             base_url=args.base_url,
             timeout_seconds=args.timeout_seconds,
             max_output_tokens=args.max_output_tokens,
+            provider_profile=getattr(args, "provider_profile", None),
         )
+    provider_name = (
+        model.provider_profile.value
+        if isinstance(model, OpenAIResponsesModelAdapter)
+        else "injected_model_adapter"
+    )
 
     workspace = AgentDojoWorkspaceAdapter()
     action_definition = create_calendar_event_definition(
@@ -221,7 +244,7 @@ def run_agentdojo(
                 world_adapter="agentdojo_workspace_v1.2.2",
                 policy_version="provenance-and-exact-effects-v1",
                 action_contract_versions=(WORKSPACE_CONTRACT_VERSION,),
-                metadata={"model": model_name, "provider": "responses_api"},
+                metadata={"model": model_name, "provider": provider_name},
             ),
             cancellation=cancellation,
         )
@@ -313,6 +336,7 @@ def run_agentdojo_evaluation(
                 base_url=args.base_url,
                 timeout_seconds=args.timeout_seconds,
                 max_output_tokens=args.max_output_tokens,
+                provider_profile=getattr(args, "provider_profile", None),
             )
 
         resolved_model_factory = create_model
@@ -324,7 +348,11 @@ def run_agentdojo_evaluation(
         created_at=datetime.now(UTC),
         code_revision=source.revision,
         code_dirty=source.dirty,
-        provider="responses_api",
+        provider=(
+            getattr(args, "provider_profile", None)
+            or os.environ.get("VOREN_RESPONSES_PROFILE")
+            or ResponsesProviderProfile.OPENAI.value
+        ),
         model=model_name,
         manifest_id=manifest.manifest_id,
         manifest_digest=manifest.calculated_digest(),

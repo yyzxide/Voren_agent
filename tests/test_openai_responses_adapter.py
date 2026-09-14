@@ -10,6 +10,8 @@ from voren.providers.openai_responses import (
     ModelTranscriptError,
     OpenAIResponsesConfig,
     OpenAIResponsesModelAdapter,
+    ResponsesCapabilities,
+    ResponsesProviderProfile,
     UrllibResponsesTransport,
 )
 from voren.runtime.cancellation import CancellationToken, ModelRequestCancelled
@@ -195,6 +197,79 @@ class OpenAIResponsesModelAdapterTest(unittest.TestCase):
             transport.retrieve_ids,
             ["resp-background-1", "resp-background-1"],
         )
+
+    def test_deepseek_profile_omits_unsupported_request_capabilities(self) -> None:
+        transport = FakeTransport((self.function_response(),))
+        adapter = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(
+                model="deepseek-v4-flash",
+                capabilities=ResponsesCapabilities.for_profile("deepseek"),
+            ),
+            transport=transport,
+        )
+
+        result = adapter.complete(
+            messages=self.initial_messages(), tools=self.tools()
+        )
+
+        self.assertEqual(result.tool_calls[0].name, "search_emails")
+        payload = transport.payloads[0]
+        self.assertNotIn("background", payload)
+        self.assertNotIn("parallel_tool_calls", payload)
+        self.assertNotIn("store", payload)
+        self.assertNotIn("include", payload)
+
+    def test_foreground_profile_never_polls_nonterminal_response(self) -> None:
+        transport = FakeTransport(
+            ({"id": "unexpected", "status": "in_progress", "output": []},)
+        )
+        adapter = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(
+                model="deepseek-v4-flash",
+                capabilities=ResponsesCapabilities.for_profile("deepseek"),
+            ),
+            transport=transport,
+        )
+
+        with self.assertRaises(ModelProviderError) as raised:
+            adapter.complete(messages=self.initial_messages(), tools=self.tools())
+
+        self.assertEqual(
+            raised.exception.code, "nonterminal_foreground_response"
+        )
+        self.assertEqual(transport.retrieve_ids, [])
+        self.assertEqual(transport.cancel_ids, [])
+
+    def test_foreground_cancellation_is_local_and_never_claims_provider_stop(self) -> None:
+        token = CancellationToken()
+
+        class CancelAfterCreateTransport(FakeTransport):
+            def create_response(self, payload: dict) -> dict:
+                response = super().create_response(payload)
+                token.cancel()
+                return response
+
+        transport = CancelAfterCreateTransport((self.text_response(),))
+        adapter = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(
+                model="deepseek-v4-flash",
+                capabilities=ResponsesCapabilities.for_profile("deepseek"),
+            ),
+            transport=transport,
+        )
+
+        with self.assertRaises(ModelRequestCancelled) as raised:
+            adapter.complete(
+                messages=self.initial_messages(),
+                tools=self.tools(),
+                cancellation=token,
+            )
+
+        self.assertFalse(raised.exception.provider_confirmed)
+        self.assertEqual(
+            raised.exception.detail_code, "provider_status_completed"
+        )
+        self.assertEqual(transport.cancel_ids, [])
 
     def test_operator_cancellation_calls_provider_and_preserves_usage(self) -> None:
         token = CancellationToken()
@@ -429,6 +504,34 @@ class OpenAIResponsesModelAdapterTest(unittest.TestCase):
             OpenAIResponsesModelAdapter.from_environment(
                 model="test-model", environment={}
             )
+
+    def test_custom_base_url_requires_explicit_provider_profile(self) -> None:
+        with self.assertRaises(ModelConfigurationError) as raised:
+            OpenAIResponsesModelAdapter.from_environment(
+                model="test-model",
+                environment={
+                    "OPENAI_API_KEY": "test-secret",
+                    "OPENAI_BASE_URL": "https://provider.example/v1",
+                },
+            )
+
+        self.assertIn("VOREN_RESPONSES_PROFILE", str(raised.exception))
+
+    def test_deepseek_environment_profile_uses_foreground_defaults(self) -> None:
+        adapter = OpenAIResponsesModelAdapter.from_environment(
+            model="deepseek-v4-flash",
+            provider_profile=ResponsesProviderProfile.DEEPSEEK,
+            environment={"DEEPSEEK_API_KEY": "test-secret"},
+        )
+
+        self.assertEqual(
+            adapter.provider_profile,
+            ResponsesProviderProfile.DEEPSEEK,
+        )
+        self.assertEqual(
+            adapter._transport.endpoint,
+            "https://api.deepseek.com/responses",
+        )
 
     def test_transport_rejects_plain_http_for_remote_host(self) -> None:
         with self.assertRaises(ModelConfigurationError):
