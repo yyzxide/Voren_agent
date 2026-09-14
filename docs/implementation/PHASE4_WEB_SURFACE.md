@@ -28,7 +28,9 @@ creates one exact-effect approve/reject decision.
   conflicting decision receives HTTP 409.
 - The controlled AgentDojo workspace handle stays in memory while approval is
   pending. If the process restarts, the page marks that approval as
-  unrecoverable and no action is dispatched or retried.
+  unrecoverable and no action is dispatched or retried. The Google connector
+  uses stable remote operation identities, so its adapter can be reconstructed
+  after restart and a still-pending approval remains recoverable.
 - Approved actions still pass through `ActionGateway`, the atomic Operation
   Ledger, postcondition verification, and durable Run events. The Web layer
   never writes the workspace directly.
@@ -42,7 +44,10 @@ this mode; it is product-flow evidence, not model-quality evidence.
 
 `VOREN_WEB_MODE=live` constructs the existing Responses adapter from
 `VOREN_MODEL`, the explicit provider profile, and the corresponding API key.
-It still runs against AgentDojo, not a production account. Missing live-model
+The default `VOREN_WEB_WORKSPACE=agentdojo` still uses the disposable benchmark
+world. Explicitly selecting `VOREN_WEB_WORKSPACE=google` switches the same Web
+flow to the conservative Google connector described in Phase 5; Google cannot
+be mislabeled as deterministic demo mode. Missing model or workspace
 configuration returns HTTP 503 and releases the request reservation so a fixed
 configuration can retry safely.
 

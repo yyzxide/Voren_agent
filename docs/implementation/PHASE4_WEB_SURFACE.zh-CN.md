@@ -24,7 +24,8 @@ External Action Proposal 时，才出现一次绑定精确副作用的批准/拒
 - 完全相同的 Decision 重试返回同一 Receipt；Digest 变化或 Decision 冲突返回
   HTTP 409；
 - 等待审批时，受控 AgentDojo Workspace Handle 保存在内存。进程重启后页面会
-  明确标记审批不可恢复，不会派发或重试动作；
+  明确标记审批不可恢复，不会派发或重试动作；Google Connector 使用稳定的远端
+  Operation Identity，因此可以在重启后重建 Adapter，尚未决定的审批仍可恢复；
 - 批准后的动作仍经过 `ActionGateway`、原子 Operation Ledger、Postcondition
   Verification 和持久 Run Event；Web 层不能直接修改 Workspace。
 
@@ -35,8 +36,11 @@ Agent Loop、邮件/日历读取、MCP Knowledge Read、Action Proposal、审批
 Receipt。页面会明确标注模式；这是产品流程证据，不是模型质量证据。
 
 `VOREN_WEB_MODE=live` 会从 `VOREN_MODEL`、显式 Provider Profile 和对应 API Key
-构建已有 Responses Adapter，但仍运行在 AgentDojo，不连接生产账号。Live Model
-配置缺失时返回 HTTP 503，同时释放 Request Reservation，修正配置后可以安全重试。
+构建已有 Responses Adapter。默认 `VOREN_WEB_WORKSPACE=agentdojo` 仍使用一次性
+Benchmark World；显式选择 `VOREN_WEB_WORKSPACE=google` 时，同一个 Web Flow 会切换
+到 Phase 5 的保守 Google Connector，而且 Google 不能被错误标成确定性 Demo。
+Model 或 Workspace 配置缺失时返回 HTTP 503，同时释放 Request Reservation，修正
+配置后可以安全重试。
 
 ## Event 交付
 

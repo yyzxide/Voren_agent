@@ -61,7 +61,8 @@ Gate，并且绝不能包含邮箱正文或 Token。
 
 ## CLI 纵向切片
 
-安装后的 `voren google` 与 AgentDojo 路径复用相同的有界 Agent Loop、加密
+安装后的 `voren google` 与可选的 Web Live Workspace 都和 AgentDojo 路径复用
+相同的有界 Agent Loop、加密
 Transcript Checkpoint、SQLite Run Event、Operation Ledger、精确 Approval Prompt、
 Action Gateway 和 Verified Receipt；只替换 Read/Action Adapter 及其冻结的 Contract
 Version。
@@ -77,3 +78,8 @@ voren google --model 'your-model-id' \
 
 Access Token 只能从环境读取；CLI 刻意不提供可能把 Token 暴露在进程列表或 Shell
 History 中的参数，也没有自动批准开关。
+
+本地 Web 需要在启动 `voren-web` 前设置 `VOREN_WEB_MODE=live` 与
+`VOREN_WEB_WORKSPACE=google`。Health 与页面会分别披露 Model/Workspace 是否就绪。
+Google Approval 使用稳定远端 Operation Identity，Web 进程重启后可以重建 Adapter；
+一次性的 AgentDojo World 则不能恢复。

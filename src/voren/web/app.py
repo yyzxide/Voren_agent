@@ -14,6 +14,7 @@ from fastapi.sse import EventSourceResponse, ServerSentEvent
 from fastapi.staticfiles import StaticFiles
 
 from voren.adapters.agentdojo_workspace import AgentDojoDependencyError
+from voren.adapters.google_workspace import GoogleWorkspaceConfigurationError
 from voren.providers.openai_responses import (
     ModelConfigurationError,
     OpenAIResponsesModelAdapter,
@@ -35,6 +36,8 @@ from voren.web.service import (
     VorenWebService,
     WebApprovalRecoveryRequiredError,
     WebDecisionConflictError,
+    create_agentdojo_web_workspace,
+    create_google_web_workspace,
 )
 
 
@@ -51,6 +54,7 @@ def create_app(
     *,
     service: VorenWebService | None = None,
     mode: str | None = None,
+    workspace: str | None = None,
     database: Path | None = None,
 ) -> FastAPI:
     selected_mode = (mode or os.environ.get("VOREN_WEB_MODE") or "demo").strip()
@@ -59,11 +63,29 @@ def create_app(
     selected_database = database or Path(
         os.environ.get("VOREN_WEB_DATABASE", ".voren/web.sqlite3")
     )
-    active_service = service or VorenWebService(
-        database=selected_database,
-        model_factory=_model_factory(selected_mode),
-        mode=selected_mode,
-    )
+    selected_workspace = (
+        workspace or os.environ.get("VOREN_WEB_WORKSPACE") or "agentdojo"
+    ).strip()
+    if selected_workspace not in {"agentdojo", "google"}:
+        raise ValueError("VOREN_WEB_WORKSPACE must be 'agentdojo' or 'google'")
+    if service is None:
+        if selected_workspace == "google" and selected_mode != "live":
+            raise ValueError("the Google Web workspace requires VOREN_WEB_MODE=live")
+        workspace_factory = (
+            create_google_web_workspace
+            if selected_workspace == "google"
+            else create_agentdojo_web_workspace
+        )
+        active_service = VorenWebService(
+            database=selected_database,
+            model_factory=_model_factory(selected_mode),
+            mode=selected_mode,
+            workspace_factory=workspace_factory,
+            workspace_name=selected_workspace,
+            workspace_recoverable=selected_workspace == "google",
+        )
+    else:
+        active_service = service
     static_root = Path(__file__).with_name("static")
     app = FastAPI(
         title="Voren Agent",
@@ -83,6 +105,15 @@ def create_app(
     def health() -> HealthView:
         return HealthView(
             mode=active_service.mode,
+            workspace=active_service.workspace_name,
+            workspace_configured=_workspace_configured(
+                active_service.workspace_name
+            ),
+            writes_target=(
+                "google_draft_or_private_calendar_hold"
+                if active_service.workspace_name == "google"
+                else "controlled_agentdojo_workspace"
+            ),
             live_model_configured=_live_model_configured(),
             knowledge_database=str(active_service.database),
         )
@@ -95,7 +126,11 @@ def create_app(
             raise HTTPException(status_code=409, detail=str(error)) from error
         except WebRequestInProgressError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
-        except (ModelConfigurationError, AgentDojoDependencyError) as error:
+        except (
+            ModelConfigurationError,
+            AgentDojoDependencyError,
+            GoogleWorkspaceConfigurationError,
+        ) as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
 
     @app.get("/api/runs/{run_id}", response_model=RunView)
@@ -118,6 +153,8 @@ def create_app(
             WebApprovalRecoveryRequiredError,
         ) as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
+        except GoogleWorkspaceConfigurationError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
 
     @app.get("/api/runs/{run_id}/events")
     def list_events(
@@ -190,6 +227,15 @@ def _live_model_configured() -> bool:
         else os.environ.get("OPENAI_API_KEY")
     )
     return bool(os.environ.get("VOREN_MODEL")) and has_key
+
+
+def _workspace_configured(workspace: str) -> bool:
+    if workspace == "google":
+        return bool(
+            os.environ.get("GOOGLE_WORKSPACE_ACCESS_TOKEN")
+            and os.environ.get("VOREN_GOOGLE_ACCOUNT_EMAIL")
+        )
+    return True
 
 
 def main() -> None:

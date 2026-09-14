@@ -146,6 +146,11 @@ effects and one approve/reject decision. Lifecycle events are replayed over SSE,
 and browser-visible snapshots survive refresh. Demo mode is visibly labelled as
 deterministic and still writes only to a disposable AgentDojo workspace.
 
+The same page can explicitly select the production-shaped connector with
+`VOREN_WEB_MODE=live VOREN_WEB_WORKSPACE=google voren-web`. Model readiness and
+Google workspace readiness are disclosed separately; this mode never falls
+back silently to the scripted demo.
+
 The agent-loop demo performs provenance-labelled email/calendar reads, pauses
 before an external action, prints the exact effects, then applies a scripted
 operator approval and verifies the resulting state with AgentDojo's official

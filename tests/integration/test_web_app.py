@@ -35,12 +35,22 @@ WEB_RUNTIME_AVAILABLE = web_runtime_available()
 if WEB_AVAILABLE:
     from fastapi.testclient import TestClient
 
+    from tests.test_google_workspace_connector import FakeGoogleTransport
+    from voren.adapters.google_workspace import (
+        GoogleWorkspaceConfig,
+        GoogleWorkspaceConnector,
+    )
     from voren.knowledge.models import KnowledgeDocument, KnowledgeSourceKind
     from voren.knowledge.store import SQLiteKnowledgeStore
     from voren.providers.openai_responses import ModelConfigurationError
+    from voren.runtime.models import ModelResponse, ToolCall
+    from voren.testing.scripted_model import ScriptedModelAdapter
     from voren.web.app import create_app
     from voren.web.demo_model import DemoWorkspaceModel
-    from voren.web.service import VorenWebService
+    from voren.web.service import (
+        VorenWebService,
+        create_google_web_workspace,
+    )
 
 
 @unittest.skipUnless(
@@ -74,6 +84,8 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
         self.assertIn("Voren Agent", page.text)
         self.assertEqual(health.status_code, 200)
         self.assertEqual(health.json()["mode"], "demo")
+        self.assertEqual(health.json()["workspace"], "agentdojo")
+        self.assertTrue(health.json()["workspace_configured"])
         self.assertFalse(health.json()["live_model_configured"])
         self.assertIn("font: 16px/1.6", css.text)
         javascript = self.client.get("/static/app.js")
@@ -316,6 +328,90 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
 
         self.assertEqual(first.status_code, 503)
         self.assertEqual(retried.status_code, 503)
+
+    def test_google_web_approval_survives_process_restart(self) -> None:
+        transport = FakeGoogleTransport()
+        config = GoogleWorkspaceConfig(
+            access_token="test-token",
+            account_email="sid@example.com",
+            time_zone="Asia/Shanghai",
+        )
+
+        def workspace_factory():
+            return create_google_web_workspace(
+                connector=GoogleWorkspaceConnector(
+                    config,
+                    transport=transport,
+                    clock=lambda: self.now,
+                )
+            )
+
+        def model_factory():
+            return ScriptedModelAdapter(
+                (
+                    ModelResponse(
+                        tool_calls=(
+                            ToolCall(
+                                call_id="google-calendar-action",
+                                name="create_private_calendar_event",
+                                arguments={
+                                    "title": "Web recovery review",
+                                    "start_time": "2026-09-15T09:00:00+08:00",
+                                    "end_time": "2026-09-15T10:00:00+08:00",
+                                },
+                            ),
+                        )
+                    ),
+                )
+            )
+
+        def service():
+            return VorenWebService(
+                database=self.database,
+                model_factory=model_factory,
+                mode="live",
+                workspace_factory=workspace_factory,
+                workspace_name="google",
+                workspace_recoverable=True,
+                clock=lambda: self.now,
+            )
+
+        original = TestClient(create_app(service=service()))
+        self.addCleanup(original.close)
+        pending = original.post(
+            "/api/runs",
+            json={
+                "client_request_id": "request:google-restart-001",
+                "request": "创建一个私人日历占位。",
+            },
+        ).json()
+        self.assertEqual(pending["workspace"], "google")
+        self.assertEqual(pending["status"], "waiting_approval")
+
+        restarted = TestClient(create_app(service=service()))
+        self.addCleanup(restarted.close)
+        restored = restarted.get(f"/api/runs/{pending['run_id']}").json()
+        self.assertFalse(restored["recovery_required"])
+        approved = restarted.post(
+            f"/api/runs/{pending['run_id']}/decision",
+            json={
+                "decision_id": "decision:google-restart-001",
+                "proposal_digest": pending["proposal"]["digest"],
+                "approved": True,
+            },
+        )
+
+        self.assertEqual(approved.status_code, 200)
+        self.assertEqual(approved.json()["status"], "completed")
+        self.assertTrue(approved.json()["receipt"]["verification"]["passed"])
+        self.assertEqual(
+            sum(call[0] == "POST" for call in transport.calls),
+            1,
+        )
+
+    def test_google_workspace_cannot_be_mislabeled_as_demo_mode(self) -> None:
+        with self.assertRaisesRegex(ValueError, "requires VOREN_WEB_MODE=live"):
+            create_app(mode="demo", workspace="google")
 
     @staticmethod
     def _decision(payload):

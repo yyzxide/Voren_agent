@@ -226,10 +226,14 @@ async function loadHealth() {
   try {
     const health = await api("/api/health");
     $("health-dot").classList.add("ok");
-    $("health-text").textContent = `Runtime 已连接 · ${health.mode}`;
-    $("mode-banner").textContent = health.mode === "demo"
-      ? "确定性演示模式：无需 API Key，不代表真实模型质量"
-      : `Live 模式：${health.live_model_configured ? "模型配置已就绪" : "缺少模型配置"}`;
+    $("health-text").textContent = `Runtime 已连接 · ${health.mode} · ${health.workspace}`;
+    if (health.mode === "demo") {
+      $("mode-banner").textContent = "确定性 AgentDojo 演示：无需 API Key，不代表真实模型质量";
+    } else {
+      const modelState = health.live_model_configured ? "模型已配置" : "缺少模型配置";
+      const workspaceState = health.workspace_configured ? "Workspace 已配置" : "缺少 Workspace 配置";
+      $("mode-banner").textContent = `Live · ${health.workspace}：${modelState}；${workspaceState}`;
+    }
   } catch (error) {
     $("health-text").textContent = "Runtime 不可用";
     $("mode-banner").textContent = error.message;

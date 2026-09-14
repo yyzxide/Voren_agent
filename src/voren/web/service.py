@@ -3,18 +3,25 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
 from uuid import uuid4
 
 from voren.actions.errors import ApprovalRejectedError
-from voren.actions.gateway import ActionGateway
+from voren.actions.gateway import ActionDefinition, ActionGateway
 from voren.actions.ledger import SQLiteOperationLedger
 from voren.actions.models import ApprovalDecision
+from voren.actions.ports import ActionAdapter
 from voren.adapters.agentdojo_reads import AgentDojoReadAdapter
 from voren.adapters.agentdojo_workspace import AgentDojoWorkspaceAdapter
+from voren.adapters.google_workspace import (
+    GOOGLE_WORKSPACE_CONTRACT_VERSION,
+    GoogleWorkspaceConfig,
+    GoogleWorkspaceConnector,
+)
 from voren.adapters.workspace_contracts import (
     WORKSPACE_CONTRACT_VERSION,
     create_calendar_event_definition,
@@ -23,7 +30,10 @@ from voren.adapters.workspace_contracts import (
 from voren.knowledge.store import SQLiteKnowledgeStore
 from voren.mcp_bridge.adapter import MCPKnowledgeReadAdapter
 from voren.mcp_bridge.server import create_knowledge_mcp_server
-from voren.observations.read_tools import CompositeReadToolAdapter
+from voren.observations.read_tools import (
+    CompositeReadToolAdapter,
+    ReadToolAdapter,
+)
 from voren.runs.manager import RunManager
 from voren.runs.models import RunConfig, RunEvent
 from voren.runs.store import SQLiteRunStore
@@ -39,6 +49,76 @@ from voren.web.models import CreateRunRequest, DecideRunRequest, RunView
 
 
 ModelFactory = Callable[[], ModelAdapter]
+WorkspaceFactory = Callable[[], "WebWorkspaceRuntime"]
+
+
+@dataclass(frozen=True, slots=True)
+class WebWorkspaceRuntime:
+    name: str
+    world_adapter: str
+    action_adapter: ActionAdapter
+    read_tools: ReadToolAdapter
+    action_definitions: tuple[ActionDefinition, ...]
+    action_descriptions: Mapping[str, str]
+    contract_versions: tuple[str, ...]
+    recoverable_after_restart: bool
+
+
+def create_agentdojo_web_workspace() -> WebWorkspaceRuntime:
+    workspace = AgentDojoWorkspaceAdapter()
+    calendar_action = create_calendar_event_definition(
+        account_email=workspace.account_email
+    )
+    email_action = send_email_definition()
+    return WebWorkspaceRuntime(
+        name="agentdojo",
+        world_adapter="agentdojo_workspace_v1.2.2+mcp-knowledge",
+        action_adapter=workspace,
+        read_tools=AgentDojoReadAdapter(workspace),
+        action_definitions=(calendar_action, email_action),
+        action_descriptions={
+            calendar_action.name: (
+                "Propose a calendar event and invitation email. Execution "
+                "requires exact-effect operator approval."
+            ),
+            email_action.name: (
+                "Propose an outbound email. Execution requires exact-effect "
+                "operator approval."
+            ),
+        },
+        contract_versions=(WORKSPACE_CONTRACT_VERSION,),
+        recoverable_after_restart=False,
+    )
+
+
+def create_google_web_workspace(
+    config: GoogleWorkspaceConfig | None = None,
+    *,
+    connector: GoogleWorkspaceConnector | None = None,
+) -> WebWorkspaceRuntime:
+    workspace = connector or GoogleWorkspaceConnector(
+        config or GoogleWorkspaceConfig.from_environment()
+    )
+    draft_action, calendar_action = workspace.action_definitions
+    return WebWorkspaceRuntime(
+        name="google",
+        world_adapter="google_workspace_rest_v1+mcp-knowledge",
+        action_adapter=workspace,
+        read_tools=workspace,
+        action_definitions=(draft_action, calendar_action),
+        action_descriptions={
+            draft_action.name: (
+                "Propose a Gmail draft. This never sends the message and "
+                "requires exact-effect operator approval."
+            ),
+            calendar_action.name: (
+                "Propose a private Google Calendar hold with no attendees or "
+                "invitation request. Execution requires exact-effect approval."
+            ),
+        },
+        contract_versions=(GOOGLE_WORKSPACE_CONTRACT_VERSION,),
+        recoverable_after_restart=True,
+    )
 
 
 class WebDecisionConflictError(RuntimeError):
@@ -58,16 +138,22 @@ class VorenWebService:
         database: Path,
         model_factory: ModelFactory,
         mode: str,
+        workspace_factory: WorkspaceFactory = create_agentdojo_web_workspace,
+        workspace_name: str = "agentdojo",
+        workspace_recoverable: bool = False,
         limits: RuntimeLimits | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self.database = database
         self.mode = mode
+        self.workspace_name = workspace_name
+        self.workspace_recoverable = workspace_recoverable
         self._model_factory = model_factory
+        self._workspace_factory = workspace_factory
         self._limits = limits or RuntimeLimits()
         self._clock = clock or (lambda: datetime.now(UTC))
         self._index = SQLiteWebRunIndex(database)
-        self._pending_workspaces: dict[str, AgentDojoWorkspaceAdapter] = {}
+        self._pending_workspaces: dict[str, WebWorkspaceRuntime] = {}
         self._lock = RLock()
 
     def submit(self, request: CreateRunRequest) -> RunView:
@@ -90,7 +176,7 @@ class VorenWebService:
 
         try:
             model = self._model_factory()
-            workspace = AgentDojoWorkspaceAdapter()
+            workspace = self._create_workspace()
         except Exception:
             self._index.abandon(
                 client_request_id=request.client_request_id,
@@ -101,13 +187,9 @@ class VorenWebService:
         ledger = SQLiteOperationLedger(self.database)
         run_store = SQLiteRunStore(self.database)
         try:
-            calendar_action = create_calendar_event_definition(
-                account_email=workspace.account_email
-            )
-            email_action = send_email_definition()
             gateway = ActionGateway(
-                definitions=(calendar_action, email_action),
-                adapter=workspace,
+                definitions=workspace.action_definitions,
+                adapter=workspace.action_adapter,
                 ledger=ledger,
                 clock=self._clock,
             )
@@ -122,27 +204,18 @@ class VorenWebService:
             loop = AgentLoop(
                 model=model,
                 read_tools=CompositeReadToolAdapter(
-                    AgentDojoReadAdapter(workspace),
+                    workspace.read_tools,
                     MCPKnowledgeReadAdapter(
                         knowledge_server,
                         source_id="local-knowledge",
                     ),
                 ),
-                action_tools=(
+                action_tools=tuple(
                     external_action_tool(
-                        calendar_action,
-                        description=(
-                            "Propose a calendar event and invitation email. "
-                            "Execution requires exact-effect operator approval."
-                        ),
-                    ),
-                    external_action_tool(
-                        email_action,
-                        description=(
-                            "Propose an outbound email. Execution requires "
-                            "exact-effect operator approval."
-                        ),
-                    ),
+                        definition,
+                        description=workspace.action_descriptions[definition.name],
+                    )
+                    for definition in workspace.action_definitions
                 ),
                 run_manager=manager,
                 limits=self._limits,
@@ -151,16 +224,21 @@ class VorenWebService:
                 user_request=normalized,
                 config=RunConfig(
                     workflow="web_email_calendar",
-                    world_adapter="agentdojo-workspace+mcp-knowledge",
+                    world_adapter=workspace.world_adapter,
                     policy_version="provenance-and-approval-v1",
-                    action_contract_versions=(WORKSPACE_CONTRACT_VERSION,),
-                    metadata={"surface": "web", "mode": self.mode},
+                    action_contract_versions=workspace.contract_versions,
+                    metadata={
+                        "surface": "web",
+                        "mode": self.mode,
+                        "workspace": workspace.name,
+                    },
                 ),
             )
             timestamp = self._clock()
             view = RunView(
                 client_request_id=request.client_request_id,
                 run_id=result.run_id,
+                workspace=workspace.name,
                 status=result.status.value,
                 final_text=result.final_text,
                 proposal=result.pending_proposal,
@@ -244,20 +322,21 @@ class VorenWebService:
 
             workspace = self._pending_workspaces.get(run_id)
             if workspace is None:
-                raise WebApprovalRecoveryRequiredError(
-                    "the controlled workspace handle was lost after process restart; "
-                    "no action was dispatched"
-                )
-            calendar_action = create_calendar_event_definition(
-                account_email=workspace.account_email
-            )
-            email_action = send_email_definition()
+                if (
+                    not self.workspace_recoverable
+                    or current.workspace != self.workspace_name
+                ):
+                    raise WebApprovalRecoveryRequiredError(
+                        "the controlled workspace handle was lost after process "
+                        "restart; no action was dispatched"
+                    )
+                workspace = self._create_workspace()
             manager = RunManager(
                 store=run_store,
                 operation_ledger=ledger,
                 action_gateway=ActionGateway(
-                    definitions=(calendar_action, email_action),
-                    adapter=workspace,
+                    definitions=workspace.action_definitions,
+                    adapter=workspace.action_adapter,
                     ledger=ledger,
                     clock=self._clock,
                 ),
@@ -315,4 +394,27 @@ class VorenWebService:
             return view
         with self._lock:
             recoverable = view.run_id in self._pending_workspaces
+        if (
+            not recoverable
+            and self.workspace_recoverable
+            and view.workspace == self.workspace_name
+        ):
+            try:
+                self._create_workspace()
+            except Exception:
+                pass
+            else:
+                recoverable = True
         return view.model_copy(update={"recovery_required": not recoverable})
+
+    def _create_workspace(self) -> WebWorkspaceRuntime:
+        workspace = self._workspace_factory()
+        if (
+            workspace.name != self.workspace_name
+            or workspace.recoverable_after_restart
+            is not self.workspace_recoverable
+        ):
+            raise ValueError(
+                "web workspace factory does not match service configuration"
+            )
+        return workspace

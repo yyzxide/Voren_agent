@@ -135,6 +135,10 @@ Action Proposal 时才展示精确 Effects 和一次批准/拒绝。Lifecycle Ev
 回放，浏览器可见 Snapshot 刷新后仍可读取。Demo Mode 会明确标注为确定性脚本，
 且外部写入仍只发生在一次性 AgentDojo Workspace。
 
+同一页面可通过 `VOREN_WEB_MODE=live VOREN_WEB_WORKSPACE=google voren-web` 显式
+选择面向真实供应商的 Connector。页面会分别披露 Model 与 Google Workspace 的
+就绪状态，而且该模式绝不会静默退回 Scripted Demo。
+
 Agent Loop Demo 会执行带 Provenance Label 的邮件与日历读取，在外部动作前
 暂停并打印精确 Effects，然后应用 Scripted Operator Approval，最后使用
 AgentDojo 官方 `user_task_18` Utility Grader 验证最终状态。它使用确定性

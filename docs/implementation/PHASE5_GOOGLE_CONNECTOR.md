@@ -71,7 +71,8 @@ or tokens.
 
 ## CLI vertical slice
 
-The installed `voren google` command uses the same bounded Agent Loop,
+The installed `voren google` command and the optional Web live workspace use
+the same bounded Agent Loop,
 encrypted transcript checkpoints, SQLite run events, operation ledger, exact
 approval prompt, action gateway, and verified receipt as the AgentDojo path.
 Only the read/action adapters and their frozen contract version change.
@@ -88,3 +89,9 @@ voren google --model 'your-model-id' \
 The access token is environment-only: there is intentionally no CLI token
 argument that could expose it in process listings or shell history. The CLI has
 no automatic approval flag.
+
+For the local Web surface, set `VOREN_WEB_MODE=live` and
+`VOREN_WEB_WORKSPACE=google` before starting `voren-web`. Health output and the
+page disclose model and workspace readiness separately. A pending Google
+approval can survive a Web-process restart because its adapter is reconstructed
+from stable remote operation identities; the disposable AgentDojo world cannot.

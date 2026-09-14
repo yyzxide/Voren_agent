@@ -30,6 +30,7 @@ class DecideRunRequest(WebModel):
 class RunView(WebModel):
     client_request_id: str
     run_id: str
+    workspace: str = "agentdojo"
     status: str
     final_text: str | None = None
     proposal: ActionProposal | None = None
@@ -47,7 +48,9 @@ class RunView(WebModel):
 class HealthView(WebModel):
     status: str = "ok"
     mode: str
-    writes_target: str = "controlled_agentdojo_workspace"
+    workspace: str
+    workspace_configured: bool
+    writes_target: str
     authentication: str = "local_loopback_only"
     live_model_configured: bool
     knowledge_database: str
