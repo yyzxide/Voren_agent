@@ -68,6 +68,7 @@ from voren.providers.openai_responses import (
     ModelConfigurationError,
     OpenAIResponsesModelAdapter,
     ResponsesProviderProfile,
+    resolve_responses_endpoint,
 )
 from voren.runs.manager import RunManager
 from voren.runs.models import RunConfig
@@ -910,6 +911,10 @@ def run_agentdojo_evaluation(
     model_name = args.model or os.environ.get("VOREN_MODEL")
     if not model_name:
         raise ModelConfigurationError("pass --model or set VOREN_MODEL")
+    resolved_endpoint = resolve_responses_endpoint(
+        base_url=args.base_url,
+        provider_profile=getattr(args, "provider_profile", None),
+    )
     manifest = phase1_smoke_manifest()
     modes = tuple(EvaluationMode(value) for value in args.mode)
     if len(modes) != len(set(modes)):
@@ -960,12 +965,9 @@ def run_agentdojo_evaluation(
         created_at=datetime.now(UTC),
         code_revision=source.revision,
         code_dirty=source.dirty,
-        provider=(
-            getattr(args, "provider_profile", None)
-            or os.environ.get("VOREN_RESPONSES_PROFILE")
-            or ResponsesProviderProfile.OPENAI.value
-        ),
+        provider=resolved_endpoint.profile.value,
         model=model_name,
+        endpoint=resolved_endpoint.endpoint,
         manifest_id=manifest.manifest_id,
         manifest_digest=manifest.calculated_digest(),
         system_prompt_digest=prompt_digest,
@@ -1158,6 +1160,10 @@ def run_skill_agentdojo_evaluation(
     model_name = args.model or os.environ.get("VOREN_MODEL")
     if not model_name:
         raise ModelConfigurationError("pass --model or set VOREN_MODEL")
+    resolved_endpoint = resolve_responses_endpoint(
+        base_url=args.base_url,
+        provider_profile=getattr(args, "provider_profile", None),
+    )
     manifest = phase1_smoke_manifest()
     case_ids = tuple(args.case)
     if "all" in case_ids and case_ids != ("all",):
@@ -1218,12 +1224,9 @@ def run_skill_agentdojo_evaluation(
             model_factory=resolved_factory,
             database_directory=args.trial_databases,
             artifact_directory=args.trial_artifacts,
-            provider=(
-                getattr(args, "provider_profile", None)
-                or os.environ.get("VOREN_RESPONSES_PROFILE")
-                or ResponsesProviderProfile.OPENAI.value
-            ),
+            provider=resolved_endpoint.profile.value,
             model=model_name,
+            endpoint=resolved_endpoint.endpoint,
             code_revision=source.revision,
             code_dirty=source.dirty,
             sampling={

@@ -274,6 +274,7 @@ class AgentLoopTest(unittest.TestCase):
                 ),
                 ModelResponse(
                     text="The hike starts at 08:00.",
+                    returned_model="provider-model-2026-09-14",
                     usage=ModelUsage(
                         input_tokens=150,
                         cached_input_tokens=20,
@@ -306,6 +307,10 @@ class AgentLoopTest(unittest.TestCase):
             [True, True],
         )
         self.assertEqual(response_events[1].payload["usage"]["total_tokens"], 180)
+        self.assertEqual(
+            response_events[1].payload["returned_model"],
+            "provider-model-2026-09-14",
+        )
 
     def test_repeated_identical_tool_call_hits_hard_limit(self) -> None:
         calls = tuple(

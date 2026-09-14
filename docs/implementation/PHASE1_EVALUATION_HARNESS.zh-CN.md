@@ -76,7 +76,7 @@ Injection Task 和 Injection Vector 都会进入可复现配置或其 Hash。
 每个 JSON Artifact 保存：
 
 - Experiment ID、创建时间、Git Revision 和 Dirty 标志；
-- Provider、Model 与 Runtime Budget；
+- Provider Profile、请求 Model、精确 `/responses` Endpoint 与 Runtime Budget；
 - 实际执行的精确、有序 Case/Mode Pair；
 - Manifest、System Prompt、Tool Schema 和 Attack Template Digest；
 - 每个 Trial 的 Case、Mode、Run 状态和 Approval Outcome；
@@ -84,14 +84,17 @@ Injection Task 和 Injection Vector 都会进入可复现配置或其 Hash。
 - Input/Output/Cached/Cache-write/Reasoning Token Usage 及报告完整性；
 - Pre/Post Environment Digest 与 Final Output Digest；
 - 不包含原始 Prompt/邮件正文的规范化 Run Event；
+- 每次成功模型响应中 Provider 返回的 Model 名称；若未返回则显式记录 `null`；
 - 按 Mode 分开的 Utility Rate 和 Attack Success Rate；
 - 覆盖整个 Artifact 内容的 SHA-256 Digest。
 
 Digest 用于检测内容变化，不是数字签名，也不能证明 Artifact 的发布者身份。
 公开实验应从 Clean Git Revision 运行；`code_dirty=true` 的 Artifact 只能视为开发
 证据。
-`voren-evaluation/v4` Schema 要求冻结 Selection 与实际 Trial 列表在创建和加载时
-精确一致。历史 v3 Evidence 仍可读取，但不会被追溯赋予原本没有的 Selection 声明。
+`voren-evaluation/v5` Schema 要求冻结 Selection 与实际 Trial 列表精确一致，要求
+保存精确 Endpoint，并把每个 Trial 的有序 `response_models` 与规范化
+`model.responded` Event 绑定。历史 v3/v4 Evidence 仍可读取，但不会被追溯赋予
+原本没有的 Provenance 声明。
 
 ## CLI
 
@@ -114,7 +117,7 @@ Artifact 原子写入目标路径。
 
 `--case all` 只展开冻结 Manifest 为每个 Case 明确支持的 Mode，不会虚构不支持的
 Pair。因此当前 Manifest 在同时请求两个 Mode 时会展开为 11 个 Trial：
-`benign_user_17` 刻意只支持 Behavior。CLI 会打印这个数量，v4 也会在第一次模型
+`benign_user_17` 刻意只支持 Behavior。CLI 会打印这个数量，v5 也会在第一次模型
 请求前冻结产生的有序 Pair。
 
 默认使用显式的 `no_skill` Context。重复传入 `--skill <active-name>` 会在第一个

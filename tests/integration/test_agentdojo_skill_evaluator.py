@@ -157,6 +157,7 @@ class AgentDojoSkillEvaluatorTest(unittest.TestCase):
             artifact_directory=self.temporary / "trial-artifacts",
             provider="scripted",
             model="scripted-model",
+            endpoint="https://scripted.example/responses",
             code_revision="integration-test",
             code_dirty=False,
             sampling={"temperature": 0},

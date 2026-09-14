@@ -13,8 +13,10 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from voren.runtime.models import CancellationReason, RuntimeUsage
 
 
-EVALUATION_SCHEMA_VERSION = "voren-evaluation/v4"
-LEGACY_EVALUATION_SCHEMA_VERSION = "voren-evaluation/v3"
+EVALUATION_SCHEMA_VERSION = "voren-evaluation/v5"
+LEGACY_EVALUATION_SCHEMA_VERSIONS = frozenset(
+    {"voren-evaluation/v3", "voren-evaluation/v4"}
+)
 
 
 class FrozenModel(BaseModel):
@@ -86,6 +88,7 @@ class ExperimentConfig(FrozenModel):
     code_dirty: bool
     provider: str = Field(min_length=1)
     model: str = Field(min_length=1)
+    endpoint: str | None = Field(default=None, min_length=1)
     manifest_id: str = Field(min_length=1)
     manifest_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     system_prompt_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -131,6 +134,7 @@ class TrialResult(FrozenModel):
     model_steps: int = Field(ge=0)
     tool_calls: int = Field(ge=0)
     model_usage: RuntimeUsage = Field(default_factory=RuntimeUsage)
+    response_models: tuple[str | None, ...] = ()
     error_code: str | None = None
     error_detail_code: str | None = None
     cancellation_reason: CancellationReason | None = None
@@ -189,6 +193,42 @@ class ExperimentArtifact(FrozenModel):
             raise ValueError("trial IDs must be non-empty and unique")
         if self.schema_version == EVALUATION_SCHEMA_VERSION:
             if not self.config.selected_trials:
+                raise ValueError("v5 artifacts require frozen selected trials")
+            if self.config.endpoint is None:
+                raise ValueError("v5 artifacts require the exact provider endpoint")
+            actual = tuple(
+                EvaluationSelection(case_id=trial.case_id, mode=trial.mode)
+                for trial in self.trials
+            )
+            if actual != self.config.selected_trials:
+                raise ValueError(
+                    "artifact trials do not match the frozen trial selection"
+                )
+            for trial in self.trials:
+                response_models: list[str | None] = []
+                for event in trial.events:
+                    if event.event_type != "model.responded":
+                        continue
+                    if "returned_model" not in event.payload:
+                        raise ValueError(
+                            "v5 model response events require returned_model"
+                        )
+                    returned_model = event.payload["returned_model"]
+                    if returned_model is not None and (
+                        not isinstance(returned_model, str)
+                        or not returned_model
+                        or len(returned_model) > 200
+                    ):
+                        raise ValueError(
+                            "returned_model must be bounded non-empty text or null"
+                        )
+                    response_models.append(returned_model)
+                if trial.response_models != tuple(response_models):
+                    raise ValueError(
+                        "trial response models do not match normalized events"
+                    )
+        elif self.schema_version == "voren-evaluation/v4":
+            if not self.config.selected_trials:
                 raise ValueError("v4 artifacts require frozen selected trials")
             actual = tuple(
                 EvaluationSelection(case_id=trial.case_id, mode=trial.mode)
@@ -198,7 +238,7 @@ class ExperimentArtifact(FrozenModel):
                 raise ValueError(
                     "artifact trials do not match the frozen trial selection"
                 )
-        elif self.schema_version != LEGACY_EVALUATION_SCHEMA_VERSION:
+        elif self.schema_version not in LEGACY_EVALUATION_SCHEMA_VERSIONS:
             raise ValueError("unsupported evaluation artifact schema")
         return self
 
@@ -223,10 +263,11 @@ class ExperimentArtifact(FrozenModel):
 
     def calculated_digest(self) -> str:
         unsigned = self.model_dump(mode="json", exclude={"artifact_digest"})
-        if (
-            self.schema_version == LEGACY_EVALUATION_SCHEMA_VERSION
-            and not self.config.selected_trials
-        ):
+        if self.schema_version in LEGACY_EVALUATION_SCHEMA_VERSIONS:
+            unsigned["config"].pop("endpoint", None)
+            for trial in unsigned["trials"]:
+                trial.pop("response_models", None)
+        if self.schema_version == "voren-evaluation/v3":
             unsigned["config"].pop("selected_trials", None)
         return _digest(unsigned)
 

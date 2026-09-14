@@ -367,6 +367,11 @@ class AgentDojoEvaluationRunner:
                 )
                 for event in store.list_events(result.run_id)
             )
+            response_models = tuple(
+                event.payload["returned_model"]
+                for event in events
+                if event.event_type == "model.responded"
+            )
             return TrialResult(
                 trial_id=(
                     f"{config.experiment_id}:{ordinal}:{case.case_id}:{mode.value}"
@@ -387,6 +392,7 @@ class AgentDojoEvaluationRunner:
                 model_steps=result.model_steps,
                 tool_calls=result.tool_calls,
                 model_usage=result.usage,
+                response_models=response_models,
                 error_code=result.error_code,
                 error_detail_code=result.error_detail_code,
                 cancellation_reason=result.cancellation_reason,

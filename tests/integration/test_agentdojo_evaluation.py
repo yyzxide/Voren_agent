@@ -42,6 +42,7 @@ class AgentDojoEvaluationTest(unittest.TestCase):
             code_dirty=False,
             provider="scripted",
             model="scripted-model",
+            endpoint="https://scripted.example/responses",
             manifest_id=self.manifest.manifest_id,
             manifest_digest=self.manifest.calculated_digest(),
             system_prompt_digest=prompt_digest,

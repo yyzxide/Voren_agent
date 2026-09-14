@@ -13,6 +13,7 @@ from voren.providers.openai_responses import (
     ResponsesCapabilities,
     ResponsesProviderProfile,
     UrllibResponsesTransport,
+    resolve_responses_endpoint,
 )
 from voren.runtime.cancellation import CancellationToken, ModelRequestCancelled
 from voren.runtime.models import (
@@ -499,6 +500,36 @@ class OpenAIResponsesModelAdapterTest(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, "invalid_provider_usage")
 
+    def test_records_provider_returned_model_separately_from_request(self) -> None:
+        response = self.text_response()
+        response["model"] = "provider-resolved-model-2026-09-14"
+        adapter = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(model="requested-model-alias"),
+            transport=FakeTransport((response,)),
+        )
+
+        result = adapter.complete(
+            messages=self.initial_messages(), tools=self.tools()
+        )
+
+        self.assertEqual(
+            result.returned_model,
+            "provider-resolved-model-2026-09-14",
+        )
+
+    def test_rejects_invalid_provider_returned_model(self) -> None:
+        response = self.text_response()
+        response["model"] = {"unexpected": "shape"}
+        adapter = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(model="requested-model-alias"),
+            transport=FakeTransport((response,)),
+        )
+
+        with self.assertRaises(ModelProviderError) as raised:
+            adapter.complete(messages=self.initial_messages(), tools=self.tools())
+
+        self.assertEqual(raised.exception.code, "invalid_provider_model")
+
     def test_environment_constructor_requires_api_key(self) -> None:
         with self.assertRaises(ModelConfigurationError):
             OpenAIResponsesModelAdapter.from_environment(
@@ -533,10 +564,33 @@ class OpenAIResponsesModelAdapterTest(unittest.TestCase):
             "https://api.deepseek.com/responses",
         )
 
+    def test_endpoint_resolution_is_credential_free_and_exact(self) -> None:
+        resolved = resolve_responses_endpoint(
+            base_url="https://provider.example/v1/",
+            provider_profile=ResponsesProviderProfile.DEEPSEEK,
+            environment={"DEEPSEEK_API_KEY": "must-not-be-read"},
+        )
+
+        self.assertEqual(resolved.profile, ResponsesProviderProfile.DEEPSEEK)
+        self.assertEqual(resolved.base_url, "https://provider.example/v1")
+        self.assertEqual(
+            resolved.endpoint,
+            "https://provider.example/v1/responses",
+        )
+        self.assertNotIn("must-not-be-read", repr(resolved))
+
     def test_transport_rejects_plain_http_for_remote_host(self) -> None:
         with self.assertRaises(ModelConfigurationError):
             UrllibResponsesTransport(
                 api_key="secret", base_url="http://example.com/v1"
+            )
+
+    def test_endpoint_resolution_rejects_query_parameters(self) -> None:
+        with self.assertRaises(ModelConfigurationError):
+            resolve_responses_endpoint(
+                base_url="https://provider.example/v1?api_key=secret",
+                provider_profile=ResponsesProviderProfile.OPENAI,
+                environment={},
             )
 
     def test_transport_posts_json_without_exposing_key_in_result(self) -> None:

@@ -661,6 +661,7 @@ class AgentLoop:
                 "response_digest": self._digest(response.model_dump(mode="json")),
                 "has_text": bool(response.text),
                 "tool_call_count": len(response.tool_calls),
+                "returned_model": response.returned_model,
                 "usage_reported": response.usage is not None,
                 "usage": (
                     response.usage.model_dump(mode="json")

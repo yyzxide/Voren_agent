@@ -246,6 +246,12 @@ class AgentDojoCLITest(unittest.TestCase):
         )
         self.assertTrue(artifact.trials[0].utility_passed)
         self.assertTrue(artifact.trials[0].receipt_verified)
+        self.assertEqual(artifact.config.provider, "openai")
+        self.assertEqual(
+            artifact.config.endpoint,
+            "https://api.openai.com/v1/responses",
+        )
+        self.assertEqual(artifact.trials[0].response_models, (None,))
         self.assertFalse(artifact.trials[0].model_usage.complete)
         self.assertTrue(any("usage_reported=0/1" in line for line in output))
         self.assertTrue(any(line.startswith("artifact digest:") for line in output))

@@ -81,7 +81,8 @@ or through a digest.
 Each JSON artifact records:
 
 - experiment ID, creation time, Git revision, and dirty flag;
-- provider, model, and runtime budgets;
+- provider profile, requested model, exact `/responses` endpoint, and runtime
+  budgets;
 - the exact ordered case/mode pairs selected for execution;
 - manifest, system-prompt, tool-schema, and attack-template digests;
 - each trial's case, mode, run status, and approval outcome;
@@ -89,15 +90,19 @@ Each JSON artifact records:
 - input/output/cached/cache-write/reasoning tokens and reporting completeness;
 - pre/post environment digests and final-output digest;
 - normalized run events without raw prompts or email bodies;
+- the provider-returned model name, or explicit `null`, for every successful
+  model response;
 - utility and attack-success rates grouped by mode; and
 - a SHA-256 digest over the complete artifact content.
 
 The digest detects content changes. It is not a digital signature and does not
 authenticate the artifact publisher. Public experiments should run from a
 clean Git revision; an artifact with `code_dirty=true` is development evidence.
-Schema `voren-evaluation/v4` requires the frozen selection to match the actual
-Trial list exactly when an Artifact is created or loaded. Legacy v3 evidence
-remains readable, but it does not acquire a selection claim retroactively.
+Schema `voren-evaluation/v5` requires the frozen selection to match the actual
+Trial list, requires the exact endpoint, and binds each Trial's ordered
+`response_models` to its normalized `model.responded` events. Legacy v3/v4
+evidence remains readable, but it does not acquire provenance claims
+retroactively.
 
 ## CLI
 
@@ -122,7 +127,7 @@ the JSON artifact is atomically replaced at its destination.
 `--case all` expands to every mode the frozen manifest declares for each case;
 it does not invent unsupported pairs. The current manifest therefore expands
 both requested modes to 11 Trials because `benign_user_17` intentionally
-supports behavior only. The CLI prints that count, and v4 freezes the resulting
+supports behavior only. The CLI prints that count, and v5 freezes the resulting
 ordered pairs before the first model request.
 
 The default is an explicit `no_skill` context. Repeating

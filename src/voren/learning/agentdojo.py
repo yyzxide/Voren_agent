@@ -50,6 +50,7 @@ class AgentDojoSkillEvaluator:
         artifact_directory: Path,
         provider: str,
         model: str,
+        endpoint: str,
         code_revision: str,
         code_dirty: bool,
         sampling: dict[str, object] | None = None,
@@ -67,6 +68,7 @@ class AgentDojoSkillEvaluator:
         self._artifact_directory = artifact_directory
         self._provider = provider
         self._model = model
+        self._endpoint = endpoint
         self._code_revision = code_revision
         self._code_dirty = code_dirty
         self._sampling = sampling or {}
@@ -108,6 +110,7 @@ class AgentDojoSkillEvaluator:
             code_dirty=self._code_dirty,
             provider=self._provider,
             model=self._model,
+            endpoint=self._endpoint,
             manifest_id=self._manifest.manifest_id,
             manifest_digest=self._manifest.calculated_digest(),
             system_prompt_digest=prompt_digest,

@@ -109,6 +109,7 @@ class ModelResponse(FrozenModel):
     text: str | None = None
     tool_calls: tuple[ToolCall, ...] = ()
     usage: ModelUsage | None = None
+    returned_model: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 class RuntimeLimits(FrozenModel):

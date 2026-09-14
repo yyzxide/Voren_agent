@@ -106,6 +106,75 @@ class ResponsesCapabilities:
 
 
 @dataclass(frozen=True, slots=True)
+class ResolvedResponsesEndpoint:
+    """Credential-free provider routing resolved from CLI and environment."""
+
+    profile: ResponsesProviderProfile
+    capabilities: ResponsesCapabilities
+    base_url: str
+
+    @property
+    def endpoint(self) -> str:
+        return f"{self.base_url}/responses"
+
+
+def resolve_responses_endpoint(
+    *,
+    base_url: str | None = None,
+    provider_profile: ResponsesProviderProfile | str | None = None,
+    environment: Mapping[str, str] | None = None,
+) -> ResolvedResponsesEndpoint:
+    """Resolve and validate public routing metadata without reading API keys."""
+
+    values = environment if environment is not None else os.environ
+    configured_base_url = base_url or values.get("OPENAI_BASE_URL")
+    configured_profile = provider_profile or values.get(
+        "VOREN_RESPONSES_PROFILE"
+    )
+    if configured_profile is None and configured_base_url is not None:
+        raise ModelConfigurationError(
+            "set --provider-profile or VOREN_RESPONSES_PROFILE when using "
+            "a custom Responses base URL"
+        )
+    capabilities = ResponsesCapabilities.for_profile(
+        configured_profile or ResponsesProviderProfile.OPENAI
+    )
+    default_base_urls = {
+        ResponsesProviderProfile.OPENAI: "https://api.openai.com/v1",
+        ResponsesProviderProfile.DEEPSEEK: "https://api.deepseek.com",
+    }
+    normalized_base_url = _normalize_responses_base_url(
+        configured_base_url or default_base_urls[capabilities.profile]
+    )
+    return ResolvedResponsesEndpoint(
+        profile=capabilities.profile,
+        capabilities=capabilities,
+        base_url=normalized_base_url,
+    )
+
+
+def _normalize_responses_base_url(base_url: str) -> str:
+    normalized = base_url.rstrip("/")
+    parsed = urlparse(normalized)
+    local_hosts = {"localhost", "127.0.0.1", "::1"}
+    if parsed.username is not None or parsed.password is not None:
+        raise ModelConfigurationError("base URL must not contain credentials")
+    if parsed.scheme != "https" and not (
+        parsed.scheme == "http" and parsed.hostname in local_hosts
+    ):
+        raise ModelConfigurationError(
+            "model endpoint must use HTTPS unless it is localhost"
+        )
+    if not parsed.hostname:
+        raise ModelConfigurationError("model endpoint has no hostname")
+    if parsed.query or parsed.fragment:
+        raise ModelConfigurationError(
+            "model endpoint base URL must not contain a query or fragment"
+        )
+    return normalized
+
+
+@dataclass(frozen=True, slots=True)
 class OpenAIResponsesConfig:
     model: str
     max_output_tokens: int = 2_048
@@ -144,19 +213,7 @@ class UrllibResponsesTransport:
             raise ModelConfigurationError("model provider API key is not set")
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
-        normalized_base_url = base_url.rstrip("/")
-        parsed = urlparse(normalized_base_url)
-        local_hosts = {"localhost", "127.0.0.1", "::1"}
-        if parsed.username is not None or parsed.password is not None:
-            raise ModelConfigurationError("base URL must not contain credentials")
-        if parsed.scheme != "https" and not (
-            parsed.scheme == "http" and parsed.hostname in local_hosts
-        ):
-            raise ModelConfigurationError(
-                "model endpoint must use HTTPS unless it is localhost"
-            )
-        if not parsed.hostname:
-            raise ModelConfigurationError("model endpoint has no hostname")
+        normalized_base_url = _normalize_responses_base_url(base_url)
         self._api_key = api_key
         self._endpoint = f"{normalized_base_url}/responses"
         self._timeout_seconds = timeout_seconds
@@ -285,27 +342,12 @@ class OpenAIResponsesModelAdapter:
         environment: Mapping[str, str] | None = None,
     ) -> OpenAIResponsesModelAdapter:
         values = environment if environment is not None else os.environ
-        configured_base_url = base_url or values.get("OPENAI_BASE_URL")
-        configured_profile = provider_profile or values.get(
-            "VOREN_RESPONSES_PROFILE"
+        resolved = resolve_responses_endpoint(
+            base_url=base_url,
+            provider_profile=provider_profile,
+            environment=values,
         )
-        if configured_profile is None and configured_base_url is not None:
-            raise ModelConfigurationError(
-                "set --provider-profile or VOREN_RESPONSES_PROFILE when using "
-                "a custom Responses base URL"
-            )
-        capabilities = ResponsesCapabilities.for_profile(
-            configured_profile or ResponsesProviderProfile.OPENAI
-        )
-        resolved_profile = capabilities.profile
-        default_base_urls = {
-            ResponsesProviderProfile.OPENAI: "https://api.openai.com/v1",
-            ResponsesProviderProfile.DEEPSEEK: "https://api.deepseek.com",
-        }
-        resolved_base_url = (
-            configured_base_url or default_base_urls[resolved_profile]
-        )
-        if resolved_profile is ResponsesProviderProfile.DEEPSEEK:
+        if resolved.profile is ResponsesProviderProfile.DEEPSEEK:
             api_key = values.get("DEEPSEEK_API_KEY", "") or values.get(
                 "OPENAI_API_KEY", ""
             )
@@ -316,11 +358,11 @@ class OpenAIResponsesModelAdapter:
                 model=model,
                 max_output_tokens=max_output_tokens,
                 response_timeout_seconds=timeout_seconds,
-                capabilities=capabilities,
+                capabilities=resolved.capabilities,
             ),
             transport=UrllibResponsesTransport(
                 api_key=api_key,
-                base_url=resolved_base_url,
+                base_url=resolved.base_url,
                 timeout_seconds=timeout_seconds,
             ),
         )
@@ -605,10 +647,18 @@ class OpenAIResponsesModelAdapter:
         text = "\n".join(part for part in text_parts if part) or None
         if text is None and not tool_calls:
             raise ModelProviderError("empty_provider_output")
+        returned_model = response.get("model")
+        if returned_model is not None and (
+            not isinstance(returned_model, str)
+            or not returned_model
+            or len(returned_model) > 200
+        ):
+            raise ModelProviderError("invalid_provider_model")
         return ModelResponse(
             text=text,
             tool_calls=tool_calls,
             usage=self._parse_usage(response.get("usage")),
+            returned_model=returned_model,
         )
 
     @classmethod

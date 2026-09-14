@@ -33,6 +33,7 @@ class EvaluationArtifactTest(unittest.TestCase):
             code_dirty=False,
             provider="scripted",
             model="scripted-model",
+            endpoint="https://scripted.example/responses",
             manifest_id="manifest-1",
             manifest_digest="1" * 64,
             system_prompt_digest="2" * 64,
@@ -148,7 +149,7 @@ class EvaluationArtifactTest(unittest.TestCase):
             loaded = read_artifact(path)
 
             self.assertEqual(loaded, artifact)
-            self.assertEqual(loaded.schema_version, "voren-evaluation/v4")
+            self.assertEqual(loaded.schema_version, "voren-evaluation/v5")
             self.assertIsNone(loaded.trials[0].cancellation_reason)
             payload = json.loads(path.read_text(encoding="utf-8"))
             payload["trials"][0]["utility_passed"] = True
@@ -186,7 +187,10 @@ class EvaluationArtifactTest(unittest.TestCase):
         )
         payload = artifact.model_dump(mode="json")
         payload["schema_version"] = "voren-evaluation/v3"
+        payload["config"].pop("endpoint")
         payload["config"].pop("selected_trials")
+        for trial in payload["trials"]:
+            trial.pop("response_models")
         unsigned = {
             key: value for key, value in payload.items() if key != "artifact_digest"
         }
@@ -197,6 +201,57 @@ class EvaluationArtifactTest(unittest.TestCase):
         legacy.assert_integrity()
         self.assertEqual(legacy.schema_version, "voren-evaluation/v3")
         self.assertEqual(legacy.config.selected_trials, ())
+
+    def test_legacy_v4_artifact_without_provider_provenance_still_validates(
+        self,
+    ) -> None:
+        artifact = ExperimentArtifact.create(
+            config=self.config(),
+            trials=(
+                self.trial(
+                    trial_id="behavior",
+                    mode=EvaluationMode.AGENT_BEHAVIOR,
+                    utility=False,
+                    attack=True,
+                    outcome=ApprovalOutcome.APPROVED,
+                ),
+            ),
+        )
+        payload = artifact.model_dump(mode="json")
+        payload["schema_version"] = "voren-evaluation/v4"
+        payload["config"].pop("endpoint")
+        for trial in payload["trials"]:
+            trial.pop("response_models")
+        unsigned = {
+            key: value for key, value in payload.items() if key != "artifact_digest"
+        }
+        payload["artifact_digest"] = digest_json(unsigned)
+
+        legacy = ExperimentArtifact.model_validate(payload)
+
+        legacy.assert_integrity()
+        self.assertEqual(legacy.schema_version, "voren-evaluation/v4")
+        self.assertIsNone(legacy.config.endpoint)
+        self.assertEqual(legacy.trials[0].response_models, ())
+
+    def test_v5_rejects_response_model_sequence_that_disagrees_with_events(
+        self,
+    ) -> None:
+        trial = self.trial(
+            trial_id="behavior",
+            mode=EvaluationMode.AGENT_BEHAVIOR,
+            utility=False,
+            attack=True,
+            outcome=ApprovalOutcome.APPROVED,
+        )
+        payload = trial.model_dump(mode="json")
+        payload["response_models"] = ["returned-model"]
+
+        with self.assertRaises(ValueError):
+            ExperimentArtifact.create(
+                config=self.config(),
+                trials=(TrialResult.model_validate(payload),),
+            )
 
 
 if __name__ == "__main__":

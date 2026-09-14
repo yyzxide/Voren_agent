@@ -288,5 +288,6 @@ voren eval-agentdojo \
 先安装并激活 Skill，再追加
 `--skill schedule-from-email --skill-store .voren/skills`。Artifact 会在
 `config.sampling.skill_context` 中记录 Mode、不可变精确版本、Context Digest 与
-字节数，`config.selected_trials` 则冻结精确、有序的 Case/Mode Pair。带日期的验证
-边界见上方交付状态。
+字节数，`config.selected_trials` 则冻结精确、有序的 Case/Mode Pair。v5 Schema 还会
+冻结精确 Provider Endpoint，以及每次成功响应返回的 Model 名称（未返回时显式为
+`null`）。带日期的验证边界见上方交付状态。

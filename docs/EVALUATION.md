@@ -193,7 +193,8 @@ Every experiment persists:
 
 - experiment and trial IDs;
 - code revision when available;
-- model/provider configuration;
+- provider profile, requested model, exact endpoint, and the returned model for
+  every successful response;
 - system prompt and tool-schema hashes;
 - active and candidate skill hashes;
 - environment and dataset versions;

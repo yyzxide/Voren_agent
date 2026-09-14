@@ -184,7 +184,7 @@ Capability 扩张或生产环境启用时。
 
 - Experiment 与 Trial ID；
 - 可获得时的代码 Revision；
-- Model/Provider 配置；
+- Provider Profile、请求模型、精确 Endpoint，以及每次成功响应返回的模型名；
 - System Prompt 与 Tool Schema Hash；
 - Active 与 Candidate Skill Hash；
 - Environment 与 Dataset 版本；
