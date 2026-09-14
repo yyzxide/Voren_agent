@@ -143,8 +143,10 @@ Status: **in progress**. Evidence eligibility, an admission policy limited to
 bounded `SKILL.md` instruction edits, and SQLite persistence of inactive
 candidates are complete. See
 [Phase 3 Candidate Staging](implementation/PHASE3_CANDIDATE_STAGING.md).
-Paired evaluation, promotion decisions, atomic promotion, and rollback remain
-pending.
+An integrity-bound paired held-out runner and deterministic acceptance policy
+are also complete; see
+[Phase 3 Paired Evaluation](implementation/PHASE3_PAIRED_EVALUATION.md).
+Atomic promotion and rollback remain pending.
 
 Implement:
 

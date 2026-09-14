@@ -30,6 +30,7 @@ class EvidenceRef(FrozenModel):
     source: EvidenceSource
     digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     instruction_authority: bool
+    evaluation_case_ids: tuple[str, ...] = ()
 
     @model_validator(mode="after")
     def authority_matches_source(self) -> Self:
@@ -40,6 +41,10 @@ class EvidenceRef(FrozenModel):
             raise ValueError(
                 f"{self.source.value} evidence cannot carry instruction authority"
             )
+        if len(self.evaluation_case_ids) != len(set(self.evaluation_case_ids)):
+            raise ValueError("evidence evaluation case IDs must be unique")
+        if any(not case_id.strip() for case_id in self.evaluation_case_ids):
+            raise ValueError("evidence evaluation case IDs must be non-empty")
         return self
 
 
@@ -106,4 +111,14 @@ class SkillCandidate(FrozenModel):
             or self.evaluation_artifact_digest is not None
         ):
             raise ValueError("a staged candidate cannot contain a decision")
+        if self.status in {
+            CandidateStatus.ACCEPTED,
+            CandidateStatus.REJECTED,
+            CandidateStatus.PROMOTED,
+            CandidateStatus.ROLLED_BACK,
+        } and (
+            self.decision_reason is None
+            or self.evaluation_artifact_digest is None
+        ):
+            raise ValueError("a decided candidate requires reason and evaluation")
         return self
