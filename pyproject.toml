@@ -21,10 +21,20 @@ agentdojo = [
 mcp = [
   "mcp==2.2.0",
 ]
+web = [
+  "agentdojo==0.1.35",
+  "fastapi==0.135.1",
+  "mcp==2.2.0",
+  "uvicorn>=0.52,<0.53",
+]
 
 [project.scripts]
 voren = "voren.cli:main"
 voren-knowledge-mcp = "voren.mcp_bridge.server:main"
+voren-web = "voren.web.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"voren.web" = ["static/*.css", "static/*.html", "static/*.js"]

@@ -13,6 +13,7 @@ from voren.cli import build_parser, run_knowledge_ingest, run_knowledge_inspect
 from voren.knowledge.models import KnowledgeDocument, KnowledgeSourceKind
 from voren.knowledge.store import KnowledgeStoreError, SQLiteKnowledgeStore
 from voren.observations.models import ObservationStatus, SourceKind, TrustLevel
+from voren.observations.read_tools import CompositeReadToolAdapter
 
 
 class KnowledgeRetrievalTest(unittest.TestCase):
@@ -135,6 +136,22 @@ class KnowledgeRetrievalTest(unittest.TestCase):
 
         self.assertEqual(observation.status, ObservationStatus.FAILED)
         self.assertEqual(observation.error_code, "invalid_arguments")
+
+    def test_composite_adapter_routes_unique_tools_and_rejects_duplicates(self) -> None:
+        document = self.document()
+        self.install_active(document)
+        adapter = KnowledgeReadAdapter(self.store, clock=lambda: self.now)
+        composite = CompositeReadToolAdapter(adapter)
+
+        observation = composite.execute(
+            tool_call_id="composite-call-1",
+            tool_name="search_meeting_knowledge",
+            arguments={"query": "approval"},
+        )
+
+        self.assertEqual(observation.status, ObservationStatus.SUCCEEDED)
+        with self.assertRaisesRegex(ValueError, "duplicate read tool"):
+            CompositeReadToolAdapter(adapter, adapter)
 
     def test_cli_ingests_and_redacts_active_document_by_default(self) -> None:
         source = Path(self.temporary_directory.name) / "meeting.md"

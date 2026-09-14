@@ -1,0 +1,71 @@
+# Phase 4: local Web and SSE surface
+
+[简体中文](PHASE4_WEB_SURFACE.zh-CN.md)
+
+## Product boundary
+
+The first Voren Web release is a local, single-operator application. It binds to
+`127.0.0.1` by default and refuses a non-loopback host because it deliberately
+does not pretend to have multi-user authentication. RunGuild owns the
+workspace/team collaboration product; Voren owns one person's email/calendar
+action flow.
+
+There is no login screen and no internal database ID in the UI. The browser
+sends a stable `client_request_id`, a task starts immediately, and read-only
+work proceeds without another button. Only an actual external-action proposal
+creates one exact-effect approve/reject decision.
+
+## Request and approval invariants
+
+- `client_request_id` is durably bound to the request digest and Run ID. A retry
+  returns the same result; the same ID cannot be rebound to different text.
+- The browser retains unacknowledged submission/decision IDs in `localStorage`
+  and retries with the same identities; refresh restores the latest durable run.
+- Browser snapshots are persisted in SQLite, so final answers, proposals, and
+  receipts survive refresh without copying secrets into URLs.
+- Approval carries a separate decision ID and the exact Proposal Digest.
+- A repeated identical decision returns the same Receipt; a changed Digest or
+  conflicting decision receives HTTP 409.
+- The controlled AgentDojo workspace handle stays in memory while approval is
+  pending. If the process restarts, the page marks that approval as
+  unrecoverable and no action is dispatched or retried.
+- Approved actions still pass through `ActionGateway`, the atomic Operation
+  Ledger, postcondition verification, and durable Run events. The Web layer
+  never writes the workspace directly.
+
+## Modes
+
+`VOREN_WEB_MODE=demo` is the default. It uses a deterministic planner to walk
+through the real Agent Loop, email/calendar reads, MCP knowledge reads, action
+proposal, approval, and verified receipt without an API key. The page labels
+this mode; it is product-flow evidence, not model-quality evidence.
+
+`VOREN_WEB_MODE=live` constructs the existing Responses adapter from
+`VOREN_MODEL`, the explicit provider profile, and the corresponding API key.
+It still runs against AgentDojo, not a production account. Missing live-model
+configuration returns HTTP 503 and releases the request reservation so a fixed
+configuration can retry safely.
+
+## Event delivery
+
+`GET /api/runs/{run_id}/events/stream` replays append-only Run events as
+Server-Sent Events with sequence IDs. A reconnect may pass `after=<sequence>` to
+continue without duplicating UI entries. The JSON event endpoint exposes the
+same cursor contract for debugging.
+
+FastAPI 0.135.1 is pinned because this slice uses its built-in
+`EventSourceResponse` and `ServerSentEvent` API. See the
+[official SSE guide](https://fastapi.tiangolo.com/tutorial/server-sent-events/).
+
+## Verification
+
+`tests/integration/test_web_app.py` covers the static page and readable font
+baseline, health/mode disclosure, credential-free greeting, source-bound
+knowledge answer, immediate scheduling flow, exact Digest mismatch, approved
+Receipt, rejection, duplicate submission/decision, conflicting request IDs,
+lost in-memory workspace after restart, SSE replay, and model-configuration
+failure retry.
+
+The test client needs local IPC. Capability-restricted sandboxes skip this test
+class; the complete suite is also run outside that boundary and normal CI runs
+it.

@@ -83,6 +83,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [Phase 3 Candidate Decision Report](docs/implementation/PHASE3_CANDIDATE_REPORT.zh-CN.md)
 - [Phase 3 可复现 Skill-learning Demo](docs/implementation/PHASE3_REPRODUCIBLE_DEMO.zh-CN.md)
 - [Phase 3 Learning-policy 消融](docs/implementation/PHASE3_LEARNING_ABLATION.zh-CN.md)
+- [Phase 4 本地 Web 与 SSE 展示](docs/implementation/PHASE4_WEB_SURFACE.zh-CN.md)
 
 ## 当前可运行切片
 
@@ -117,6 +118,19 @@ voren-knowledge-mcp
 Agent Loop 一侧的 Adapter 会完成 MCP 协议调用，再把 Structured Result 包装进
 Voren 更严格的 Provenance Envelope。仓库测试会执行进程内协议往返；运行环境
 允许本地 IPC 时还会执行真实 stdio 子进程往返。
+
+本地 Web Walkthrough 不需要模型 Credential：
+
+```bash
+python -m pip install -e '.[web]'
+voren-web
+# 打开 http://127.0.0.1:8080
+```
+
+提交日程示例后 Agent 会立即开始执行；只读工作不增加多余点击，只有产生具体外部
+Action Proposal 时才展示精确 Effects 和一次批准/拒绝。Lifecycle Event 通过 SSE
+回放，浏览器可见 Snapshot 刷新后仍可读取。Demo Mode 会明确标注为确定性脚本，
+且外部写入仍只发生在一次性 AgentDojo Workspace。
 
 Agent Loop Demo 会执行带 Provenance Label 的邮件与日历读取，在外部动作前
 暂停并打印精确 Effects，然后应用 Scripted Operator Approval，最后使用

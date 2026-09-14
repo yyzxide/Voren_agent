@@ -90,6 +90,7 @@ the first release.
 - [Phase 3 candidate decision report](docs/implementation/PHASE3_CANDIDATE_REPORT.md)
 - [Phase 3 reproducible Skill-learning demo](docs/implementation/PHASE3_REPRODUCIBLE_DEMO.md)
 - [Phase 3 learning-policy ablation](docs/implementation/PHASE3_LEARNING_ABLATION.md)
+- [Phase 4 local Web and SSE surface](docs/implementation/PHASE4_WEB_SURFACE.md)
 
 ## Current executable slice
 
@@ -126,6 +127,20 @@ The Agent Loop-side adapter performs a negotiated MCP call and then wraps the
 structured result in Voren's stricter provenance envelope. The repository tests
 exercise the protocol in-process and, where the runtime permits local IPC, over
 a real stdio subprocess.
+
+The local Web walkthrough works without a model credential:
+
+```bash
+python -m pip install -e '.[web]'
+voren-web
+# open http://127.0.0.1:8080
+```
+
+Submitting the scheduling example starts the Agent immediately. Read-only work
+needs no extra click; only a concrete external-action proposal renders the exact
+effects and one approve/reject decision. Lifecycle events are replayed over SSE,
+and browser-visible snapshots survive refresh. Demo mode is visibly labelled as
+deterministic and still writes only to a disposable AgentDojo workspace.
 
 The agent-loop demo performs provenance-labelled email/calendar reads, pauses
 before an external action, prints the exact effects, then applies a scripted

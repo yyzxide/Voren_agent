@@ -1,0 +1,58 @@
+# Phase 4：本地 Web 与 SSE 展示
+
+[English](PHASE4_WEB_SURFACE.md)
+
+## 产品边界
+
+Voren 第一版 Web 是本地单 Operator 应用。默认只监听 `127.0.0.1`；由于没有假装
+实现多用户鉴权，入口会拒绝非 Loopback Host。RunGuild 负责 Workspace/Team
+协作产品，Voren 负责一个人的邮件与日程行动流。
+
+UI 不需要 Login，也不展示内部数据库 ID。Browser 发送稳定
+`client_request_id` 后任务立即运行，只读步骤不再要求再点一个按钮；只有真正产生
+External Action Proposal 时，才出现一次绑定精确副作用的批准/拒绝。
+
+## 请求与审批不变量
+
+- `client_request_id` 会持久绑定 Request Digest 与 Run ID；重试返回相同结果，
+  同一个 ID 不能改绑另一段文本；
+- Browser 会在 `localStorage` 保留尚未确认响应的 Submission/Decision ID，并用同一
+  ID 重试；页面刷新后也会按最近 Run ID 恢复持久结果；
+- Browser Snapshot 持久化到 SQLite，Final Answer、Proposal 与 Receipt 刷新后
+  仍可读取，Secret 不会复制进 URL；
+- Approval 使用独立 Decision ID，并携带精确 Proposal Digest；
+- 完全相同的 Decision 重试返回同一 Receipt；Digest 变化或 Decision 冲突返回
+  HTTP 409；
+- 等待审批时，受控 AgentDojo Workspace Handle 保存在内存。进程重启后页面会
+  明确标记审批不可恢复，不会派发或重试动作；
+- 批准后的动作仍经过 `ActionGateway`、原子 Operation Ledger、Postcondition
+  Verification 和持久 Run Event；Web 层不能直接修改 Workspace。
+
+## 运行模式
+
+默认 `VOREN_WEB_MODE=demo`。它使用确定性 Planner，在没有 API Key 时走完真实
+Agent Loop、邮件/日历读取、MCP Knowledge Read、Action Proposal、审批与 Verified
+Receipt。页面会明确标注模式；这是产品流程证据，不是模型质量证据。
+
+`VOREN_WEB_MODE=live` 会从 `VOREN_MODEL`、显式 Provider Profile 和对应 API Key
+构建已有 Responses Adapter，但仍运行在 AgentDojo，不连接生产账号。Live Model
+配置缺失时返回 HTTP 503，同时释放 Request Reservation，修正配置后可以安全重试。
+
+## Event 交付
+
+`GET /api/runs/{run_id}/events/stream` 使用带 Sequence ID 的 Server-Sent Events
+回放 Append-only Run Event。重连时可传入 `after=<sequence>` 继续读取，UI 不会重复
+插入已有 Event；JSON Event Endpoint 也提供相同 Cursor Contract 便于排查。
+
+本切片固定 FastAPI 0.135.1，因为使用其内置的 `EventSourceResponse` 与
+`ServerSentEvent` API。参考[官方 SSE 指南](https://fastapi.tiangolo.com/tutorial/server-sent-events/)。
+
+## 验证
+
+`tests/integration/test_web_app.py` 覆盖静态页面与可读字号、Health/Mode Disclosure、
+无 Credential 问候、绑定来源的知识回答、立即执行的日程流程、错误 Digest、批准
+后的 Receipt、拒绝、重复 Submission/Decision、冲突 Request ID、重启后丢失内存
+Workspace、SSE 回放，以及模型配置失败后的重试。
+
+Test Client 需要本地 IPC；能力受限沙箱会按环境跳过整个 Class。完整 Suite 也会在
+该边界外运行，普通 CI 环境会实际执行。
