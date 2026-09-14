@@ -25,6 +25,14 @@ REQUIRED_GOOGLE_READ_TOOLS = frozenset(
 REQUIRED_GOOGLE_ACTIONS = frozenset(
     {"create_email_draft", "create_private_calendar_event"}
 )
+GOOGLE_SMOKE_ACTION_CONTRACTS = {
+    "create_email_draft": ("search_emails", "gmail.drafts", "create"),
+    "create_private_calendar_event": (
+        "get_day_calendar_events",
+        "google.calendar.events",
+        "create",
+    ),
+}
 
 
 class FrozenModel(BaseModel):
@@ -304,17 +312,45 @@ def _collect_action(
     evidence_digests = proposal.get("evidence_digests")
     if not isinstance(effects, list) or not isinstance(evidence_digests, list):
         raise ValueError("Google smoke proposal evidence is malformed")
+    action_name = str(proposal["action_name"])
+    required_read, expected_resource, expected_kind = (
+        GOOGLE_SMOKE_ACTION_CONTRACTS[action_name]
+    )
+    if len(effects) != 1 or (
+        effects[0].get("resource"), effects[0].get("kind")
+    ) != (expected_resource, expected_kind):
+        raise ValueError("Google smoke proposal is outside the safe effect contract")
+    successful_observation_digests = {
+        str(event.payload.get("observation_digest"))
+        for event in events
+        if event.event_type is RunEventType.TOOL_OBSERVED
+        and event.payload.get("tool_name") == required_read
+        and event.payload.get("status") == "succeeded"
+    }
+    grounded_digests = {
+        str(digest)
+        for digest in evidence_digests
+        if digest in successful_observation_digests
+    }
+    if not grounded_digests:
+        raise ValueError("Google smoke action is not grounded in its required read")
     verification = receipt.get("verification")
     if not isinstance(verification, dict):
         raise ValueError("Google smoke receipt verification is malformed")
+    proposal_digest = str(proposal["proposal_digest"])
+    if (
+        approval.get("proposal_digest") != proposal_digest
+        or receipt.get("proposal_digest") != proposal_digest
+    ):
+        raise ValueError("Google smoke approval/receipt digest chain is broken")
     return GoogleSmokeActionEvidence(
-        action_name=str(proposal["action_name"]),
+        action_name=action_name,
         action_version=str(proposal["action_version"]),
-        proposal_digest=str(proposal["proposal_digest"]),
-        grounded_observation_count=len(evidence_digests),
-        effect_count=len(effects),
-        effect_resources=tuple(sorted(str(effect["resource"]) for effect in effects)),
-        effect_kinds=tuple(sorted(str(effect["kind"]) for effect in effects)),
+        proposal_digest=proposal_digest,
+        grounded_observation_count=len(grounded_digests),
+        effect_count=1,
+        effect_resources=(expected_resource,),
+        effect_kinds=(expected_kind,),
         approved=approval.get("approved") is True,
         receipt_status=str(receipt.get("status", "")),
         committed=receipt.get("committed") is True,

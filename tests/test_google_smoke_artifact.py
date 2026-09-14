@@ -81,6 +81,59 @@ class GoogleSmokeArtifactTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "live Google boundary"):
             collect_google_smoke_run(run, events)
 
+    def test_event_payload_cannot_expand_the_redacted_effect_contract(self) -> None:
+        run, events = self._run(
+            ordinal=1,
+            read_tool="search_emails",
+            action_name="create_email_draft",
+            resource="gmail.drafts",
+        )
+        tampered = tuple(
+            event.model_copy(
+                update={
+                    "payload": {
+                        **event.payload,
+                        "effects": [
+                            {
+                                "resource": "alice@example.com/private",
+                                "kind": "send",
+                            }
+                        ],
+                    }
+                }
+            )
+            if event.event_type is RunEventType.ACTION_PROPOSED
+            else event
+            for event in events
+        )
+
+        with self.assertRaisesRegex(ValueError, "safe effect contract"):
+            collect_google_smoke_run(run, tampered)
+
+    def test_action_must_be_grounded_in_the_matching_successful_read(self) -> None:
+        run, events = self._run(
+            ordinal=1,
+            read_tool="search_emails",
+            action_name="create_email_draft",
+            resource="gmail.drafts",
+        )
+        tampered = tuple(
+            event.model_copy(
+                update={
+                    "payload": {
+                        **event.payload,
+                        "evidence_digests": ["f" * 64],
+                    }
+                }
+            )
+            if event.event_type is RunEventType.ACTION_PROPOSED
+            else event
+            for event in events
+        )
+
+        with self.assertRaisesRegex(ValueError, "required read"):
+            collect_google_smoke_run(run, tampered)
+
     def test_incomplete_suite_cannot_be_signed(self) -> None:
         run, events = self._run(
             ordinal=1,
@@ -211,12 +264,16 @@ class GoogleSmokeArtifactTest(unittest.TestCase):
                     ],
                 },
             ),
-            (RunEventType.APPROVAL_ACCEPTED, {"approved": True}),
+            (
+                RunEventType.APPROVAL_ACCEPTED,
+                {"approved": True, "proposal_digest": proposal_digest},
+            ),
             (
                 RunEventType.ACTION_RECEIPT,
                 {
                     "status": "verified",
                     "committed": True,
+                    "proposal_digest": proposal_digest,
                     "recovered_after_ambiguous_commit": False,
                     "verification": {"passed": True},
                     "external_references": [
