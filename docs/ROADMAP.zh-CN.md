@@ -40,7 +40,8 @@ Voren 按照一系列可执行纵向切片构建。只有通过可观察的验�
 
 ## 3. Phase 1：安全行动纵向切片
 
-状态：**进行中**。Action Core、持久 Approval Lifecycle，以及使用 Scripted
+实现状态：**受控验收边界已于 2026-09-14 完成**。Action Core、持久 Approval
+Lifecycle，以及使用 Scripted
 Model 的 Provenance-aware Loop 已完成，详见
 [Phase 1 安全动作核心](implementation/PHASE1_ACTION_CORE.zh-CN.md)、
 [Phase 1 Run Lifecycle](implementation/PHASE1_RUN_LIFECYCLE.zh-CN.md) 和
@@ -94,7 +95,7 @@ Action Core 子切片已完成：
 - 使用 AES-256-GCM 保存绑定冻结配置的 Transcript Checkpoint，并在安全的模型
   请求边界跨进程恢复上下文与预算。
 
-Phase 1 仍待完成：一次有记录的 Live-model Golden Run，以及使用当前 Runner
+仍待补充的外部证据：一次有记录的 Live-model Golden Run，以及使用当前 Runner
 生成的 Live Prompt Injection Artifact。Action Envelope 与确定性双模式覆盖现已
 包含日历 `injection_task_2` 和邮件 `injection_task_3`/`injection_task_4`，详见
 [Phase 1 可验证 Email Action](implementation/PHASE1_EMAIL_ACTION.zh-CN.md)。
@@ -110,7 +111,8 @@ Model 的规划能力或抗注入能力。
 
 ## 4. Phase 2：Memory 与静态 Skill
 
-状态：**进行中**。兼容 Agent Skills 的解析、Progressive-loading API、内容寻址
+实现状态：**声明的非 Embedding 范围已于 2026-09-14 完成**。兼容 Agent Skills
+的解析、Progressive-loading API、内容寻址
 不可变版本、原子 Active Pointer、精确 RunConfig Skill Reference，以及第一个
 人工编写的 Scheduling Skill 已实现。详见
 [Phase 2 静态 Skill Store](implementation/PHASE2_STATIC_SKILL_STORE.zh-CN.md)。显式的
@@ -149,7 +151,8 @@ Version-pinned `no_skill`/`static_skill` Evaluation Artifact 已实现。基于 
 
 ## 5. Phase 3：Candidate 学习与晋升
 
-状态：**进行中**。Evidence Eligibility、只允许 `SKILL.md` 指令文本发生有界
+实现状态：**有界 Candidate-learning 范围已于 2026-09-14 完成**。Evidence
+Eligibility、只允许 `SKILL.md` 指令文本发生有界
 变化的 Admission Policy，以及非激活 Candidate 的 SQLite 持久化已完成。详见
 [Phase 3 Candidate 暂存](implementation/PHASE3_CANDIDATE_STAGING.zh-CN.md)。
 绑定完整性校验的 Paired Held-out Runner 与确定性 Acceptance Policy 也已完成，
@@ -191,6 +194,11 @@ Base/Candidate Result、Decision 与 Lifecycle Audit，详见
 
 ## 6. Phase 4：安全与作品集报告
 
+实现状态：**确定性证据范围已于 2026-09-14 完成**。双模式 AgentDojo Runner、
+带完整性绑定的 JSON Artifact、污染测试、Candidate 生成式报告、Learning-policy
+Ablation 和 Web Trace 展示覆盖了下列事项。有记录的 Live-model 攻击 Artifact
+仍属于外部证据门槛，不能由确定性测试推导。
+
 实现：
 
 - AgentDojo Workspace Injection Run；
@@ -210,6 +218,11 @@ Base/Candidate Result、Decision 与 Lifecycle Audit，详见
 - 项目具备用于面试的架构说明和阅读指南。
 
 ## 7. Phase 5：一个真实 Connector
+
+实现状态：**Connector 与确定性 HTTP Contract 已于 2026-09-14 完成；需 Credential
+的 Smoke 尚未执行**。Gmail/Google Calendar Read、Gmail Draft 和私人 Calendar
+Hold 复用受控 Workspace 的 Provenance、Approval、Operation Ledger、Receipt、
+Verification、Reconciliation、CLI 与 Web 边界。当前不声称真实账号运行成功。
 
 只有受控系统稳定之后，才添加一个供应商体系，最可能是 Gmail 与 Google
 Calendar，并保持保守默认策略。

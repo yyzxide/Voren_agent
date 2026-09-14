@@ -40,7 +40,8 @@ Recorded outcome:
 
 ## 3. Phase 1: safe-action vertical slice
 
-Status: **in progress**. The action core, durable approval lifecycle, and
+Implementation status: **complete for the controlled acceptance boundary on
+2026-09-14**. The action core, durable approval lifecycle, and
 scripted provenance-aware loop are complete; see
 [Phase 1 Action Core](implementation/PHASE1_ACTION_CORE.md),
 [Phase 1 Run Lifecycle](implementation/PHASE1_RUN_LIFECYCLE.md), and
@@ -94,7 +95,7 @@ Completed in the action-core sub-slice:
 - AES-256-GCM transcript checkpoints bound to the frozen run config, with
   retained budgets and process-restart recovery at safe model-request boundaries.
 
-Still pending in Phase 1: one recorded live-model golden run and a live
+External evidence still pending: one recorded live-model golden run and a live
 prompt-injection artifact from the current runner. The action envelope and
 deterministic dual-mode coverage now include calendar `injection_task_2` and
 email `injection_task_3`/`injection_task_4`; see
@@ -111,7 +112,8 @@ Exit criteria:
 
 ## 4. Phase 2: memory and static skills
 
-Status: **in progress**. Agent Skills-compatible parsing, progressive loading
+Implementation status: **complete for the declared non-embedding scope on
+2026-09-14**. Agent Skills-compatible parsing, progressive loading
 APIs, content-addressed immutable versions, an atomic active pointer, exact
 RunConfig skill references, and the first hand-written scheduling skill are
 implemented. Explicit `no_skill`/`static_skill` runtime contexts now freeze and
@@ -151,7 +153,8 @@ Exit criteria:
 
 ## 5. Phase 3: candidate learning and promotion
 
-Status: **in progress**. Evidence eligibility, an admission policy limited to
+Implementation status: **complete for the bounded candidate-learning scope on
+2026-09-14**. Evidence eligibility, an admission policy limited to
 bounded `SKILL.md` instruction edits, and SQLite persistence of inactive
 candidates are complete. See
 [Phase 3 Candidate Staging](implementation/PHASE3_CANDIDATE_STAGING.md).
@@ -197,6 +200,12 @@ Exit criteria:
 
 ## 6. Phase 4: security and portfolio report
 
+Implementation status: **complete for deterministic evidence on 2026-09-14**.
+The dual-mode AgentDojo runner, integrity-bound JSON artifacts, contamination
+tests, generated candidate report, learning-policy ablation, and Web trace
+surface cover the items below. A recorded live-model attack artifact remains an
+external evidence gate and is not inferred from deterministic tests.
+
 Implement:
 
 - AgentDojo workspace injection runs;
@@ -216,6 +225,12 @@ Exit criteria:
 - the project has an interview-ready architecture and reading guide.
 
 ## 7. Phase 5: one real connector
+
+Implementation status: **connector and deterministic HTTP contracts complete
+on 2026-09-14; credentialed smoke pending**. Gmail and Google Calendar reads,
+Gmail draft creation, and private calendar holds use the same provenance,
+approval, operation-ledger, receipt, verification, reconciliation, CLI, and Web
+boundaries as the controlled workspace. No real-account success is claimed.
 
 Only after the controlled system is stable, add one provider family, most
 likely Gmail plus Google Calendar, with conservative defaults.

@@ -2,35 +2,28 @@
 
 [English](README.md)
 
-[2026-09-14 作品集审计](docs/reviews/2026-09-14-PORTFOLIO-AUDIT.zh-CN.md)记录了
-审计基线与调整后的交付顺序。后续切片已增加原子 Operation Claim，并使用只做
-外部状态观察、绝不重发动作的 Reconciliation 处理外部提交后且 Receipt 落盘前
-的崩溃窗口。现有确定性测试通过仍不代表 Live Model 质量。
+[![CI](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml)
 
-> 当前状态：Phase 1 进行中。安全动作核心、持久 Approval Pause、带 Provenance
-> Label 的 AgentDojo Read、有界 Loop、Responses API Adapter 和交互式 CLI 已经
-> 实现。可复现的 Agent Behavior/Runtime Enforcement 双模式评测与完整性绑定
-> Artifact 也已实现。Provider 和评测 Contract 已在无 Credential 环境中通过
-> 测试，模型 Token Usage 会贯穿 Runtime 与评测 Artifact。Background Responses
-> 轮询、Deadline/Operator Cancellation、Provider Confirmation 证据和加密
-> Mid-loop Transcript Recovery 也已实现。目前还没有记录 Live-model Run。保守的
-> Google Workspace REST Connector 已支持带来源的 Gmail/Calendar Read、Gmail
-> Draft 与私人 Calendar Hold，并复用相同的审批/回执边界，但尚未通过需要 Credential
-> 的 Live Smoke。Phase 2 已经开始：当前具备兼容 Agent Skills、
-> 内容寻址的静态 Skill Store、精确 Active Version Snapshot，以及接入 Agent Loop
-> 且有大小限制的版本冻结 Instruction Context。Phase 3 现已具备 Evidence-gated
-> 非激活 Candidate、Paired Held-out Evaluation、事务化 Decision、原子
-> Promotion/Rollback、完整性审计链，以及精确版本的 AgentDojo Skill Evaluator。
-> 公开 Learning CLI 与无需 Credential 的生命周期对比已经完成；有记录的
-> Live-model Skill Comparison 仍待完成。
+带日期的[交付状态](docs/reviews/2026-09-14-DELIVERY-STATUS.zh-CN.md)区分了已经实现、
+已经验证和仍需 Credential 的内容。之前的
+[作品集审计](docs/reviews/2026-09-14-PORTFOLIO-AUDIT.zh-CN.md)作为历史缺陷基线保留；
+其中当时未修复的结论不代表当前仓库状态。
 
-Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的工程重点不是
+> 当前状态：无需 Credential 的作品集实现基线已经完成。有界 Runtime、原子动作
+> Claim、只观察不重发的崩溃 Reconciliation、持久审批与恢复、显式 Responses
+> Provider 能力 Profile、类型化 Memory 与绑定来源的 Knowledge、确定性 Skill
+> 路由、受门禁保护的 Candidate 学习、本地 Web/SSE Walkthrough，以及保守的
+> Google Workspace Connector 已接入同一 Runtime。剩余证据门槛刻意保留在外部：
+> 有记录的 Live-model 黄金与注入评测、Live-model Skill 对比，以及脱敏的 Google
+> 测试账号 Smoke Run。确定性测试通过不能证明这些 Live 结论。
+
+Voren 是一个面向邮件与日程工作的单 Agent 助手。它的工程重点不是
 覆盖尽可能多的个人助理功能，而是回答一个更窄的问题：
 
 > 一个能够对外行动的 Agent，怎样从经验中学习，同时避免把偶然成功、
 > 不安全指令或行为回归晋升为长期有效的 Skill？
 
-计划中的系统包括：
+当前实现包括：
 
 - 有界、可观测的 Agent Runtime；
 - 带审批、幂等和结果验证的类型化外部动作；
@@ -38,7 +31,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - 基于来源明确的执行证据、且只能先生成候选版本的 Skill 学习；
 - Skill 版本晋升前的任务效果与安全评测。
 
-第一个可执行环境将使用 AgentDojo 的 `workspace` 套件。这样可以在连接
+受控回归环境使用 AgentDojo 的 `workspace` 套件。这样可以在连接
 任何真实账号之前，先基于确定性的外部状态和提示注入测试邮件、日程行为。
 
 ## 初始范围
@@ -73,6 +66,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [Phase 1 可验证 Email Action](docs/implementation/PHASE1_EMAIL_ACTION.zh-CN.md)
 - [Phase 2 静态 Skill Store](docs/implementation/PHASE2_STATIC_SKILL_STORE.zh-CN.md)
 - [Phase 2 版本冻结的 Skill Context](docs/implementation/PHASE2_SKILL_CONTEXT.zh-CN.md)
+- [Phase 2 确定性 Skill 路由](docs/implementation/PHASE2_SKILL_ROUTING.zh-CN.md)
 - [Phase 2 类型化 Memory 与冻结 Context](docs/implementation/PHASE2_TYPED_MEMORY.zh-CN.md)
 - [Phase 2 绑定来源的业务知识检索](docs/implementation/PHASE2_KNOWLEDGE_RETRIEVAL.zh-CN.md)
 - [Phase 2 官方 MCP 检索边界](docs/implementation/PHASE2_MCP_RETRIEVAL.zh-CN.md)
@@ -294,4 +288,4 @@ voren eval-agentdojo \
 先安装并激活 Skill，再追加
 `--skill schedule-from-email --skill-store .voren/skills`。Artifact 会在
 `config.sampling.skill_context` 中记录 Mode、不可变精确版本、Context Digest 与
-字节数。带日期的实测结果见上方作品集审计。
+字节数。带日期的验证边界见上方交付状态。

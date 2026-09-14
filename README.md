@@ -2,41 +2,32 @@
 
 [简体中文](README.zh-CN.md)
 
-The [2026-09-14 portfolio audit](docs/reviews/2026-09-14-PORTFOLIO-AUDIT.zh-CN.md)
-records the audit baseline and revised delivery order. Subsequent slices added
-atomic operation claims and observation-only reconciliation for the external-
-commit-before-receipt crash window. Scripted tests still must not be read as
-live-model quality evidence.
+[![CI](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml)
 
-> Status: Phase 1 in progress. The safe-action core, durable approval pause,
-> provenance-labelled AgentDojo reads, bounded loop, Responses API adapter, and
-> interactive CLI are implemented. A reproducible agent-behavior/runtime-
-> enforcement evaluation harness with integrity-bound artifacts is also
-> implemented. Provider and evaluation contracts are tested without a
-> credential, and model-token usage flows through runtime and evaluation
-> artifacts. Background Responses polling, deadline/operator cancellation, and
-> provider-confirmation evidence are implemented. Encrypted mid-loop transcript
-> recovery now preserves context and budgets across process restarts. A recorded
-> live-model run does not yet exist. A conservative Google Workspace REST
-> connector supports provenance-labelled Gmail/Calendar reads, Gmail drafts,
-> and private calendar holds through the same approval/receipt boundary, but it
-> has not passed the credential-gated live smoke. Phase 2 has started
-> with an Agent Skills-compatible, content-addressed static skill store, exact
-> active-version snapshots, and bounded version-pinned instructions wired into
-> the agent loop. Phase 3 now has evidence-gated inactive candidates, paired
-> held-out evaluation, transactional decisions, atomic promotion/rollback, an
-> integrity-chained audit, and an exact-version AgentDojo Skill evaluator. A
-> public learning CLI and a credential-free lifecycle comparison are complete;
-> a recorded live-model Skill comparison is still pending.
+The dated [delivery status](docs/reviews/2026-09-14-DELIVERY-STATUS.md) records
+what is implemented, what was verified, and what is still credential-gated.
+The earlier [portfolio audit](docs/reviews/2026-09-14-PORTFOLIO-AUDIT.zh-CN.md)
+is retained as a historical defect baseline; its open findings are not the
+current repository state.
 
-Voren is a planned single-agent assistant for email and calendar work. Its
+> Status: the credential-free portfolio baseline is implemented. The bounded
+> runtime, atomic action claim, observation-only crash reconciliation, durable
+> approval/resume, explicit Responses-provider capability profiles, typed
+> Memory and source-bound Knowledge, deterministic Skill routing, gated
+> candidate learning, local Web/SSE walkthrough, and conservative Google
+> Workspace connector are connected through the same runtime. The remaining
+> evidence gates are deliberately external: a recorded live-model golden and
+> injection evaluation, a live-model Skill comparison, and a redacted Google
+> test-account smoke run. Deterministic tests do not prove those live claims.
+
+Voren is a single-agent assistant for email and calendar work. Its
 engineering focus is not broad personal-assistant coverage, but a narrower
 question:
 
 > How can an action-taking agent learn from experience without promoting
 > accidental success, unsafe instructions, or regressions into durable skills?
 
-The intended system combines:
+The implemented system combines:
 
 - a bounded, observable agent runtime;
 - typed external actions with approval, idempotency, and outcome verification;
@@ -44,7 +35,7 @@ The intended system combines:
 - candidate-only skill learning from provenance-aware execution evidence; and
 - utility and security evaluation before a skill version can be promoted.
 
-The first executable environment will be the AgentDojo `workspace` suite so
+The controlled regression environment uses the AgentDojo `workspace` suite so
 email and calendar behavior can be tested against deterministic state and
 prompt-injection cases before any real account is connected.
 
@@ -81,6 +72,7 @@ the first release.
 - [Phase 1 verified email action](docs/implementation/PHASE1_EMAIL_ACTION.md)
 - [Phase 2 static skill store](docs/implementation/PHASE2_STATIC_SKILL_STORE.md)
 - [Phase 2 version-pinned skill context](docs/implementation/PHASE2_SKILL_CONTEXT.md)
+- [Phase 2 deterministic skill routing](docs/implementation/PHASE2_SKILL_ROUTING.md)
 - [Phase 2 typed memory and frozen context](docs/implementation/PHASE2_TYPED_MEMORY.md)
 - [Phase 2 source-bound knowledge retrieval](docs/implementation/PHASE2_KNOWLEDGE_RETRIEVAL.md)
 - [Phase 2 official MCP retrieval boundary](docs/implementation/PHASE2_MCP_RETRIEVAL.md)
@@ -319,5 +311,5 @@ are not live-model quality or prompt-injection results. Omit `--skill` for a
 guidance, first install and activate the Skill, then add
 `--skill schedule-from-email --skill-store .voren/skills`. The Artifact records
 the mode, exact immutable Skill versions, context digest, and byte count under
-`config.sampling.skill_context`. For a dated test result, see the portfolio
-audit above.
+`config.sampling.skill_context`. For the dated verification boundary, see the
+delivery status above.
