@@ -41,6 +41,14 @@ from voren.runtime.agent_loop import AgentLoop
 from voren.runtime.models import RuntimeLimits, RuntimeResultStatus
 from voren.runtime.ports import ModelAdapter
 from voren.runtime.tools import external_action_tool
+from voren.skills.context import SkillContextAssembler, SkillContextSnapshot
+from voren.skills.parser import AgentSkillParser
+from voren.skills.routing import (
+    SkillRouteDecision,
+    SkillRouter,
+    SkillRoutingMode,
+)
+from voren.skills.store import SQLiteSkillStore
 from voren.web.index import (
     SQLiteWebRunIndex,
     WebRequestInProgressError,
@@ -141,6 +149,9 @@ class VorenWebService:
         workspace_factory: WorkspaceFactory = create_agentdojo_web_workspace,
         workspace_name: str = "agentdojo",
         workspace_recoverable: bool = False,
+        skill_database: Path | None = None,
+        skill_store_root: Path | None = None,
+        skill_routing_mode: SkillRoutingMode = SkillRoutingMode.AUTO,
         limits: RuntimeLimits | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -148,6 +159,15 @@ class VorenWebService:
         self.mode = mode
         self.workspace_name = workspace_name
         self.workspace_recoverable = workspace_recoverable
+        self.skill_database = skill_database or database
+        self.skill_database.parent.mkdir(parents=True, exist_ok=True)
+        self.skill_store_root = skill_store_root or (database.parent / "skills")
+        if skill_routing_mode not in {
+            SkillRoutingMode.AUTO,
+            SkillRoutingMode.DISABLED,
+        }:
+            raise ValueError("Web Skill routing supports only auto or disabled")
+        self.skill_routing_mode = skill_routing_mode
         self._model_factory = model_factory
         self._workspace_factory = workspace_factory
         self._limits = limits or RuntimeLimits()
@@ -201,15 +221,21 @@ class VorenWebService:
                 clock=self._clock,
             )
             knowledge_server = create_knowledge_mcp_server(knowledge_store)
+            runtime_read_tools = CompositeReadToolAdapter(
+                workspace.read_tools,
+                MCPKnowledgeReadAdapter(
+                    knowledge_server,
+                    source_id="local-knowledge",
+                ),
+            )
+            skill_context, skill_route = self._select_skill_context(
+                request=normalized,
+                workspace=workspace,
+                read_tools=runtime_read_tools,
+            )
             loop = AgentLoop(
                 model=model,
-                read_tools=CompositeReadToolAdapter(
-                    workspace.read_tools,
-                    MCPKnowledgeReadAdapter(
-                        knowledge_server,
-                        source_id="local-knowledge",
-                    ),
-                ),
+                read_tools=runtime_read_tools,
                 action_tools=tuple(
                     external_action_tool(
                         definition,
@@ -219,6 +245,7 @@ class VorenWebService:
                 ),
                 run_manager=manager,
                 limits=self._limits,
+                skill_context=skill_context,
             )
             result = loop.run(
                 user_request=normalized,
@@ -227,10 +254,12 @@ class VorenWebService:
                     world_adapter=workspace.world_adapter,
                     policy_version="provenance-and-approval-v1",
                     action_contract_versions=workspace.contract_versions,
+                    skill_versions=skill_context.skill_versions,
                     metadata={
                         "surface": "web",
                         "mode": self.mode,
                         "workspace": workspace.name,
+                        "skill_routing": skill_route.model_dump(mode="json"),
                     },
                 ),
             )
@@ -245,6 +274,7 @@ class VorenWebService:
                 usage=result.usage,
                 error_code=result.error_code,
                 error_detail_code=result.error_detail_code,
+                skill_routing=skill_route,
                 created_at=now,
                 updated_at=timestamp,
             )
@@ -418,3 +448,52 @@ class VorenWebService:
                 "web workspace factory does not match service configuration"
             )
         return workspace
+
+    def active_skill_count(self) -> int:
+        store = SQLiteSkillStore(
+            self.skill_database,
+            root=self.skill_store_root,
+            parser=AgentSkillParser(),
+        )
+        try:
+            return len(store.discover_active())
+        finally:
+            store.close()
+
+    def _select_skill_context(
+        self,
+        *,
+        request: str,
+        workspace: WebWorkspaceRuntime,
+        read_tools: ReadToolAdapter,
+    ) -> tuple[SkillContextSnapshot, SkillRouteDecision]:
+        available_tools = tuple(
+            definition.name for definition in read_tools.definitions
+        ) + tuple(
+            definition.name for definition in workspace.action_definitions
+        )
+        store = SQLiteSkillStore(
+            self.skill_database,
+            root=self.skill_store_root,
+            parser=AgentSkillParser(),
+        )
+        try:
+            router = SkillRouter(store)
+            decision = (
+                router.auto(request=request, available_tools=available_tools)
+                if self.skill_routing_mode is SkillRoutingMode.AUTO
+                else router.disabled(
+                    request=request,
+                    available_tools=available_tools,
+                )
+            )
+            context = (
+                SkillContextAssembler(store).from_frozen(
+                    decision.selected_versions
+                )
+                if decision.selected_versions
+                else SkillContextSnapshot.no_skill()
+            )
+            return context, decision
+        finally:
+            store.close()

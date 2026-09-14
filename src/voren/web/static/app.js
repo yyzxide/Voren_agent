@@ -52,6 +52,7 @@ function appendMessage(role, text) {
 function renderRun(run) {
   state.run = run;
   saveSession();
+  renderSkillRoute(run.skill_routing);
   if (run.final_text) appendMessage("agent", run.final_text);
   if (run.error_code) {
     appendMessage("system", `运行停止：${run.error_code}${run.error_detail_code ? ` / ${run.error_detail_code}` : ""}`);
@@ -66,6 +67,25 @@ function renderRun(run) {
   }
   renderApproval(run);
   openEvents(run);
+}
+
+function renderSkillRoute(route) {
+  const label = $("skill-route");
+  if (!route) {
+    label.textContent = "Skill：旧运行未记录路由信息";
+    return;
+  }
+  if (route.selected_versions.length) {
+    const selected = route.selected_versions
+      .map((ref) => `${ref.name}@${ref.version_id.slice(0, 12)}`)
+      .join(", ");
+    label.textContent = `Skill：${selected} · ${route.mode}`;
+    return;
+  }
+  const suffix = route.ambiguous_skills.length
+    ? ` · 歧义：${route.ambiguous_skills.join(", ")}`
+    : "";
+  label.textContent = `Skill：no_skill · ${route.mode}${suffix}`;
 }
 
 function renderApproval(run) {
@@ -226,7 +246,7 @@ async function loadHealth() {
   try {
     const health = await api("/api/health");
     $("health-dot").classList.add("ok");
-    $("health-text").textContent = `Runtime 已连接 · ${health.mode} · ${health.workspace}`;
+    $("health-text").textContent = `Runtime 已连接 · ${health.mode} · ${health.workspace} · Active Skills ${health.active_skill_count}`;
     if (health.mode === "demo") {
       $("mode-banner").textContent = "确定性 AgentDojo 演示：无需 API Key，不代表真实模型质量";
     } else {

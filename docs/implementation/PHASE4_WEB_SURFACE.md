@@ -51,6 +51,22 @@ be mislabeled as deterministic demo mode. Missing model or workspace
 configuration returns HTTP 503 and releases the request reservation so a fixed
 configuration can retry safely.
 
+## Skill lifecycle connection
+
+Web uses the same reviewed active-Skill store as the CLI by default:
+`.voren/voren.sqlite3` plus `.voren/skills`. Browser Run snapshots remain in
+`.voren/web.sqlite3`, so introducing routing does not migrate or discard prior
+Web state. The locations are independently configurable through
+`VOREN_SKILL_DATABASE` and `VOREN_SKILL_STORE`.
+
+Each request runs the deterministic metadata router before the first model call.
+The selected exact version and request-free routing evidence are persisted both
+in the underlying RunConfig and the browser-visible Run snapshot. The page shows
+`no_skill` or the selected `name@version` instead of implying that every request
+uses learned guidance. `VOREN_WEB_SKILL_ROUTING=disabled` provides an explicit
+Web baseline. The Health response reports the routing mode and active-Skill
+count.
+
 ## Event delivery
 
 `GET /api/runs/{run_id}/events/stream` replays append-only Run events as
@@ -66,15 +82,15 @@ FastAPI 0.135.1 is pinned because this slice uses its built-in
 
 `tests/integration/test_web_app.py` covers the static page and readable font
 baseline, health/mode disclosure, credential-free greeting, source-bound
-knowledge answer, immediate scheduling flow, exact Digest mismatch, approved
-Receipt, rejection, duplicate submission/decision, conflicting request IDs,
+knowledge answer, routed exact Skill version, immediate scheduling flow, exact
+Digest mismatch, approved Receipt, rejection, duplicate submission/decision, conflicting request IDs,
 lost in-memory workspace after restart, SSE replay, and model-configuration
 failure retry.
 
 `tests/integration/test_web_http_process.py` adds a process-boundary acceptance
 path. It cold-starts the installed Web entry point on an ephemeral loopback
-port, uses real TCP/HTTP requests to load the page, submits a scheduling task,
-approves its exact effect digest, consumes the terminal SSE stream, and then
+port, uses real TCP/HTTP requests to load the page, routes an installed active
+Skill, submits a scheduling task, approves its exact effect digest, consumes the terminal SSE stream, and then
 restarts the server against the same SQLite database to verify that the
 completed receipt remains recoverable. It uses only the deterministic demo
 workspace and never needs a model or Google credential.

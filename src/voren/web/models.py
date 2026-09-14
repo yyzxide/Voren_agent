@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from voren.actions.models import ActionProposal, ActionReceipt
 from voren.runtime.models import RuntimeUsage
+from voren.skills.routing import SkillRouteDecision
 
 
 class WebModel(BaseModel):
@@ -40,6 +41,7 @@ class RunView(WebModel):
     usage: RuntimeUsage = Field(default_factory=RuntimeUsage)
     error_code: str | None = None
     error_detail_code: str | None = None
+    skill_routing: SkillRouteDecision | None = None
     recovery_required: bool = False
     created_at: datetime
     updated_at: datetime
@@ -54,3 +56,6 @@ class HealthView(WebModel):
     authentication: str = "local_loopback_only"
     live_model_configured: bool
     knowledge_database: str
+    skill_routing_mode: str
+    active_skill_count: int = Field(ge=0)
+    skill_database: str

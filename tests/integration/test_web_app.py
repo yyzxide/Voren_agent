@@ -44,6 +44,9 @@ if WEB_AVAILABLE:
     from voren.knowledge.store import SQLiteKnowledgeStore
     from voren.providers.openai_responses import ModelConfigurationError
     from voren.runtime.models import ModelResponse, ToolCall
+    from voren.skills.parser import AgentSkillParser
+    from voren.skills.routing import SkillRoutingMode
+    from voren.skills.store import SQLiteSkillStore
     from voren.testing.scripted_model import ScriptedModelAdapter
     from voren.web.app import create_app
     from voren.web.demo_model import DemoWorkspaceModel
@@ -87,6 +90,9 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
         self.assertEqual(health.json()["workspace"], "agentdojo")
         self.assertTrue(health.json()["workspace_configured"])
         self.assertFalse(health.json()["live_model_configured"])
+        self.assertEqual(health.json()["skill_routing_mode"], "auto")
+        self.assertEqual(health.json()["active_skill_count"], 0)
+        self.assertEqual(health.json()["skill_database"], str(self.database))
         self.assertIn("font: 16px/1.6", css.text)
         javascript = self.client.get("/static/app.js")
         self.assertEqual(javascript.status_code, 200)
@@ -142,6 +148,7 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
         self.assertIn(document.ref.version_id, body["final_text"])
 
     def test_task_runs_immediately_then_requires_only_exact_effect_decision(self) -> None:
+        version = self._activate_repository_skill()
         payload = {
             "client_request_id": "request:schedule-001",
             "request": "根据徒步邮件安排日程，并在执行前让我确认。",
@@ -152,6 +159,11 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
         pending = response.json()
         self.assertEqual(pending["status"], "waiting_approval")
         self.assertEqual(len(pending["proposal"]["effects"]), 2)
+        self.assertEqual(
+            pending["skill_routing"]["selected_versions"],
+            [version.ref.model_dump(mode="json")],
+        )
+        self.assertEqual(pending["skill_routing"]["mode"], "auto")
 
         repeated = self.client.post("/api/runs", json=payload)
         self.assertEqual(repeated.status_code, 200)
@@ -200,6 +212,16 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
         self.assertIn("approval.accepted", event_types)
         self.assertIn("action.receipt", event_types)
         self.assertIn("run.completed", event_types)
+        skill_event = next(
+            event
+            for event in events
+            if event["event_type"] == "skill_context.assembled"
+        )
+        self.assertEqual(skill_event["payload"]["mode"], "static_skill")
+        self.assertEqual(
+            skill_event["payload"]["skill_versions"],
+            [version.ref.model_dump(mode="json")],
+        )
 
     def test_rejection_is_terminal_and_dispatches_no_action(self) -> None:
         pending = self.client.post(
@@ -223,6 +245,33 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
         self.assertEqual(rejected.json()["status"], "cancelled")
         self.assertIsNone(rejected.json()["receipt"])
         self.assertFalse(rejected.json()["decision_approved"])
+
+    def test_web_skill_routing_can_be_explicitly_disabled(self) -> None:
+        self._activate_repository_skill()
+        disabled_service = VorenWebService(
+            database=self.database,
+            model_factory=DemoWorkspaceModel,
+            mode="demo",
+            skill_database=self.service.skill_database,
+            skill_store_root=self.service.skill_store_root,
+            skill_routing_mode=SkillRoutingMode.DISABLED,
+            clock=lambda: self.now,
+        )
+        disabled = TestClient(create_app(service=disabled_service))
+        self.addCleanup(disabled.close)
+
+        response = disabled.post(
+            "/api/runs",
+            json={
+                "client_request_id": "request:no-skill-web-001",
+                "request": "根据徒步邮件安排日程。",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        route = response.json()["skill_routing"]
+        self.assertEqual(route["mode"], "disabled")
+        self.assertEqual(route["selected_versions"], [])
 
     def test_lost_decision_response_recovers_durable_receipt_without_resend(self) -> None:
         pending = self.client.post(
@@ -330,6 +379,7 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
         self.assertEqual(retried.status_code, 503)
 
     def test_google_web_approval_survives_process_restart(self) -> None:
+        self._activate_repository_skill()
         transport = FakeGoogleTransport()
         config = GoogleWorkspaceConfig(
             access_token="test-token",
@@ -387,6 +437,11 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
         ).json()
         self.assertEqual(pending["workspace"], "google")
         self.assertEqual(pending["status"], "waiting_approval")
+        self.assertEqual(pending["skill_routing"]["selected_versions"], [])
+        self.assertEqual(
+            pending["skill_routing"]["incompatible_skills"][0]["ref"]["name"],
+            "schedule-from-email",
+        )
 
         restarted = TestClient(create_app(service=service()))
         self.addCleanup(restarted.close)
@@ -418,6 +473,21 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
         from voren.web.models import DecideRunRequest
 
         return DecideRunRequest.model_validate(payload)
+
+    def _activate_repository_skill(self):
+        parser = AgentSkillParser()
+        store = SQLiteSkillStore(
+            self.service.skill_database,
+            root=self.service.skill_store_root,
+            parser=parser,
+        )
+        try:
+            source = Path(__file__).parents[2] / "skills" / "schedule-from-email"
+            version = store.install(parser.load(source))
+            store.activate(version.ref, reason="reviewed Web routing test")
+            return version
+        finally:
+            store.close()
 
 
 if __name__ == "__main__":

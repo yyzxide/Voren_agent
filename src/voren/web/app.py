@@ -20,6 +20,7 @@ from voren.providers.openai_responses import (
     OpenAIResponsesModelAdapter,
 )
 from voren.runtime.models import RuntimeResultStatus
+from voren.skills.routing import SkillRoutingMode
 from voren.web.demo_model import DemoWorkspaceModel
 from voren.web.index import (
     WebRequestConflictError,
@@ -63,6 +64,15 @@ def create_app(
     selected_database = database or Path(
         os.environ.get("VOREN_WEB_DATABASE", ".voren/web.sqlite3")
     )
+    selected_skill_database = Path(
+        os.environ.get("VOREN_SKILL_DATABASE", ".voren/voren.sqlite3")
+    )
+    selected_skill_store = Path(
+        os.environ.get("VOREN_SKILL_STORE", ".voren/skills")
+    )
+    routing_value = os.environ.get("VOREN_WEB_SKILL_ROUTING", "auto").strip()
+    if routing_value not in {"auto", "disabled"}:
+        raise ValueError("VOREN_WEB_SKILL_ROUTING must be 'auto' or 'disabled'")
     selected_workspace = (
         workspace or os.environ.get("VOREN_WEB_WORKSPACE") or "agentdojo"
     ).strip()
@@ -83,6 +93,9 @@ def create_app(
             workspace_factory=workspace_factory,
             workspace_name=selected_workspace,
             workspace_recoverable=selected_workspace == "google",
+            skill_database=selected_skill_database,
+            skill_store_root=selected_skill_store,
+            skill_routing_mode=SkillRoutingMode(routing_value),
         )
     else:
         active_service = service
@@ -116,6 +129,9 @@ def create_app(
             ),
             live_model_configured=_live_model_configured(),
             knowledge_database=str(active_service.database),
+            skill_routing_mode=active_service.skill_routing_mode.value,
+            active_skill_count=active_service.active_skill_count(),
+            skill_database=str(active_service.skill_database),
         )
 
     @app.post("/api/runs", response_model=RunView)

@@ -14,6 +14,9 @@ import urllib.request
 import uuid
 from pathlib import Path
 
+from voren.skills.parser import AgentSkillParser
+from voren.skills.store import SQLiteSkillStore
+
 
 WEB_PROCESS_AVAILABLE = all(
     importlib.util.find_spec(package) is not None
@@ -30,6 +33,18 @@ class VorenWebHTTPProcessTest(unittest.TestCase):
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary_directory.cleanup)
         self.database = Path(self.temporary_directory.name) / "web.sqlite3"
+        self.skill_store_root = Path(self.temporary_directory.name) / "skills"
+        parser = AgentSkillParser()
+        skill_store = SQLiteSkillStore(
+            self.database,
+            root=self.skill_store_root,
+            parser=parser,
+        )
+        source = Path(__file__).parents[2] / "skills" / "schedule-from-email"
+        version = skill_store.install(parser.load(source))
+        skill_store.activate(version.ref, reason="reviewed process-boundary test")
+        skill_store.close()
+        self.skill_ref = version.ref
         self.port = self._unused_loopback_port()
         self.base_url = f"http://127.0.0.1:{self.port}"
         self.process: subprocess.Popen[str] | None = None
@@ -46,6 +61,8 @@ class VorenWebHTTPProcessTest(unittest.TestCase):
         self.assertEqual(health["workspace"], "agentdojo")
         self.assertTrue(health["workspace_configured"])
         self.assertFalse(health["live_model_configured"])
+        self.assertEqual(health["skill_routing_mode"], "auto")
+        self.assertEqual(health["active_skill_count"], 1)
 
         pending = self._request_json(
             "/api/runs",
@@ -57,6 +74,10 @@ class VorenWebHTTPProcessTest(unittest.TestCase):
         )
         self.assertEqual(pending["status"], "waiting_approval")
         self.assertEqual(len(pending["proposal"]["effects"]), 2)
+        self.assertEqual(
+            pending["skill_routing"]["selected_versions"],
+            [self.skill_ref.model_dump(mode="json")],
+        )
 
         decision = {
             "decision_id": f"decision:http-e2e:{uuid.uuid4()}",
@@ -100,6 +121,8 @@ class VorenWebHTTPProcessTest(unittest.TestCase):
         environment.update(
             {
                 "VOREN_WEB_DATABASE": str(self.database),
+                "VOREN_SKILL_DATABASE": str(self.database),
+                "VOREN_SKILL_STORE": str(self.skill_store_root),
                 "VOREN_WEB_HOST": "127.0.0.1",
                 "VOREN_WEB_MODE": "demo",
                 "VOREN_WEB_PORT": str(self.port),
