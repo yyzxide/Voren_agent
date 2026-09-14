@@ -16,6 +16,14 @@ from voren.skills.models import (
     SkillVersionRef,
 )
 from voren.skills.parser import AgentSkillParser, SkillFormatError
+from voren.skills.routing import (
+    IncompatibleSkill,
+    SkillRouteDecision,
+    SkillRouteMatch,
+    SkillRouter,
+    SkillRoutingError,
+    SkillRoutingMode,
+)
 from voren.skills.store import SQLiteSkillStore
 
 __all__ = [
@@ -23,6 +31,7 @@ __all__ = [
     "AgentSkillMetadata",
     "AgentSkillParser",
     "LoadedSkill",
+    "IncompatibleSkill",
     "SQLiteSkillStore",
     "SkillContextAssembler",
     "SkillContextMode",
@@ -31,6 +40,11 @@ __all__ = [
     "SkillFile",
     "SkillFormatError",
     "SkillPackage",
+    "SkillRouteDecision",
+    "SkillRouteMatch",
+    "SkillRouter",
+    "SkillRoutingError",
+    "SkillRoutingMode",
     "SkillVersion",
     "SkillVersionRef",
 ]

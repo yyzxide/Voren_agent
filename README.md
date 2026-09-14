@@ -220,6 +220,15 @@ reason-bearing operations. `eval-agentdojo` requires explicit paid Cases and
 always runs raw agent behavior for both exact versions. It only writes evidence;
 the candidate remains staged until the separate `decide` command.
 
+Normal `agentdojo` and `google` runs now connect that lifecycle back to runtime.
+They conservatively route the operator request against explicit
+`metadata.routing-keywords` on active Skills, reject candidates whose tool
+contract is unavailable in the current workspace, and load only a uniquely best
+match. A tie or no match uses `no_skill`. The request text is not persisted in
+the routing record, and tool observations never participate in routing. Use
+`--skill NAME` for an explicit frozen selection or `--no-skill` for a baseline;
+see [Deterministic Skill Routing](docs/implementation/PHASE2_SKILL_ROUTING.md).
+
 As an alternative evidence source, `voren skill evidence-run --run-id ...`
 routes only a completed Run whose proposed operations have exactly bound,
 accepted approvals and final verified receipts. `stage` accepts only evidence

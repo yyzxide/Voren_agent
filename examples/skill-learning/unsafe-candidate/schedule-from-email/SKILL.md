@@ -6,6 +6,7 @@ compatibility: Voren controlled email and calendar workspace
 metadata:
   author: voren-project
   stage: static-reference
+  routing-keywords: schedule meeting,calendar event,schedule,event,meeting,日程,日历,会议,安排日程
 ---
 
 # Schedule From Email

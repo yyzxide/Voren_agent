@@ -76,6 +76,7 @@ from voren.runtime.tools import external_action_tool
 from voren.runtime.transcripts import SQLiteTranscriptStore, TranscriptKeyError
 from voren.skills.context import SkillContextAssembler, SkillContextSnapshot
 from voren.skills.parser import AgentSkillParser, SkillFormatError
+from voren.skills.routing import SkillRouteDecision, SkillRouter
 from voren.skills.store import SQLiteSkillStore
 
 
@@ -140,6 +141,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="Explicit episode memory ID to freeze; repeat as needed.",
     )
+    _add_runtime_skill_arguments(agentdojo)
     agentdojo.set_defaults(handler=run_agentdojo)
 
     google = subcommands.add_parser(
@@ -169,7 +171,7 @@ def build_parser() -> argparse.ArgumentParser:
     google.add_argument(
         "--database",
         type=Path,
-        default=Path(".voren/google.sqlite3"),
+        default=Path(".voren/voren.sqlite3"),
         help="SQLite trace and operation database.",
     )
     google.add_argument(
@@ -193,6 +195,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="Explicit episode memory ID to freeze; repeat as needed.",
     )
+    _add_runtime_skill_arguments(google)
     google.set_defaults(handler=run_google)
 
     evaluation = subcommands.add_parser(
@@ -530,6 +533,29 @@ def _add_skill_storage_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_runtime_skill_arguments(parser: argparse.ArgumentParser) -> None:
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument(
+        "--skill",
+        action="append",
+        help=(
+            "Explicit active Skill name; repeat to freeze multiple Skills. "
+            "Omit to use conservative metadata routing."
+        ),
+    )
+    selection.add_argument(
+        "--no-skill",
+        action="store_true",
+        help="Disable runtime Skill routing for this request.",
+    )
+    parser.add_argument(
+        "--skill-store",
+        type=Path,
+        default=Path(".voren/skills"),
+        help="Content-addressed immutable Skill object directory.",
+    )
+
+
 def _add_memory_storage_argument(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--database",
@@ -711,6 +737,15 @@ def _run_workspace_request(
             if profile_ids or episode_ids
             else MemoryContextAssembler(memory_store).empty()
         )
+        available_tools = tuple(
+            definition.name for definition in read_tools.definitions
+        ) + tuple(definition.name for definition in action_definitions)
+        skill_context, skill_route = _select_runtime_skill_context(
+            args,
+            request=args.request,
+            available_tools=available_tools,
+        )
+        _print_skill_route(skill_route, output)
         gateway = ActionGateway(
             definitions=action_definitions,
             adapter=action_adapter,
@@ -734,6 +769,7 @@ def _run_workspace_request(
             run_manager=manager,
             transcript_store=transcript_store,
             memory_context=memory_context,
+            skill_context=skill_context,
             limits=RuntimeLimits(
                 max_model_steps=args.max_model_steps,
                 max_tool_calls=args.max_tool_calls,
@@ -747,7 +783,12 @@ def _run_workspace_request(
                 policy_version="provenance-and-exact-effects-v1",
                 action_contract_versions=action_contract_versions,
                 memory_versions=memory_context.memory_versions,
-                metadata={"model": model_name, "provider": provider_name},
+                skill_versions=skill_context.skill_versions,
+                metadata={
+                    "model": model_name,
+                    "provider": provider_name,
+                    "skill_routing": skill_route.model_dump(mode="json"),
+                },
             ),
             cancellation=cancellation,
         )
@@ -810,6 +851,48 @@ def _run_workspace_request(
         transcript_store.close()
         store.close()
         ledger.close()
+
+
+def _select_runtime_skill_context(
+    args: argparse.Namespace,
+    *,
+    request: str,
+    available_tools: tuple[str, ...],
+) -> tuple[SkillContextSnapshot, SkillRouteDecision]:
+    skill_store = SQLiteSkillStore(
+        args.database,
+        root=Path(getattr(args, "skill_store", Path(".voren/skills"))),
+        parser=AgentSkillParser(),
+    )
+    try:
+        router = SkillRouter(skill_store)
+        explicit_names = tuple(getattr(args, "skill", None) or ())
+        if getattr(args, "no_skill", False):
+            decision = router.disabled(
+                request=request,
+                available_tools=available_tools,
+            )
+        elif explicit_names:
+            decision = router.explicit(
+                request=request,
+                available_tools=available_tools,
+                names=explicit_names,
+            )
+        else:
+            decision = router.auto(
+                request=request,
+                available_tools=available_tools,
+            )
+        context = (
+            SkillContextAssembler(skill_store).from_frozen(
+                decision.selected_versions
+            )
+            if decision.selected_versions
+            else SkillContextSnapshot.no_skill()
+        )
+        return context, decision
+    finally:
+        skill_store.close()
 
 
 def run_agentdojo_evaluation(
@@ -1533,6 +1616,20 @@ def _print_usage(usage: RuntimeUsage, output: Output) -> None:
         f"reasoning_output={usage.reasoning_output_tokens}, "
         f"total={usage.total_tokens}, "
         f"complete={str(usage.complete).lower()}"
+    )
+
+
+def _print_skill_route(decision: SkillRouteDecision, output: Output) -> None:
+    selected = ",".join(
+        f"{ref.name}@{ref.version_id[:12]}"
+        for ref in decision.selected_versions
+    ) or "none"
+    detail = ""
+    if decision.ambiguous_skills:
+        detail = "; ambiguous=" + ",".join(decision.ambiguous_skills)
+    output(
+        f"skill routing: {decision.mode.value}; selected={selected}{detail}; "
+        f"digest={decision.decision_digest}"
     )
 
 

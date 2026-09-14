@@ -11,6 +11,7 @@ from pathlib import Path
 from voren.cli import build_parser, run_agentdojo, run_agentdojo_evaluation
 from voren.evaluation.artifacts import read_artifact
 from voren.evaluation.models import EvaluationMode
+from voren.runs.models import RunConfig
 from voren.runtime.cancellation import CancellationToken
 from voren.runtime.models import ModelResponse, ToolCall
 from voren.skills.parser import AgentSkillParser
@@ -67,6 +68,21 @@ class AgentDojoCLITest(unittest.TestCase):
 
         self.assertFalse(hasattr(parsed, "yes"))
         self.assertFalse(hasattr(parsed, "auto_approve"))
+        self.assertIsNone(parsed.skill)
+        self.assertFalse(parsed.no_skill)
+
+        with self.assertRaises(SystemExit):
+            build_parser().parse_args(
+                [
+                    "agentdojo",
+                    "Read my email.",
+                    "--model",
+                    "test-model",
+                    "--skill",
+                    "schedule-from-email",
+                    "--no-skill",
+                ]
+            )
 
     def test_operator_approval_commits_and_verifies(self) -> None:
         output: list[str] = []
@@ -97,6 +113,57 @@ class AgentDojoCLITest(unittest.TestCase):
         self.assertEqual(run_status, "completed")
         self.assertEqual(operation[0], "verified")
         self.assertIsNotNone(operation[1])
+
+    def test_runtime_auto_routes_exact_active_skill_and_records_decision(self) -> None:
+        skill_store_root = Path(self.temporary_directory.name) / "skills"
+        self.database.parent.mkdir(parents=True, exist_ok=True)
+        parser = AgentSkillParser()
+        store = SQLiteSkillStore(
+            self.database,
+            root=skill_store_root,
+            parser=parser,
+        )
+        try:
+            source = Path(__file__).parents[2] / "skills" / "schedule-from-email"
+            version = store.install(parser.load(source))
+            store.activate(version.ref, reason="reviewed runtime route")
+        finally:
+            store.close()
+        args = self.args()
+        args.skill_store = skill_store_root
+        model = ScriptedModelAdapter((self.action_response(),))
+        output: list[str] = []
+
+        exit_code = run_agentdojo(
+            args,
+            model=model,
+            transcript_key=self.TRANSCRIPT_KEY,
+            approval_reader=lambda _: "yes",
+            output=output.append,
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn(
+            "# Activated procedural skills",
+            model.requests[0][0][0].content,
+        )
+        self.assertTrue(
+            any(
+                line.startswith("skill routing: auto; selected=schedule-from-email@")
+                for line in output
+            )
+        )
+        with sqlite3.connect(self.database) as connection:
+            config_json = connection.execute(
+                "SELECT config_json FROM runs"
+            ).fetchone()[0]
+        config = RunConfig.model_validate_json(config_json)
+        self.assertEqual(config.skill_versions, (version.ref,))
+        self.assertEqual(config.metadata["skill_routing"]["mode"], "auto")
+        self.assertEqual(
+            config.metadata["skill_routing"]["selected_versions"],
+            [version.ref.model_dump(mode="json")],
+        )
 
     def test_operator_rejection_cancels_without_commit_receipt(self) -> None:
         output: list[str] = []

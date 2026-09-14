@@ -203,6 +203,14 @@ voren skill rollback --candidate-id candidate-001 \
 Raw Agent Behavior。它只写入证据；运行单独的 `decide` 前 Candidate 始终保持
 Staged。
 
+普通 `agentdojo` 与 `google` Run 现在会把上述 Lifecycle 重新接回 Runtime。它们
+只根据 Active Skill 显式配置的 `metadata.routing-keywords` 对 Operator Request 做
+保守路由；当前 Workspace 缺少其 Tool Contract 的 Candidate 会先被拒绝，并且只有
+唯一最佳匹配才会加载。并列或无匹配都会使用 `no_skill`。Routing Record 不持久化
+Request 原文，Tool Observation 也永远不参与路由。`--skill NAME` 可显式冻结选择，
+`--no-skill` 可运行 Baseline；详见
+[确定性 Skill 路由](docs/implementation/PHASE2_SKILL_ROUTING.zh-CN.md)。
+
 另一种 Evidence Source 是 `voren skill evidence-run --run-id ...`。它只会路由
 已经 Completed，并且每个 Proposed Operation 都具备精确绑定的 Accepted Approval
 与最终 Verified Receipt 的 Run。`stage` 只接受通过这些 Router 预先持久化的

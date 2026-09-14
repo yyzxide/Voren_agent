@@ -117,13 +117,17 @@ Model 的规划能力或抗注入能力。
 `no_skill`/`static_skill` Runtime Context 现在会冻结并加载精确版本、限制 Context
 大小、校验 Tool Compatibility，并产生只含 Metadata 的审计事件。详见
 [版本冻结的 Skill Context](implementation/PHASE2_SKILL_CONTEXT.zh-CN.md)。
+保守的 Metadata-only Routing 现在会先过滤与 Workspace Tool 不兼容的 Skill，再
+选择至多一个唯一最佳 Active Skill，并记录不含 Request 原文的精确 Decision
+Evidence；详见
+[确定性 Skill 路由](implementation/PHASE2_SKILL_ROUTING.zh-CN.md)。
 
 类型化 Profile/Episode Store、只允许从持久 Evidence 分类、精确 RunConfig Memory
 Snapshot、有大小限制的模型 Context、默认脱敏的 CLI Inspect，以及 AgentDojo
 显式加载均已完成，详见
 [类型化 Memory 与冻结 Context](implementation/PHASE2_TYPED_MEMORY.zh-CN.md)。
-Semantic Skill Routing 和配对的 `no_skill`/`static_skill` Evaluation Artifact
-仍待实现。
+Version-pinned `no_skill`/`static_skill` Evaluation Artifact 已实现。基于 Embedding
+的 Semantic Routing 被明确排除在当前验收边界外，不会被包装成已经完成。
 
 实现：
 
