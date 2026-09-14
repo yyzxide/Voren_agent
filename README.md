@@ -80,6 +80,7 @@ the first release.
 - [Phase 2 version-pinned skill context](docs/implementation/PHASE2_SKILL_CONTEXT.md)
 - [Phase 2 typed memory and frozen context](docs/implementation/PHASE2_TYPED_MEMORY.md)
 - [Phase 2 source-bound knowledge retrieval](docs/implementation/PHASE2_KNOWLEDGE_RETRIEVAL.md)
+- [Phase 2 official MCP retrieval boundary](docs/implementation/PHASE2_MCP_RETRIEVAL.md)
 - [Phase 3 candidate staging](docs/implementation/PHASE3_CANDIDATE_STAGING.md)
 - [Phase 3 paired evaluation](docs/implementation/PHASE3_PAIRED_EVALUATION.md)
 - [Phase 3 promotion and rollback](docs/implementation/PHASE3_PROMOTION_ROLLBACK.md)
@@ -93,7 +94,7 @@ the first release.
 ## Current executable slice
 
 ```bash
-python -m pip install -e '.[agentdojo]'
+python -m pip install -e '.[agentdojo,mcp]'
 python -m unittest discover -s tests -v
 python scripts/demo_agent_loop.py
 python scripts/demo_skill_learning.py
@@ -113,6 +114,18 @@ voren knowledge search 'approval receipt'
 Search results include the exact version, source URI, and content digest. Their
 text remains non-authoritative data and cannot directly become Profile or Skill
 instructions.
+
+The same read contract is available over the official MCP Python SDK v2:
+
+```bash
+export VOREN_KNOWLEDGE_DATABASE=.voren/voren.sqlite3
+voren-knowledge-mcp
+```
+
+The Agent Loop-side adapter performs a negotiated MCP call and then wraps the
+structured result in Voren's stricter provenance envelope. The repository tests
+exercise the protocol in-process and, where the runtime permits local IPC, over
+a real stdio subprocess.
 
 The agent-loop demo performs provenance-labelled email/calendar reads, pauses
 before an external action, prints the exact effects, then applies a scripted

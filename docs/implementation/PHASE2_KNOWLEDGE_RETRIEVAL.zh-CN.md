@@ -44,5 +44,6 @@ voren knowledge inspect --document-id meeting:demo
 检索、篡改检测、未激活文档、CLI 默认脱敏，以及带 Provenance 的 Tool
 Observation。
 
-下一切片会让同一个 Store 经过官方 MCP Client/Server 往返。MCP 只改变传输边界，
-不会改变 Trust 或 Instruction Authority 规则。
+[MCP 传输切片](PHASE2_MCP_RETRIEVAL.zh-CN.md)会让同一个 Store 经过官方 MCP
+Client/Server 往返。MCP 只改变传输边界，不会改变 Trust 或 Instruction
+Authority 规则。

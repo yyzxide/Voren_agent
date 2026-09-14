@@ -18,9 +18,13 @@ dependencies = [
 agentdojo = [
   "agentdojo==0.1.35",
 ]
+mcp = [
+  "mcp==2.2.0",
+]
 
 [project.scripts]
 voren = "voren.cli:main"
+voren-knowledge-mcp = "voren.mcp_bridge.server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

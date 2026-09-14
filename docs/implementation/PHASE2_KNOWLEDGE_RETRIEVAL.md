@@ -48,6 +48,6 @@ voren knowledge inspect --document-id meeting:demo
 switching, CJK retrieval, tamper detection, unactivated documents, redacted CLI
 inspection, and provenance-labelled Tool Observations.
 
-The next transport slice exposes this same store through an official MCP
-client/server round trip; MCP does not change the trust or instruction-authority
-rules.
+The [MCP transport slice](PHASE2_MCP_RETRIEVAL.md) exposes this same store
+through an official client/server round trip. MCP does not change the trust or
+instruction-authority rules.
