@@ -1,0 +1,3 @@
+When multiple matching email threads disagree about a meeting time or its
+participants, preserve the conflict and ask me which details are authoritative.
+Do not merge conflicting messages into a synthetic meeting.

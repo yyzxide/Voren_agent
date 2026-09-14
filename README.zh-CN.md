@@ -19,7 +19,8 @@
 > 且有大小限制的版本冻结 Instruction Context。Phase 3 现已具备 Evidence-gated
 > 非激活 Candidate、Paired Held-out Evaluation、事务化 Decision、原子
 > Promotion/Rollback、完整性审计链，以及精确版本的 AgentDojo Skill Evaluator。
-> 公开 Learning CLI 与有记录的 Live Comparison 尚未完成。
+> 公开 Learning CLI 与无需 Credential 的生命周期对比已经完成；有记录的
+> Live-model Skill Comparison 仍待完成。
 
 Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的工程重点不是
 覆盖尽可能多的个人助理功能，而是回答一个更窄的问题：
@@ -76,6 +77,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [Phase 3 Skill Lifecycle CLI](docs/implementation/PHASE3_SKILL_CLI.zh-CN.md)
 - [Phase 3 Durable Learning Router](docs/implementation/PHASE3_DURABLE_LEARNING_ROUTER.zh-CN.md)
 - [Phase 3 Candidate Decision Report](docs/implementation/PHASE3_CANDIDATE_REPORT.zh-CN.md)
+- [Phase 3 可复现 Skill-learning Demo](docs/implementation/PHASE3_REPRODUCIBLE_DEMO.zh-CN.md)
 
 ## 当前可运行切片
 
@@ -83,6 +85,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 python -m pip install -e '.[agentdojo]'
 python -m unittest discover -s tests -v
 python scripts/demo_agent_loop.py
+python scripts/demo_skill_learning.py
 ```
 
 Agent Loop Demo 会执行带 Provenance Label 的邮件与日历读取，在外部动作前
@@ -90,6 +93,13 @@ Agent Loop Demo 会执行带 Provenance Label 的邮件与日历读取，在外�
 AgentDojo 官方 `user_task_18` Utility Grader 验证最终状态。它使用确定性
 Scripted Model，不连接真实邮件或日历账号。单独的 Lifecycle Demo 还会在等待
 Approval 时关闭并重建 SQLite Runtime。
+
+Skill-learning Demo 不需要 API Key。它会持久化人工纠正证据、暂存一个不激活的
+有界修改、对精确 Base/Candidate 版本做配对评测，证明“接受”不会自动激活，
+然后显式执行晋升与回滚。四份原始 Trial Artifact、完整性绑定的配对评测和
+Markdown 审计报告都会写入新的 `.voren/demos/skill-learning-*` 目录。这个
+Evaluator 被明确标注为确定性的 Instruction-contract Check，不属于 Live Model
+或 AgentDojo Benchmark 结果。
 
 Skill Lifecycle 通过另一组显式 Subcommand 操作：
 

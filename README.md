@@ -23,7 +23,8 @@ live-model quality evidence.
 > the agent loop. Phase 3 now has evidence-gated inactive candidates, paired
 > held-out evaluation, transactional decisions, atomic promotion/rollback, an
 > integrity-chained audit, and an exact-version AgentDojo Skill evaluator. A
-> public learning CLI and recorded live comparison are not yet complete.
+> public learning CLI and a credential-free lifecycle comparison are complete;
+> a recorded live-model Skill comparison is still pending.
 
 Voren is a planned single-agent assistant for email and calendar work. Its
 engineering focus is not broad personal-assistant coverage, but a narrower
@@ -83,6 +84,7 @@ the first release.
 - [Phase 3 Skill lifecycle CLI](docs/implementation/PHASE3_SKILL_CLI.md)
 - [Phase 3 durable learning router](docs/implementation/PHASE3_DURABLE_LEARNING_ROUTER.md)
 - [Phase 3 candidate decision report](docs/implementation/PHASE3_CANDIDATE_REPORT.md)
+- [Phase 3 reproducible Skill-learning demo](docs/implementation/PHASE3_REPRODUCIBLE_DEMO.md)
 
 ## Current executable slice
 
@@ -90,6 +92,7 @@ the first release.
 python -m pip install -e '.[agentdojo]'
 python -m unittest discover -s tests -v
 python scripts/demo_agent_loop.py
+python scripts/demo_skill_learning.py
 ```
 
 The agent-loop demo performs provenance-labelled email/calendar reads, pauses
@@ -98,6 +101,15 @@ operator approval and verifies the resulting state with AgentDojo's official
 `user_task_18` utility grader. It uses a deterministic scripted model and does
 not connect to a real email or calendar account. The separate lifecycle demo
 also closes and rebuilds the SQLite-backed runtime while approval is pending.
+
+The Skill-learning demo needs no API key. It persists operator correction
+evidence, stages an inactive bounded edit, evaluates the exact base and
+candidate versions, proves that acceptance does not activate the candidate,
+then exercises explicit promotion and rollback. It writes four raw trial
+artifacts, the integrity-bound paired evaluation, and a Markdown audit report
+under a new `.voren/demos/skill-learning-*` directory. Its evaluator is clearly
+labelled as a deterministic instruction-contract check, not live-model or
+AgentDojo benchmark evidence.
 
 The Skill lifecycle is separately available through explicit subcommands:
 
