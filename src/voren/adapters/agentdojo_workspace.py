@@ -19,6 +19,7 @@ from voren.actions.models import (
 from voren.adapters.workspace_contracts import (
     WORKSPACE_CONTRACT_VERSION,
     CreateCalendarEventInput,
+    SendEmailInput,
 )
 
 AGENTDOJO_DISTRIBUTION_VERSION = "0.1.35"
@@ -33,12 +34,13 @@ class AgentDojoDependencyError(RuntimeError):
 @dataclass(slots=True)
 class _OperationContext:
     pre_environment: Any
-    event_id: str
+    action_name: str
+    event_id: str | None
     email_id: str
 
 
 class AgentDojoWorkspaceAdapter:
-    """Execute the golden calendar action in the pinned benchmark world.
+    """Execute controlled email/calendar actions in the pinned benchmark world.
 
     AgentDojo is intentionally imported at construction time so the base Voren
     package remains usable without the optional benchmark dependency.
@@ -84,42 +86,61 @@ class AgentDojoWorkspaceAdapter:
         self.commit_attempts += 1
         if proposal.operation_id in self._operations:
             return
-        if (
-            proposal.action_name != "create_calendar_event"
-            or proposal.action_version != WORKSPACE_CONTRACT_VERSION
+        if proposal.action_version != WORKSPACE_CONTRACT_VERSION or (
+            proposal.action_name not in {"create_calendar_event", "send_email"}
         ):
             raise KnownPreCommitFailure(
                 f"unsupported AgentDojo action contract: "
                 f"{proposal.action_name}@{proposal.action_version}"
             )
 
-        arguments = CreateCalendarEventInput.model_validate(proposal.arguments)
-        context = _OperationContext(
-            pre_environment=self.environment.model_copy(deep=True),
-            event_id=str(self.environment.calendar._get_next_id()),
-            email_id=str(self.environment.inbox._get_next_id()),
-        )
+        if proposal.action_name == "create_calendar_event":
+            arguments = CreateCalendarEventInput.model_validate(proposal.arguments)
+            context = _OperationContext(
+                pre_environment=self.environment.model_copy(deep=True),
+                action_name=proposal.action_name,
+                event_id=str(self.environment.calendar._get_next_id()),
+                email_id=str(self.environment.inbox._get_next_id()),
+            )
+            tool_arguments = {
+                "title": arguments.title,
+                "start_time": arguments.start_time.strftime("%Y-%m-%d %H:%M"),
+                "end_time": arguments.end_time.strftime("%Y-%m-%d %H:%M"),
+                "description": arguments.description,
+                "participants": list(arguments.participants),
+                "location": arguments.location,
+            }
+        else:
+            email = SendEmailInput.model_validate(proposal.arguments)
+            context = _OperationContext(
+                pre_environment=self.environment.model_copy(deep=True),
+                action_name=proposal.action_name,
+                event_id=None,
+                email_id=str(self.environment.inbox._get_next_id()),
+            )
+            tool_arguments = {
+                "recipients": list(email.recipients),
+                "subject": email.subject,
+                "body": email.body,
+                "cc": list(email.cc),
+                "bcc": list(email.bcc),
+            }
         # Store the pre-state and predicted IDs before dispatch so an exception
         # can still be reconciled through observation.
         self._operations[proposal.operation_id] = context
         runtime = self.create_functions_runtime()
-        tool_arguments = {
-            "title": arguments.title,
-            "start_time": arguments.start_time.strftime("%Y-%m-%d %H:%M"),
-            "end_time": arguments.end_time.strftime("%Y-%m-%d %H:%M"),
-            "description": arguments.description,
-            "participants": list(arguments.participants),
-            "location": arguments.location,
-        }
         try:
             runtime.run_function(
                 self.environment,
-                "create_calendar_event",
+                proposal.action_name,
                 tool_arguments,
                 raise_on_error=True,
             )
         except Exception as error:
-            event_exists = context.event_id in self.environment.calendar.events
+            event_exists = (
+                context.event_id is not None
+                and context.event_id in self.environment.calendar.events
+            )
             email_exists = context.email_id in self.environment.inbox.emails
             if event_exists or email_exists:
                 raise AmbiguousCommitError(
@@ -135,7 +156,11 @@ class AgentDojoWorkspaceAdapter:
             return ()
 
         observed: list[ObservedEffect] = []
-        event = self.environment.calendar.events.get(context.event_id)
+        event = (
+            self.environment.calendar.events.get(context.event_id)
+            if context.event_id is not None
+            else None
+        )
         if event is not None:
             observed.append(
                 ObservedEffect(
@@ -161,7 +186,7 @@ class AgentDojoWorkspaceAdapter:
             )
 
         email = self.environment.inbox.emails.get(context.email_id)
-        if email is not None:
+        if email is not None and context.action_name == "create_calendar_event":
             observed.append(
                 ObservedEffect(
                     effect=Effect(
@@ -182,6 +207,29 @@ class AgentDojoWorkspaceAdapter:
                     external_reference=context.email_id,
                 )
             )
+        elif email is not None:
+            observed.append(
+                ObservedEffect(
+                    effect=Effect(
+                        effect_id="outbound_email",
+                        resource="inbox.emails",
+                        kind=EffectKind.SEND,
+                        target="new_sent_email",
+                        summary=f"Send email: {email.subject}",
+                        attributes={
+                            "recipients": sorted(map(str, email.recipients)),
+                            "subject": email.subject,
+                            "body": email.body,
+                            "cc": sorted(map(str, email.cc)),
+                            "bcc": sorted(map(str, email.bcc)),
+                            "attachment_ids": sorted(map(str, email.attachments)),
+                        },
+                        reversible=False,
+                        sensitivity=Sensitivity.CONFIDENTIAL,
+                    ),
+                    external_reference=context.email_id,
+                )
+            )
 
         observed.extend(self._unexpected_state_effects(context))
         return tuple(observed)
@@ -191,9 +239,15 @@ class AgentDojoWorkspaceAdapter:
     ) -> tuple[ObservedEffect, ...]:
         diff = self._workspace_deep_diff(context.pre_environment, self.environment)
         expected_paths = {
-            ("dictionary_item_added", f"root.calendar.events['{context.event_id}']"),
             ("dictionary_item_added", f"root.inbox.emails['{context.email_id}']"),
         }
+        if context.event_id is not None:
+            expected_paths.add(
+                (
+                    "dictionary_item_added",
+                    f"root.calendar.events['{context.event_id}']",
+                )
+            )
         unexpected: list[ObservedEffect] = []
         for category, changes in diff.items():
             paths = changes.keys() if isinstance(changes, Mapping) else changes

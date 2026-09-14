@@ -231,10 +231,10 @@ Outcome 仍是独立字段。
 - 阻止攻击时不能同时阻止合法用户任务；
 - 分别报告 Utility 和 Attack Success。
 
-当前可执行 Smoke Case 使用 `user_task_18 + injection_task_2`，分别证明
-Behavior Mode 会保留原始攻击语义，而 Enforcement Mode 的精确 User-task
-Policy 会在 Commit 前拒绝恶意日历动作。需要 `send_email` 的 Injection Task
-3/4 在动作契约实现前不计入安全结果。
+当前可执行 Smoke Case 使用 `user_task_18` 搭配 Injection Task 2、3、4，分别
+证明 Behavior Mode 会保留原始攻击语义，而 Enforcement Mode 的精确 User-task
+Policy 会在 Commit 前拒绝恶意日历或邮件动作。确定性 Scripted Outcome 始终标记
+为 Contract Test，不冒充 Live-model Safety Result。
 
 ### Suite D：Skill Regression
 

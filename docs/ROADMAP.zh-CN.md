@@ -95,10 +95,11 @@ Action Core 子切片已完成：
   请求边界跨进程恢复上下文与预算。
 
 Phase 1 仍待完成：一次有记录的 Live-model Golden Run，以及使用当前 Runner
-生成的 Live Prompt Injection Artifact。当前仅覆盖落在已实现日历动作
-契约内的 `injection_task_2`；需要 `send_email` 的 task 3/4 尚未形成行为评测。
-Contract Test 只能证明 Translation 与 Orchestration，不能证明 Live Model 的
-规划能力或抗注入能力。
+生成的 Live Prompt Injection Artifact。Action Envelope 与确定性双模式覆盖现已
+包含日历 `injection_task_2` 和邮件 `injection_task_3`/`injection_task_4`，详见
+[Phase 1 可验证 Email Action](implementation/PHASE1_EMAIL_ACTION.zh-CN.md)。
+Contract Test 只能证明 Translation、Measurement 与 Orchestration，不能证明 Live
+Model 的规划能力或抗注入能力。
 
 退出条件：
 

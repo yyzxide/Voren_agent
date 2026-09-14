@@ -95,11 +95,12 @@ Completed in the action-core sub-slice:
   retained budgets and process-restart recovery at safe model-request boundaries.
 
 Still pending in Phase 1: one recorded live-model golden run and a live
-prompt-injection artifact from the current runner. Coverage currently
-includes only `injection_task_2`, which falls inside the implemented calendar
-action contract; tasks 3/4 require a `send_email` action that does not exist yet.
-Contract tests prove translation and orchestration, not live model planning or
-injection resistance.
+prompt-injection artifact from the current runner. The action envelope and
+deterministic dual-mode coverage now include calendar `injection_task_2` and
+email `injection_task_3`/`injection_task_4`; see
+[Phase 1 Verified Email Action](implementation/PHASE1_EMAIL_ACTION.md).
+Contract tests prove translation, measurement, and orchestration, not live model
+planning or injection resistance.
 
 Exit criteria:
 

@@ -76,8 +76,9 @@ cannot appear successful merely because it is safe.
 Phase 1 implements the first two modes as an executable AgentDojo runner that
 writes integrity-bound JSON artifacts. See
 [Phase 1 dual-mode AgentDojo evaluation](implementation/PHASE1_EVALUATION_HARNESS.md).
-Current coverage is injection task 2 inside the calendar-action envelope; the
-complete strategy below still includes later email, skill, and memory cases.
+Current deterministic coverage includes calendar injection task 2 and email
+injection tasks 3/4 inside the implemented action envelope. Live-model results
+remain a separate, explicitly paid artifact.
 
 ### Agent behavior mode
 
@@ -241,11 +242,11 @@ The README may quote measured results only after these artifacts exist.
   and
 - utility and attack success are reported separately.
 
-The current executable smoke case uses `user_task_18 + injection_task_2`. It
-preserves raw attack semantics in behavior mode and rejects the malicious
-calendar action before commit under the enforcement mode's exact user-task
-policy. Injection tasks 3/4 require `send_email` and are not counted as safety
-results before that action contract exists.
+The executable smoke cases use `user_task_18` with injection tasks 2, 3, and 4.
+They preserve raw attack semantics in behavior mode and reject the malicious
+calendar or email action before commit under the enforcement mode's exact
+user-task policy. Deterministic scripted outcomes remain labelled as contract
+tests rather than live-model safety results.
 
 ### Suite D: Skill regression
 

@@ -23,6 +23,7 @@ from voren.adapters.workspace_contracts import (
     WORKSPACE_CONTRACT_VERSION,
     CreateCalendarEventInput,
     create_calendar_event_definition,
+    send_email_definition,
 )
 from voren.evaluation.models import (
     ApprovalOutcome,
@@ -59,14 +60,14 @@ ModelFactory = Callable[[EvaluationCase, EvaluationMode], ModelAdapter]
 
 
 def phase1_smoke_manifest() -> EvaluationManifest:
-    """Cases supported by Voren's current read/calendar capability envelope."""
+    """Cases supported by Voren's current email/calendar capability envelope."""
 
     both_modes = (
         EvaluationMode.AGENT_BEHAVIOR,
         EvaluationMode.RUNTIME_ENFORCEMENT,
     )
     return EvaluationManifest(
-        manifest_id="phase1-agentdojo-smoke-v1",
+        manifest_id="phase1-agentdojo-smoke-v2",
         dataset=AGENTDOJO_SUITE,
         dataset_version=AGENTDOJO_BENCHMARK_VERSION,
         attack_template_version=ATTACK_TEMPLATE_VERSION,
@@ -93,6 +94,20 @@ def phase1_smoke_manifest() -> EvaluationManifest:
                 injection_vector="email_hiking_injection",
                 modes=both_modes,
             ),
+            EvaluationCase(
+                case_id="attacked_user_18_injection_3",
+                user_task_id="user_task_18",
+                injection_task_id="injection_task_3",
+                injection_vector="email_hiking_injection",
+                modes=both_modes,
+            ),
+            EvaluationCase(
+                case_id="attacked_user_18_injection_4",
+                user_task_id="user_task_18",
+                injection_task_id="injection_task_4",
+                injection_vector="email_hiking_injection",
+                modes=both_modes,
+            ),
         ),
     )
 
@@ -102,7 +117,10 @@ def evaluation_input_digests(
 ) -> tuple[str, str, str]:
     """Return prompt, tool-schema, and attack-template digests."""
 
-    action_definition = create_calendar_event_definition()
+    action_definitions = (
+        create_calendar_event_definition(),
+        send_email_definition(),
+    )
     tools = [
         {
             "name": definition.name,
@@ -112,13 +130,14 @@ def evaluation_input_digests(
         }
         for definition in READ_TOOL_DEFINITIONS
     ]
-    tools.append(
+    tools.extend(
         {
-            "name": action_definition.name,
-            "version": action_definition.version,
-            "schema": action_definition.input_model.model_json_schema(),
+            "name": definition.name,
+            "version": definition.version,
+            "schema": definition.input_model.model_json_schema(),
             "kind": ToolKind.EXTERNAL_ACTION.value,
         }
+        for definition in action_definitions
     )
     system_instruction = SYSTEM_INSTRUCTION
     if skill_context is not None and skill_context.rendered_instructions:
@@ -223,13 +242,14 @@ class AgentDojoEvaluationRunner:
         action_definition = create_calendar_event_definition(
             account_email=workspace.account_email
         )
+        email_definition = send_email_definition()
 
         self._database.parent.mkdir(parents=True, exist_ok=True)
         ledger = SQLiteOperationLedger(self._database)
         store = SQLiteRunStore(self._database)
         try:
             gateway = ActionGateway(
-                definitions=(action_definition,),
+                definitions=(action_definition, email_definition),
                 adapter=workspace,
                 ledger=ledger,
             )
@@ -247,6 +267,13 @@ class AgentDojoEvaluationRunner:
                         description=(
                             "Propose a calendar event and invitation email. "
                             "Execution depends on the active evaluation policy."
+                        ),
+                    ),
+                    external_action_tool(
+                        email_definition,
+                        description=(
+                            "Propose an outbound email. Execution depends on "
+                            "the active evaluation policy."
                         ),
                     ),
                 ),

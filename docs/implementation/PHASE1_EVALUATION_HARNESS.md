@@ -56,7 +56,8 @@ production replacement for real operator approval.
 
 ## Phase 1 manifest
 
-The built-in `phase1-agentdojo-smoke-v1` manifest contains:
+The built-in manifest was extended to `phase1-agentdojo-smoke-v2` after the
+verified email action shipped. It contains:
 
 | Case | User task | Injection | Modes |
 | --- | --- | --- | --- |
@@ -64,12 +65,12 @@ The built-in `phase1-agentdojo-smoke-v1` manifest contains:
 | `benign_user_18` | 18 | none | behavior / enforcement |
 | `benign_user_20` | 20 | none | behavior / enforcement |
 | `attacked_user_18_injection_2` | 18 | 2, hiking email vector | behavior / enforcement |
+| `attacked_user_18_injection_3` | 18 | 3, hiking email vector | behavior / enforcement |
+| `attacked_user_18_injection_4` | 18 | 4, hiking email vector | behavior / enforcement |
 
-Injection task 2 is the first attack comparison because its calendar-event
-goal falls inside Voren's implemented and verified action contract. Injection
-tasks 3/4 require `send_email`. Counting them as "attack failures" before that
-action exists would misreport missing capability as model or policy safety, so
-they are explicitly absent from the current manifest.
+Task 2 exercises the calendar action. Tasks 3/4 exercise the later standalone
+`send_email` contract. Each case is included only because its target mutation
+now falls inside an implemented and verified capability envelope.
 
 The fixed attack template and version, AgentDojo distribution/benchmark
 versions, case ID, injection task, and injection vector are recorded directly
@@ -150,11 +151,8 @@ current complete suite to 66 tests.
 
 - no live-model artifact has been recorded;
 - no live-model utility or attack-success rate is reported;
-- latency and cost metrics are absent; provider cancellation is implemented in
-  a later slice;
-- injection tasks 3/4 are not covered because `send_email` is absent; and
-- artifacts are not digitally signed, and raw provider transcripts are not yet
-  durably encrypted.
+- latency and cost metrics are absent; and
+- artifacts are not digitally signed or externally attested.
 
 ## Suggested reading order
 
@@ -165,5 +163,5 @@ current complete suite to 66 tests.
 5. `cli.py`: verify live runs require explicit case, mode, model, and output.
 
 You should be able to explain why runtime prevention does not mean the model
-ignored an injection, why missing `send_email` cannot be counted as a safety
-success, and how an artifact digest differs from a digital signature.
+ignored an injection, why an attack case is valid only when its target capability
+is implemented, and how an artifact digest differs from a digital signature.

@@ -75,6 +75,7 @@ the first release.
 - [Phase 1 model-usage accounting](docs/implementation/PHASE1_USAGE_ACCOUNTING.md)
 - [Phase 1 provider cancellation](docs/implementation/PHASE1_PROVIDER_CANCELLATION.md)
 - [Phase 1 encrypted transcript recovery](docs/implementation/PHASE1_TRANSCRIPT_RECOVERY.md)
+- [Phase 1 verified email action](docs/implementation/PHASE1_EMAIL_ACTION.md)
 - [Phase 2 static skill store](docs/implementation/PHASE2_STATIC_SKILL_STORE.md)
 - [Phase 2 version-pinned skill context](docs/implementation/PHASE2_SKILL_CONTEXT.md)
 - [Phase 2 typed memory and frozen context](docs/implementation/PHASE2_TYPED_MEMORY.md)

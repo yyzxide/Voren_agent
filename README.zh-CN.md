@@ -68,6 +68,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [Phase 1 模型用量统计](docs/implementation/PHASE1_USAGE_ACCOUNTING.zh-CN.md)
 - [Phase 1 Provider Cancellation](docs/implementation/PHASE1_PROVIDER_CANCELLATION.zh-CN.md)
 - [Phase 1 加密 Transcript 恢复](docs/implementation/PHASE1_TRANSCRIPT_RECOVERY.zh-CN.md)
+- [Phase 1 可验证 Email Action](docs/implementation/PHASE1_EMAIL_ACTION.zh-CN.md)
 - [Phase 2 静态 Skill Store](docs/implementation/PHASE2_STATIC_SKILL_STORE.zh-CN.md)
 - [Phase 2 版本冻结的 Skill Context](docs/implementation/PHASE2_SKILL_CONTEXT.zh-CN.md)
 - [Phase 2 类型化 Memory 与冻结 Context](docs/implementation/PHASE2_TYPED_MEMORY.zh-CN.md)

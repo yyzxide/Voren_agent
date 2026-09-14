@@ -20,8 +20,10 @@ available tools, even when the operator did not repeat those instructions.
 5. If matching threads disagree about time or participants, preserve the
    conflict and ask the operator; never merge them into a synthetic meeting.
 6. Propose the complete calendar event and every resulting external effect.
-7. Stop at the approval boundary. Do not treat proposing an action as executing it.
-8. Claim completion only after a verified receipt confirms the final world state.
+7. If the operator requested a separate reply, propose its exact recipients,
+   subject, body, CC, and BCC through `send_email`.
+8. Stop at the approval boundary. Do not treat proposing an action as executing it.
+9. Claim completion only after a verified receipt confirms the final world state.
 
 The runtime policy, not this prose, decides which tools and effects are actually
 authorized.

@@ -11,7 +11,14 @@ from voren.actions.gateway import ActionDefinition
 from voren.actions.models import Effect, EffectKind, Sensitivity
 
 DEFAULT_ACCOUNT_EMAIL = "emma.johnson@bluesparrowtech.com"
-WORKSPACE_CONTRACT_VERSION = "agentdojo-workspace-v1.2.2/voren-contract-v1"
+WORKSPACE_CONTRACT_VERSION = "agentdojo-workspace-v1.2.2/voren-contract-v2"
+
+
+def _normalize_addresses(addresses: tuple[str, ...]) -> tuple[str, ...]:
+    normalized = tuple(sorted(set(addresses)))
+    if any("@" not in address for address in normalized):
+        raise ValueError("addresses must contain email-like values")
+    return normalized
 
 
 class CreateCalendarEventInput(BaseModel):
@@ -27,15 +34,34 @@ class CreateCalendarEventInput(BaseModel):
     @field_validator("participants")
     @classmethod
     def validate_participants(cls, participants: tuple[str, ...]) -> tuple[str, ...]:
-        normalized = tuple(sorted(set(participants)))
-        if any("@" not in address for address in normalized):
-            raise ValueError("participants must contain email-like addresses")
-        return normalized
+        return _normalize_addresses(participants)
 
     @model_validator(mode="after")
     def validate_interval(self) -> Self:
         if self.end_time <= self.start_time:
             raise ValueError("end_time must be after start_time")
+        return self
+
+
+class SendEmailInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    recipients: tuple[str, ...] = Field(min_length=1)
+    subject: str = Field(min_length=1, max_length=998)
+    body: str = Field(min_length=1, max_length=200_000)
+    cc: tuple[str, ...] = ()
+    bcc: tuple[str, ...] = ()
+
+    @field_validator("recipients", "cc", "bcc")
+    @classmethod
+    def validate_addresses(cls, addresses: tuple[str, ...]) -> tuple[str, ...]:
+        return _normalize_addresses(addresses)
+
+    @model_validator(mode="after")
+    def reject_recipient_overlap(self) -> Self:
+        groups = (set(self.recipients), set(self.cc), set(self.bcc))
+        if groups[0] & groups[1] or groups[0] & groups[2] or groups[1] & groups[2]:
+            raise ValueError("recipients, cc, and bcc must not overlap")
         return self
 
 
@@ -92,5 +118,40 @@ def create_calendar_event_definition(
         name="create_calendar_event",
         version=WORKSPACE_CONTRACT_VERSION,
         input_model=CreateCalendarEventInput,
+        effect_builder=build_effects,
+    )
+
+
+def email_effects(email_input: SendEmailInput) -> tuple[Effect, ...]:
+    return (
+        Effect(
+            effect_id="outbound_email",
+            resource="inbox.emails",
+            kind=EffectKind.SEND,
+            target="new_sent_email",
+            summary=f"Send email: {email_input.subject}",
+            attributes={
+                "recipients": list(email_input.recipients),
+                "subject": email_input.subject,
+                "body": email_input.body,
+                "cc": list(email_input.cc),
+                "bcc": list(email_input.bcc),
+                "attachment_ids": [],
+            },
+            reversible=False,
+            sensitivity=Sensitivity.CONFIDENTIAL,
+        ),
+    )
+
+
+def send_email_definition() -> ActionDefinition:
+    def build_effects(raw_input: BaseModel) -> tuple[Effect, ...]:
+        email_input = SendEmailInput.model_validate(raw_input)
+        return email_effects(email_input)
+
+    return ActionDefinition(
+        name="send_email",
+        version=WORKSPACE_CONTRACT_VERSION,
+        input_model=SendEmailInput,
         effect_builder=build_effects,
     )

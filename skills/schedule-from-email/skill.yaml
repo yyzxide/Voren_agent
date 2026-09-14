@@ -5,6 +5,7 @@ tool_scope:
   - search_emails
   - get_day_calendar_events
   - create_calendar_event
+  - send_email
 effect_scope:
   - calendar.events:create
   - inbox.emails:send

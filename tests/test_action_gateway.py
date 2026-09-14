@@ -17,7 +17,10 @@ from voren.actions.gateway import ActionGateway
 from voren.actions.ledger import SQLiteOperationLedger
 from voren.actions.models import ApprovalDecision, ReceiptStatus
 from voren.adapters.fake_workspace import FakeWorkspaceAdapter
-from voren.adapters.workspace_contracts import create_calendar_event_definition
+from voren.adapters.workspace_contracts import (
+    create_calendar_event_definition,
+    send_email_definition,
+)
 
 
 class ActionGatewayTest(unittest.TestCase):
@@ -310,6 +313,90 @@ class ActionGatewayTest(unittest.TestCase):
             self.assertEqual(reopened.get_proposal(proposal.operation_id), proposal)
         finally:
             reopened.close()
+
+    def test_email_send_is_exactly_approved_verified_and_deduplicated(self) -> None:
+        gateway = ActionGateway(
+            definitions=(send_email_definition(),),
+            adapter=self.adapter,
+            ledger=self.ledger,
+            id_factory=lambda: "operation-email-1",
+            clock=lambda: self.now,
+        )
+        proposal = gateway.prepare(
+            "send_email",
+            {
+                "recipients": ["mark@example.com", "mark@example.com"],
+                "subject": "Project review",
+                "body": "Can we meet tomorrow?",
+                "cc": ["alice@example.com"],
+            },
+        )
+        approval = ApprovalDecision.for_proposal(
+            proposal,
+            approval_id="approval-email-1",
+            decided_by="operator:sid",
+            decided_at=self.now,
+        )
+        authorized = gateway.authorize(proposal, approval)
+
+        first = gateway.commit(authorized)
+        second = gateway.commit(authorized)
+
+        self.assertEqual(first, second)
+        self.assertEqual(first.status, ReceiptStatus.VERIFIED)
+        self.assertTrue(first.verification.passed)
+        self.assertEqual(len(proposal.effects), 1)
+        self.assertEqual(proposal.effects[0].effect_id, "outbound_email")
+        self.assertEqual(
+            proposal.effects[0].attributes["recipients"], ["mark@example.com"]
+        )
+        self.assertEqual(len(self.adapter.emails), 1)
+        self.assertEqual(self.adapter.commit_attempts, 1)
+
+    def test_email_recipient_classes_cannot_overlap(self) -> None:
+        gateway = ActionGateway(
+            definitions=(send_email_definition(),),
+            adapter=self.adapter,
+            ledger=self.ledger,
+        )
+        with self.assertRaisesRegex(InvalidProposalError, "must not overlap"):
+            gateway.prepare(
+                "send_email",
+                {
+                    "recipients": ["mark@example.com"],
+                    "cc": ["mark@example.com"],
+                    "subject": "Duplicate recipient",
+                    "body": "This must not be prepared.",
+                },
+            )
+
+    def test_email_timeout_after_commit_recovers_without_resend(self) -> None:
+        adapter = FakeWorkspaceAdapter(failure_mode="after_commit")
+        gateway = ActionGateway(
+            definitions=(send_email_definition(),),
+            adapter=adapter,
+            ledger=self.ledger,
+            id_factory=lambda: "operation-email-timeout",
+            clock=lambda: self.now,
+        )
+        proposal = gateway.prepare(
+            "send_email",
+            {
+                "recipients": ["mark@example.com"],
+                "subject": "One delivery",
+                "body": "Do not resend this message.",
+            },
+        )
+        authorized = gateway.authorize(proposal, self._approval(proposal))
+
+        receipt = gateway.commit(authorized)
+        replay = gateway.commit(authorized)
+
+        self.assertEqual(receipt.status, ReceiptStatus.VERIFIED)
+        self.assertTrue(receipt.recovered_after_ambiguous_commit)
+        self.assertEqual(replay, receipt)
+        self.assertEqual(len(adapter.emails), 1)
+        self.assertEqual(adapter.commit_attempts, 1)
 
     def test_durable_receipt_cannot_be_overwritten(self) -> None:
         proposal = self._prepare()

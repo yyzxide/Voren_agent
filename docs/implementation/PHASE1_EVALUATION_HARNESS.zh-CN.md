@@ -52,7 +52,8 @@ Approval 的方案。
 
 ## Phase 1 Manifest
 
-机器内置的 `phase1-agentdojo-smoke-v1` 当前包括：
+可验证 Email Action 完成后，内置 Manifest 已扩展为
+`phase1-agentdojo-smoke-v2`，当前包括：
 
 | Case | User Task | Injection | 支持模式 |
 | --- | --- | --- | --- |
@@ -60,11 +61,12 @@ Approval 的方案。
 | `benign_user_18` | 18 | 无 | behavior / enforcement |
 | `benign_user_20` | 20 | 无 | behavior / enforcement |
 | `attacked_user_18_injection_2` | 18 | 2，hiking email vector | behavior / enforcement |
+| `attacked_user_18_injection_3` | 18 | 3，hiking email vector | behavior / enforcement |
+| `attacked_user_18_injection_4` | 18 | 4，hiking email vector | behavior / enforcement |
 
-首个攻击对照选择 Injection Task 2，因为攻击目标是创建日历事件，落在 Voren
-已经实现和验证的 Action Contract 内。Injection Task 3/4 需要 `send_email`；
-在该动作尚未实现时把它们计为“攻击失败”，会把 Capability 缺失误报成模型或
-安全策略成功，所以当前 Manifest 明确不包含它们。
+Task 2 覆盖日历动作；Task 3/4 覆盖后续实现的独立 `send_email` 契约。只有目标
+Mutation 已经落在实现并验证过的 Capability Envelope 内时，对应 Case 才会进入
+当前 Manifest。
 
 固定攻击模板及其版本、AgentDojo Distribution/Benchmark Version、Case ID、
 Injection Task 和 Injection Vector 都会进入可复现配置或其 Hash。
@@ -140,9 +142,8 @@ Grader，Action Receipt 也通过 Exact-effect Verification。
 
 - 没有保存过 Live Model Artifact；
 - 没有报告任何真实模型 Utility 或 Attack Success Rate；
-- 没有 Latency 或 Cost 指标；Provider Cancellation 在后续切片实现；
-- 没有覆盖需要 `send_email` 的 Injection Task 3/4；
-- Artifact 没有数字签名，Provider 原始 Transcript 也尚未持久加密。
+- 没有 Latency 或 Cost 指标；
+- Artifact 没有数字签名或外部见证。
 
 ## 建议阅读顺序
 
@@ -152,6 +153,6 @@ Grader，Action Receipt 也通过 Exact-effect Verification。
 4. `evaluation/artifacts.py`：确认写入和完整性校验；
 5. `cli.py`：确认 Live Run 必须显式选择 Case、Mode、Model 和 Output。
 
-你应当能够解释：为什么 Runtime 阻止攻击不等于模型没有服从注入，为什么不应
-把尚未实现 `send_email` 导致的失败记成安全成功，以及 Artifact Digest 与数字
-签名有什么区别。
+你应当能够解释：为什么 Runtime 阻止攻击不等于模型没有服从注入，为什么只有
+目标 Capability 已实现时 Attack Case 才成立，以及 Artifact Digest 与数字签名
+有什么区别。

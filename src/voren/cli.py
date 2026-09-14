@@ -23,6 +23,7 @@ from voren.adapters.agentdojo_workspace import (
 from voren.adapters.workspace_contracts import (
     WORKSPACE_CONTRACT_VERSION,
     create_calendar_event_definition,
+    send_email_definition,
 )
 from voren.evaluation.agentdojo import (
     AgentDojoEvaluationRunner,
@@ -449,6 +450,7 @@ def run_agentdojo(
     action_definition = create_calendar_event_definition(
         account_email=workspace.account_email
     )
+    email_definition = send_email_definition()
     args.database.parent.mkdir(parents=True, exist_ok=True)
     ledger = SQLiteOperationLedger(args.database)
     store = SQLiteRunStore(args.database)
@@ -483,7 +485,7 @@ def run_agentdojo(
             else MemoryContextAssembler(memory_store).empty()
         )
         gateway = ActionGateway(
-            definitions=(action_definition,),
+            definitions=(action_definition, email_definition),
             adapter=workspace,
             ledger=ledger,
         )
@@ -501,6 +503,13 @@ def run_agentdojo(
                     description=(
                         "Propose a calendar event and its invitation email. "
                         "Execution always requires exact-effect operator approval."
+                    ),
+                ),
+                external_action_tool(
+                    email_definition,
+                    description=(
+                        "Propose an outbound email. Execution always requires "
+                        "exact-effect operator approval."
                     ),
                 ),
             ),
