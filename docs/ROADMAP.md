@@ -164,7 +164,10 @@ learning router and integrity-bound Evidence Store are complete; see
 A deterministic Markdown report now combines exact Evidence metadata, Skill
 Diff, paired base/candidate results, decision, and lifecycle audit; see
 [Phase 3 Candidate Report](implementation/PHASE3_CANDIDATE_REPORT.md).
-A direct-reflection versus gated-learning ablation remains pending.
+A deterministic direct-reflection versus gated-learning policy ablation is now
+complete; see
+[Phase 3 Learning Ablation](implementation/PHASE3_LEARNING_ABLATION.md).
+It is deliberately reported as a mechanism result, not live-model evidence.
 
 Implement:
 

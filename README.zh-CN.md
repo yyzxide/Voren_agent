@@ -79,6 +79,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [Phase 3 Durable Learning Router](docs/implementation/PHASE3_DURABLE_LEARNING_ROUTER.zh-CN.md)
 - [Phase 3 Candidate Decision Report](docs/implementation/PHASE3_CANDIDATE_REPORT.zh-CN.md)
 - [Phase 3 可复现 Skill-learning Demo](docs/implementation/PHASE3_REPRODUCIBLE_DEMO.zh-CN.md)
+- [Phase 3 Learning-policy 消融](docs/implementation/PHASE3_LEARNING_ABLATION.zh-CN.md)
 
 ## 当前可运行切片
 
@@ -87,6 +88,7 @@ python -m pip install -e '.[agentdojo]'
 python -m unittest discover -s tests -v
 python scripts/demo_agent_loop.py
 python scripts/demo_skill_learning.py
+python scripts/demo_learning_ablation.py
 ```
 
 Agent Loop Demo 会执行带 Provenance Label 的邮件与日历读取，在外部动作前
@@ -101,6 +103,12 @@ Skill-learning Demo 不需要 API Key。它会持久化人工纠正证据、暂�
 Markdown 审计报告都会写入新的 `.voren/demos/skill-learning-*` 目录。这个
 Evaluator 被明确标注为确定性的 Instruction-contract Check，不属于 Live Model
 或 AgentDojo Benchmark 结果。
+
+Learning-policy Ablation 会再加入一个有意污染的 Candidate。两个 Candidate 都能
+通过有界 Admission，但配对安全评测会拒绝向邮件文本授予指令权威的版本。带完整
+性绑定的报告显示：反事实 Direct-reflection 会激活 2/2 Candidate，而 Gated
+Policy 会保留有益版本并阻止 1 次不安全激活。这些是确定性策略结果，不是 Live
+Model 统计。
 
 Skill Lifecycle 通过另一组显式 Subcommand 操作：
 

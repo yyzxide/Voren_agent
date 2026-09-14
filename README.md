@@ -86,6 +86,7 @@ the first release.
 - [Phase 3 durable learning router](docs/implementation/PHASE3_DURABLE_LEARNING_ROUTER.md)
 - [Phase 3 candidate decision report](docs/implementation/PHASE3_CANDIDATE_REPORT.md)
 - [Phase 3 reproducible Skill-learning demo](docs/implementation/PHASE3_REPRODUCIBLE_DEMO.md)
+- [Phase 3 learning-policy ablation](docs/implementation/PHASE3_LEARNING_ABLATION.md)
 
 ## Current executable slice
 
@@ -94,6 +95,7 @@ python -m pip install -e '.[agentdojo]'
 python -m unittest discover -s tests -v
 python scripts/demo_agent_loop.py
 python scripts/demo_skill_learning.py
+python scripts/demo_learning_ablation.py
 ```
 
 The agent-loop demo performs provenance-labelled email/calendar reads, pauses
@@ -111,6 +113,13 @@ artifacts, the integrity-bound paired evaluation, and a Markdown audit report
 under a new `.voren/demos/skill-learning-*` directory. Its evaluator is clearly
 labelled as a deterministic instruction-contract check, not live-model or
 AgentDojo benchmark evidence.
+
+The learning-policy ablation adds a second, deliberately contaminated candidate.
+Both candidates pass bounded admission, but paired security evaluation rejects
+the one that grants email text instruction authority. Its integrity-bound report
+shows the counterfactual direct-reflection policy activating 2/2 candidates,
+while the gated policy retains the beneficial one and prevents one unsafe
+activation. These are deterministic policy results, not live-model statistics.
 
 The Skill lifecycle is separately available through explicit subcommands:
 

@@ -1,6 +1,13 @@
 """Offline, evidence-gated Skill candidate lifecycle."""
 
 from voren.learning.agentdojo import AgentDojoSkillEvaluator, SkillModelFactory
+from voren.learning.ablation import (
+    CandidateAblationResult,
+    LearningAblationArtifact,
+    compare_learning_policies,
+    render_learning_ablation,
+    write_learning_ablation,
+)
 from voren.learning.artifacts import (
     read_candidate_evaluation,
     write_candidate_evaluation,
@@ -61,6 +68,7 @@ __all__ = [
     "CandidateStatus",
     "CandidateStoreError",
     "CandidateTrialResult",
+    "CandidateAblationResult",
     "EvaluationCaseKind",
     "EvaluationInfrastructureFailure",
     "DurableLearningRouter",
@@ -69,6 +77,7 @@ __all__ = [
     "HeldOutCase",
     "LearningEvidenceArtifact",
     "LearningEvidenceRoutingError",
+    "LearningAblationArtifact",
     "PairedCaseResult",
     "PairedEvaluationRunner",
     "read_candidate_evaluation",
@@ -81,4 +90,7 @@ __all__ = [
     "TrialMeasurement",
     "write_candidate_evaluation",
     "write_candidate_report",
+    "compare_learning_policies",
+    "render_learning_ablation",
+    "write_learning_ablation",
 ]

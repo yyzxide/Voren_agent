@@ -160,7 +160,9 @@ Artifact，详见
 确定性 Markdown Report 现已汇总精确 Evidence Metadata、Skill Diff、Paired
 Base/Candidate Result、Decision 与 Lifecycle Audit，详见
 [Phase 3 Candidate Report](implementation/PHASE3_CANDIDATE_REPORT.zh-CN.md)。
-Direct-reflection 与 Gated-learning 的 Ablation 仍待实现。
+确定性的 Direct-reflection 与 Gated-learning Policy Ablation 已完成，详见
+[Phase 3 Learning Ablation](implementation/PHASE3_LEARNING_ABLATION.zh-CN.md)。
+它只作为机制结果报告，不冒充 Live-model Evidence。
 
 实现：
 
