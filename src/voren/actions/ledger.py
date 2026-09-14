@@ -118,21 +118,7 @@ class SQLiteOperationLedger:
 
     def store_receipt(self, receipt: ActionReceipt) -> None:
         row = self._get_row(receipt.operation_id)
-        proposal = ActionProposal.model_validate_json(row["proposal_json"])
-        approval_json = row["approval_json"]
-        approval = (
-            None
-            if approval_json is None
-            else ApprovalDecision.model_validate_json(approval_json)
-        )
-        if receipt.proposal_digest != proposal.digest:
-            raise InvalidOperationStateError(
-                f"receipt for operation {receipt.operation_id!r} has the wrong proposal digest"
-            )
-        if approval is None or receipt.approval_id != approval.approval_id:
-            raise InvalidOperationStateError(
-                f"receipt for operation {receipt.operation_id!r} has the wrong approval"
-            )
+        self._validate_receipt_binding(row, receipt)
 
         receipt_json = receipt.model_dump_json()
         if row["receipt_json"] == receipt_json:
@@ -162,6 +148,45 @@ class SQLiteOperationLedger:
             f"cannot store receipt for operation {receipt.operation_id!r} from state {status!r}"
         )
 
+    def replace_ambiguous_receipt(self, receipt: ActionReceipt) -> None:
+        """Atomically replace an inconclusive receipt after exact reconciliation."""
+
+        if receipt.status.value != "verified" or not receipt.verification.passed:
+            raise InvalidOperationStateError(
+                "an ambiguous receipt may only be replaced by exact verified evidence"
+            )
+        row = self._get_row(receipt.operation_id)
+        self._validate_receipt_binding(row, receipt)
+        existing_json = row["receipt_json"]
+        if existing_json is None:
+            raise InvalidOperationStateError(
+                f"operation {receipt.operation_id!r} has no ambiguous receipt to replace"
+            )
+        existing = ActionReceipt.model_validate_json(existing_json)
+        if existing.status.value != "ambiguous" or str(row["status"]) != "ambiguous":
+            raise InvalidOperationStateError(
+                f"operation {receipt.operation_id!r} is not awaiting reconciliation"
+            )
+
+        receipt_json = receipt.model_dump_json()
+        now = datetime.now(UTC).isoformat()
+        with self._connection:
+            cursor = self._connection.execute(
+                """UPDATE operations
+                   SET status = 'verified', receipt_json = ?, updated_at = ?
+                   WHERE operation_id = ? AND status = 'ambiguous'
+                     AND receipt_json = ?""",
+                (receipt_json, now, receipt.operation_id, existing_json),
+            )
+        if cursor.rowcount == 1:
+            return
+        current = self._get_row(receipt.operation_id)
+        if current["receipt_json"] == receipt_json:
+            return
+        raise InvalidOperationStateError(
+            f"concurrent reconciliation detected for operation {receipt.operation_id!r}"
+        )
+
     def _get_row(self, operation_id: str) -> sqlite3.Row:
         row = self._connection.execute(
             "SELECT * FROM operations WHERE operation_id = ?", (operation_id,)
@@ -169,6 +194,26 @@ class SQLiteOperationLedger:
         if row is None:
             raise InvalidOperationStateError(f"unknown operation_id {operation_id!r}")
         return row
+
+    @staticmethod
+    def _validate_receipt_binding(
+        row: sqlite3.Row, receipt: ActionReceipt
+    ) -> None:
+        proposal = ActionProposal.model_validate_json(row["proposal_json"])
+        approval_json = row["approval_json"]
+        approval = (
+            None
+            if approval_json is None
+            else ApprovalDecision.model_validate_json(approval_json)
+        )
+        if receipt.proposal_digest != proposal.digest:
+            raise InvalidOperationStateError(
+                f"receipt for operation {receipt.operation_id!r} has the wrong proposal digest"
+            )
+        if approval is None or receipt.approval_id != approval.approval_id:
+            raise InvalidOperationStateError(
+                f"receipt for operation {receipt.operation_id!r} has the wrong approval"
+            )
 
     def _transition(
         self,

@@ -222,6 +222,56 @@ class ActionGatewayTest(unittest.TestCase):
         self.assertEqual(len(adapter.events), 0)
         self.assertEqual(len(adapter.emails), 0)
 
+    def test_crash_after_external_commit_is_reconciled_without_resend(self) -> None:
+        proposal = self._prepare()
+        authorized = self.gateway.authorize(proposal, self._approval(proposal))
+        store_receipt = self.ledger.store_receipt
+
+        def simulate_process_crash(_receipt) -> None:
+            raise RuntimeError("simulated crash before receipt persistence")
+
+        self.ledger.store_receipt = simulate_process_crash
+        with self.assertRaises(RuntimeError):
+            self.gateway.commit(authorized)
+        self.ledger.store_receipt = store_receipt
+
+        receipt = self.gateway.reconcile(proposal.operation_id)
+
+        self.assertEqual(receipt.status, ReceiptStatus.VERIFIED)
+        self.assertTrue(receipt.recovered_after_ambiguous_commit)
+        self.assertEqual(self.adapter.commit_attempts, 1)
+        self.assertEqual(len(self.adapter.events), 1)
+        self.assertEqual(len(self.adapter.emails), 1)
+
+    def test_inconclusive_reconciliation_stays_ambiguous_without_resend(self) -> None:
+        proposal = self._prepare()
+        self.gateway.authorize(proposal, self._approval(proposal))
+        self.ledger.mark_committing(proposal.operation_id)
+
+        first = self.gateway.reconcile(proposal.operation_id)
+        second = self.gateway.reconcile(proposal.operation_id)
+
+        self.assertEqual(first.status, ReceiptStatus.AMBIGUOUS)
+        self.assertEqual(second, first)
+        self.assertIsNone(first.committed)
+        self.assertEqual(self.adapter.commit_attempts, 0)
+        self.assertEqual(self.ledger.get_status(proposal.operation_id), "ambiguous")
+
+    def test_later_exact_observation_replaces_ambiguous_receipt(self) -> None:
+        proposal = self._prepare()
+        self.gateway.authorize(proposal, self._approval(proposal))
+        self.ledger.mark_committing(proposal.operation_id)
+        ambiguous = self.gateway.reconcile(proposal.operation_id)
+        self.adapter.commit(proposal)
+
+        reconciled = self.gateway.reconcile(proposal.operation_id)
+
+        self.assertEqual(ambiguous.status, ReceiptStatus.AMBIGUOUS)
+        self.assertEqual(reconciled.status, ReceiptStatus.VERIFIED)
+        self.assertTrue(reconciled.verification.passed)
+        self.assertEqual(self.ledger.get_receipt(proposal.operation_id), reconciled)
+        self.assertEqual(self.adapter.commit_attempts, 1)
+
     def test_known_failure_before_commit_records_no_external_effect(self) -> None:
         adapter = FakeWorkspaceAdapter(failure_mode="before_commit")
         gateway = self._new_gateway(adapter)

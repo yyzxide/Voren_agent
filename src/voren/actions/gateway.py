@@ -150,6 +150,69 @@ class ActionGateway:
             recovered_after_ambiguous_commit=recovered_after_ambiguous_commit,
         )
 
+    def reconcile(self, operation_id: str) -> ActionReceipt:
+        """Recover an interrupted dispatch by observation, never by resending it."""
+
+        proposal = self._ledger.get_proposal(operation_id)
+        approval = self._ledger.get_approval(operation_id)
+        if approval is None:
+            raise InvalidOperationStateError(
+                f"operation {operation_id!r} has no durable approval"
+            )
+        self._validate_registered_proposal(proposal)
+        self._validate_approval_binding(proposal, approval)
+
+        existing = self._ledger.get_receipt(operation_id)
+        if existing is not None and existing.status is not ReceiptStatus.AMBIGUOUS:
+            return existing
+        status = self._ledger.get_status(operation_id)
+        if status not in {"committing", "ambiguous"}:
+            raise InvalidOperationStateError(
+                f"cannot reconcile operation {operation_id!r} from state {status!r}"
+            )
+
+        observed = self._adapter.observe(proposal)
+        verification = verify_exact_effects(proposal.effects, observed)
+        if verification.passed:
+            receipt = ActionReceipt(
+                operation_id=proposal.operation_id,
+                proposal_digest=proposal.digest,
+                approval_id=approval.approval_id,
+                status=ReceiptStatus.VERIFIED,
+                committed=True,
+                recovered_after_ambiguous_commit=True,
+                expected_effects=proposal.effects,
+                observed_effects=observed,
+                verification=verification,
+                completed_at=self._clock(),
+            )
+            if existing is None:
+                self._ledger.store_receipt(receipt)
+            else:
+                self._ledger.replace_ambiguous_receipt(receipt)
+            return self._ledger.get_receipt(operation_id) or receipt
+
+        if existing is not None:
+            return existing
+        receipt = ActionReceipt(
+            operation_id=proposal.operation_id,
+            proposal_digest=proposal.digest,
+            approval_id=approval.approval_id,
+            status=ReceiptStatus.AMBIGUOUS,
+            committed=None,
+            recovered_after_ambiguous_commit=True,
+            expected_effects=proposal.effects,
+            observed_effects=observed,
+            verification=verification,
+            error=(
+                "reconciliation could not confirm the exact approved effects; "
+                "the action was not resent"
+            ),
+            completed_at=self._clock(),
+        )
+        self._ledger.store_receipt(receipt)
+        return receipt
+
     def _observe_and_record(
         self,
         proposal: ActionProposal,

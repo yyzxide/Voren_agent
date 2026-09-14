@@ -60,10 +60,6 @@ with TemporaryDirectory(prefix="voren-audit-crash-") as tmp:
         pass
     ledger.close()
     reopened = SQLiteOperationLedger(path)
-    recovery = None
-    try:
-        gateway(reopened, adapter).commit(action)
-    except Exception as error:
-        recovery = type(error).__name__
-    print(json.dumps({"case": "external_commit_before_receipt_crash", "external_events": len(adapter.events), "ledger_status": reopened.get_status(action.proposal.operation_id), "receipt_exists": reopened.get_receipt(action.proposal.operation_id) is not None, "retry_error": recovery}))
+    receipt = gateway(reopened, adapter).reconcile(action.proposal.operation_id)
+    print(json.dumps({"case": "external_commit_before_receipt_crash", "external_events": len(adapter.events), "ledger_status": reopened.get_status(action.proposal.operation_id), "receipt_exists": reopened.get_receipt(action.proposal.operation_id) is not None, "reconciled_status": receipt.status.value, "commit_attempts": adapter.commit_attempts}))
     reopened.close()

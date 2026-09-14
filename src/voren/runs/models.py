@@ -42,6 +42,7 @@ class RunEventType(StrEnum):
     APPROVAL_REJECTED = "approval.rejected"
     APPROVAL_INVALID = "approval.invalid"
     ACTION_RECEIPT = "action.receipt"
+    ACTION_RECONCILED = "action.reconciled"
     RUN_COMPLETED = "run.completed"
     RUN_FAILED = "run.failed"
     RUN_CANCELLED = "run.cancelled"

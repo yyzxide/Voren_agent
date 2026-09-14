@@ -202,6 +202,31 @@ class RunLifecycleTest(unittest.TestCase):
             self.store.list_events(run.run_id)[-1].event_type,
             RunEventType.RUN_NEEDS_RECONCILIATION,
         )
+        pending = self.store.get_run(run.run_id)
+        self.assertEqual(pending.pending_operation_id, proposal.operation_id)
+        self.assertEqual(pending.pending_proposal_digest, proposal.digest)
+
+    def test_ambiguous_run_completes_after_later_exact_observation(self) -> None:
+        run, proposal = self._start_and_propose()
+        approval = self._approval(proposal)
+        self.gateway.authorize(proposal, approval)
+        self.ledger.mark_committing(proposal.operation_id)
+        first_receipt = self.gateway.reconcile(proposal.operation_id)
+        self.manager.recover_pending_receipt(run.run_id)
+        self.adapter.commit(proposal)
+
+        receipt = self.manager.reconcile_pending_action(run.run_id)
+
+        self.assertEqual(first_receipt.status, ReceiptStatus.AMBIGUOUS)
+        self.assertEqual(receipt.status, ReceiptStatus.VERIFIED)
+        completed = self.store.get_run(run.run_id)
+        self.assertEqual(completed.status, RunStatus.COMPLETED)
+        self.assertIsNone(completed.pending_operation_id)
+        self.assertEqual(self.adapter.commit_attempts, 1)
+        self.assertIn(
+            RunEventType.ACTION_RECONCILED,
+            [event.event_type for event in self.store.list_events(run.run_id)],
+        )
 
     def test_durable_receipt_finalizes_run_after_simulated_process_crash(self) -> None:
         run, proposal = self._start_and_propose()
@@ -221,6 +246,27 @@ class RunLifecycleTest(unittest.TestCase):
             RunEventType.APPROVAL_ACCEPTED,
             [event.event_type for event in self.store.list_events(run.run_id)],
         )
+
+    def test_external_effect_before_receipt_crash_is_reconciled_by_run(self) -> None:
+        run, proposal = self._start_and_propose()
+        approval = self._approval(proposal)
+        authorized = self.gateway.authorize(proposal, approval)
+        store_receipt = self.ledger.store_receipt
+
+        def simulate_process_crash(_receipt) -> None:
+            raise RuntimeError("simulated crash before receipt persistence")
+
+        self.ledger.store_receipt = simulate_process_crash
+        with self.assertRaises(RuntimeError):
+            self.gateway.commit(authorized)
+        self.ledger.store_receipt = store_receipt
+
+        receipt = self.manager.recover_pending_receipt(run.run_id)
+
+        self.assertEqual(receipt.status, ReceiptStatus.VERIFIED)
+        self.assertEqual(self.store.get_run(run.run_id).status, RunStatus.COMPLETED)
+        self.assertEqual(self.adapter.commit_attempts, 1)
+        self.assertEqual(len(self.adapter.events), 1)
 
     def test_resume_is_idempotent_after_approval_was_already_persisted(self) -> None:
         run, proposal = self._start_and_propose()

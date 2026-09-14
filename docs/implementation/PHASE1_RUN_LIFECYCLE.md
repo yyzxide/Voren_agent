@@ -10,7 +10,7 @@ This slice adds a durable control plane around the existing action protocol:
 created -> running -> waiting_approval -> completed
                                   |\----> failed
                                   |\----> cancelled
-                                  \-----> needs_reconciliation
+                                  \-----> needs_reconciliation -> completed
 ```
 
 `RunConfig`, pending proposal identity, state version, and the terminal receipt
@@ -19,7 +19,7 @@ connections, rebuild the runtime objects, and resume the same proposal.
 
 ## Persistence model
 
-The implementation uses the same SQLite database file for two distinct logical
+The implementation uses the same SQLite database file for three distinct logical
 stores:
 
 - `operations`: proposal, approval, operation state, and receipt;
@@ -44,6 +44,12 @@ and rejects corrupted or unexpectedly changed configuration.
    - `ambiguous` or `verification_failed` -> `needs_reconciliation`.
 6. If a receipt was persisted but the process stopped before updating the run,
    `recover_pending_receipt` completes the event chain without committing again.
+7. If the process stopped after the external commit but before receipt storage,
+   the gateway re-observes by stable operation ID. Exact evidence produces a
+   recovered receipt; inconclusive evidence persists `ambiguous`, retains the
+   pending operation, and never redispatches it.
+8. `reconcile_pending_action` can re-observe later and advance a
+   `needs_reconciliation` run to `completed` once exact effects are visible.
 
 A rejected approval cancels this single-action run without calling the adapter.
 An invalid or stale approval is audited while the run remains paused for a new
@@ -60,6 +66,7 @@ action.proposed
 run.waiting_approval
 approval.accepted | approval.rejected | approval.invalid
 action.receipt
+action.reconciled
 run.completed | run.failed | run.cancelled | run.needs_reconciliation
 ```
 
@@ -102,7 +109,7 @@ the run is waiting for approval.
 
 ## Current evidence
 
-Eight lifecycle tests cover:
+Lifecycle tests cover:
 
 - ordered happy-path events;
 - resume after reopening both SQLite stores;
@@ -111,27 +118,23 @@ Eight lifecycle tests cover:
 - ambiguous commit mapped to `needs_reconciliation`;
 - idempotent resume after approval was already persisted;
 - durable receipt recovery after a simulated process crash; and
+- read-only recovery when external effects exist before receipt persistence;
+- an inconclusive result remaining ambiguous without redispatch;
+- a second reconciliation after external state becomes visible; and
 - idempotent event replay plus conflicting dedupe-key rejection.
-
-Together with the action and AgentDojo suites, Voren had 23 passing tests at
-this slice's checkpoint. The later
-[Phase 1 Agent Loop](PHASE1_AGENT_LOOP.md) extends the event vocabulary and
-brought its checkpoint to 36 tests; the subsequent model-adapter/CLI slice
-brought that to 47, and the later dual-mode evaluation harness brings the
-checkpoint to 54 tests; the later model-usage accounting slice brings the
-checkpoint to 57 tests; the provider-cancellation slice brings the current
-complete suite to 66 tests.
 
 ## Remaining boundary
 
-This slice proves durable pause/resume before commit and recovery after a receipt
-has been stored. A process death after a real provider commits but before Voren
-stores the receipt is harder: recovery requires an adapter that can rediscover
-the remote operation by an idempotency key or external postcondition.
+This slice implements the reconciliation protocol for the commit/receipt crash
+window, but production guarantees still depend on the adapter. It must
+rediscover the remote operation through a stable operation ID, provider
+idempotency key, or attributable external postcondition. Without that query
+capability, Voren remains `ambiguous` and requires human handling; it does not
+claim end-to-end exactly-once delivery.
 
-The Fake Workspace and AgentDojo world do not persist across process death, so
-they cannot prove that last production boundary. Voren records it explicitly
-instead of treating SQLite durability alone as end-to-end exactly-once delivery.
+The deterministic Fake Workspace tests prove that the control flow never
+redispatches automatically. They do not replace persistence and consistency
+validation against a real email or calendar provider.
 
 ## Suggested reading order
 
@@ -141,5 +144,5 @@ instead of treating SQLite durability alone as end-to-end exactly-once delivery.
 4. `test_run_lifecycle.py`: use each failure case to challenge the invariants.
 
 You should be able to explain why `needs_reconciliation` is not called `failed`,
-why the proposal digest is stored twice, and which crash window still needs a
-real provider capability.
+why the proposal digest is stored twice, and why reconciliation may observe but
+must not redispatch.

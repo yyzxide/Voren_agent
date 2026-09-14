@@ -10,7 +10,7 @@
 created -> running -> waiting_approval -> completed
                                   |\----> failed
                                   |\----> cancelled
-                                  \-----> needs_reconciliation
+                                  \-----> needs_reconciliation -> completed
 ```
 
 `RunConfig`、Pending Proposal Identity、状态版本和最终 Receipt Status 都存入
@@ -41,7 +41,12 @@ Run Configuration 带有 SHA-256 Digest。加载 Run 时会重新计算 Digest�
    - 明确发生在 Commit 前的 `failed` -> `failed`；
    - `ambiguous` 或 `verification_failed` -> `needs_reconciliation`；
 6. 如果 Receipt 已持久化，但进程在更新 Run 前停止，
-   `recover_pending_receipt` 会补全事件链，不会再次 Commit。
+   `recover_pending_receipt` 会补全事件链，不会再次 Commit；
+7. 如果进程在外部 Commit 后、Receipt 落盘前停止，Gateway 会使用稳定的
+   Operation ID 重新观察外部状态。精确匹配时生成恢复 Receipt；无法确认时保存
+   `ambiguous`，保留 Pending Operation，且不会重新派发；
+8. `reconcile_pending_action` 可在外部状态稍后可见时再次只读核验，并把 Run 从
+   `needs_reconciliation` 推进到 `completed`。
 
 操作者拒绝 Approval 时，这个单 Action Run 会被取消，并且不调用 Adapter。
 无效或过期 Approval 会被审计，Run 继续暂停以等待新的有效 Decision。
@@ -57,6 +62,7 @@ action.proposed
 run.waiting_approval
 approval.accepted | approval.rejected | approval.invalid
 action.receipt
+action.reconciled
 run.completed | run.failed | run.cancelled | run.needs_reconciliation
 ```
 
@@ -96,7 +102,7 @@ Demo 会在 Run 等待 Approval 时刻意关闭并重新打开 SQLite 组件。
 
 ## 当前证据
 
-8 个 Lifecycle 测试覆盖：
+Lifecycle 测试覆盖：
 
 - Happy Path Event 顺序；
 - 重新打开两个 SQLite Store 后恢复；
@@ -105,25 +111,20 @@ Demo 会在 Run 等待 Approval 时刻意关闭并重新打开 SQLite 组件。
 - Ambiguous Commit 映射为 `needs_reconciliation`；
 - Approval 已持久化后的幂等 Resume；
 - 模拟进程崩溃后的持久 Receipt 恢复；
+- 外部 Effect 已发生但 Receipt 尚未持久化时的只读恢复；
+- 无法确认时保持 Ambiguous 且不重新派发；
+- 外部状态稍后可见后的二次核验；
 - Event 幂等重放与冲突 Dedupe Key 拒绝。
-
-在这个切片的 Checkpoint，加上 Action 与 AgentDojo 测试共有 23 个通过的测试。
-后续 [Phase 1 Agent Loop](PHASE1_AGENT_LOOP.zh-CN.md) 扩展了 Event Vocabulary，
-并将当时的 Checkpoint 增加到 36 个测试；之后的 Model Adapter/CLI 切片将其
-增加到 47 个测试；再之后的双模式 Evaluation Harness 将当前完整 Suite 增加到
-54 个测试；后续模型用量统计切片将当前完整 Suite 增加到 57 个测试。
-Provider Cancellation 切片再将当前完整 Suite 增加到 66 个测试。
 
 ## 剩余边界
 
-这个切片证明了 Commit 前的持久暂停/恢复，以及 Receipt 已写入后的恢复。如果
-真实 Provider 已经 Commit，但 Voren 在持久化 Receipt 前进程死亡，问题会更
-困难：Adapter 必须能够根据 Idempotency Key 或外部 Postcondition 重新发现
-远端 Operation。
+这个切片实现了 Commit/Receipt 崩溃窗口的协调协议，但生产能力仍取决于 Adapter：
+它必须能够根据稳定 Operation ID、供应商 Idempotency Key 或可归因的外部
+Postcondition 重新发现远端 Operation。没有这种查询能力时，Voren 只会保持
+`ambiguous` 并要求人工处理，不能宣称端到端 Exactly-once Delivery。
 
-Fake Workspace 和 AgentDojo World 都不会跨进程持久化，因此不能证明最后这个
-生产边界。Voren 会明确记录它，不能仅凭 SQLite 持久化就声称端到端
-Exactly-once Delivery。
+Fake Workspace 的确定性测试证明控制流不会自动重发；它不能替代真实邮件或日历
+Provider 的持久化与一致性验证。
 
 ## 建议阅读顺序
 
@@ -133,4 +134,4 @@ Exactly-once Delivery。
 4. `test_run_lifecycle.py`：使用每个失败场景反问不变量是否成立。
 
 你应当能够解释：为什么 `needs_reconciliation` 不能叫作 `failed`，为什么要在
-两个位置保存 Proposal Digest，以及哪个崩溃窗口仍然需要真实 Provider 能力。
+两个位置保存 Proposal Digest，以及为什么 Reconciliation 只能观察、不能重发。

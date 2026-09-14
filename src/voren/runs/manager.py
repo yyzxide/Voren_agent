@@ -328,11 +328,7 @@ class RunManager:
         run, _ = self._load_pending(run_id)
         if run.pending_operation_id is None:
             raise InvalidOperationStateError(f"run {run_id!r} has no pending operation")
-        receipt = self._operation_ledger.get_receipt(run.pending_operation_id)
-        if receipt is None:
-            raise InvalidOperationStateError(
-                f"operation {run.pending_operation_id!r} has no durable receipt"
-            )
+        receipt = self._action_gateway.reconcile(run.pending_operation_id)
         approval = self._operation_ledger.get_approval(run.pending_operation_id)
         if approval is not None:
             self._store.append_events(
@@ -346,6 +342,55 @@ class RunManager:
                 ),
             )
         return self._finalize(run, receipt)
+
+    def reconcile_pending_action(self, run_id: str) -> ActionReceipt:
+        """Re-observe a visible ambiguous action without dispatching it again."""
+
+        run = self._store.get_run(run_id)
+        if run.status is RunStatus.WAITING_APPROVAL:
+            return self.recover_pending_receipt(run_id)
+        if run.status is not RunStatus.NEEDS_RECONCILIATION:
+            raise InvalidOperationStateError(
+                f"run {run_id!r} is not awaiting reconciliation"
+            )
+        if run.pending_operation_id is None or run.pending_proposal_digest is None:
+            raise InvalidOperationStateError(
+                f"run {run_id!r} has incomplete reconciliation state"
+            )
+        proposal = self._operation_ledger.get_proposal(run.pending_operation_id)
+        if proposal.digest != run.pending_proposal_digest:
+            raise InvalidOperationStateError(
+                f"run {run_id!r} proposal digest disagrees with the operation ledger"
+            )
+
+        receipt = self._action_gateway.reconcile(run.pending_operation_id)
+        if receipt.status is not ReceiptStatus.VERIFIED:
+            return receipt
+        self._store.transition(
+            run_id,
+            expected_status=RunStatus.NEEDS_RECONCILIATION,
+            new_status=RunStatus.COMPLETED,
+            pending_operation_id=None,
+            pending_proposal_digest=None,
+            last_receipt_status=receipt.status.value,
+            updated_at=self._clock(),
+            events=(
+                self._event(
+                    RunEventType.ACTION_RECONCILED,
+                    dedupe_key=f"action.reconciled:{receipt.operation_id}",
+                    payload=self._receipt_event_payload(receipt),
+                ),
+                self._event(
+                    RunEventType.RUN_COMPLETED,
+                    dedupe_key="run.completed",
+                    payload={
+                        "operation_id": receipt.operation_id,
+                        "receipt_status": receipt.status.value,
+                    },
+                ),
+            ),
+        )
+        return receipt
 
     def _load_pending(self, run_id: str) -> tuple[RunRecord, ActionProposal]:
         run = self._store.get_run(run_id)
@@ -381,12 +426,17 @@ class RunManager:
             ),
         }
         new_status, terminal_event_type = status_mapping[receipt.status]
+        keep_for_reconciliation = new_status is RunStatus.NEEDS_RECONCILIATION
         self._store.transition(
             run.run_id,
             expected_status=RunStatus.WAITING_APPROVAL,
             new_status=new_status,
-            pending_operation_id=None,
-            pending_proposal_digest=None,
+            pending_operation_id=(
+                receipt.operation_id if keep_for_reconciliation else None
+            ),
+            pending_proposal_digest=(
+                receipt.proposal_digest if keep_for_reconciliation else None
+            ),
             last_receipt_status=receipt.status.value,
             updated_at=self._clock(),
             events=(
