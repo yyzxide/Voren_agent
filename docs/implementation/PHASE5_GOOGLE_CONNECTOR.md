@@ -68,3 +68,23 @@ No Google credential is present in CI, so these tests prove translation and
 failure semantics rather than a live Google account run. A dated live smoke
 artifact remains a manual release gate and must never include mailbox content
 or tokens.
+
+## CLI vertical slice
+
+The installed `voren google` command uses the same bounded Agent Loop,
+encrypted transcript checkpoints, SQLite run events, operation ledger, exact
+approval prompt, action gateway, and verified receipt as the AgentDojo path.
+Only the read/action adapters and their frozen contract version change.
+
+Configure model credentials, `VOREN_TRANSCRIPT_KEY`,
+`GOOGLE_WORKSPACE_ACCESS_TOKEN`, `VOREN_GOOGLE_ACCOUNT_EMAIL`, and optionally
+the calendar/time-zone variables shown in `.env.example`, then run:
+
+```bash
+voren google --model 'your-model-id' \
+  'Read the project update and prepare a reply draft. Do not send it.'
+```
+
+The access token is environment-only: there is intentionally no CLI token
+argument that could expose it in process listings or shell history. The CLI has
+no automatic approval flag.

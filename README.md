@@ -17,7 +17,10 @@ live-model quality evidence.
 > artifacts. Background Responses polling, deadline/operator cancellation, and
 > provider-confirmation evidence are implemented. Encrypted mid-loop transcript
 > recovery now preserves context and budgets across process restarts. A recorded
-> live-model run and production connectors do not exist. Phase 2 has started
+> live-model run does not yet exist. A conservative Google Workspace REST
+> connector supports provenance-labelled Gmail/Calendar reads, Gmail drafts,
+> and private calendar holds through the same approval/receipt boundary, but it
+> has not passed the credential-gated live smoke. Phase 2 has started
 > with an Agent Skills-compatible, content-addressed static skill store, exact
 > active-version snapshots, and bounded version-pinned instructions wired into
 > the agent loop. Phase 3 now has evidence-gated inactive candidates, paired
@@ -91,6 +94,7 @@ the first release.
 - [Phase 3 reproducible Skill-learning demo](docs/implementation/PHASE3_REPRODUCIBLE_DEMO.md)
 - [Phase 3 learning-policy ablation](docs/implementation/PHASE3_LEARNING_ABLATION.md)
 - [Phase 4 local Web and SSE surface](docs/implementation/PHASE4_WEB_SURFACE.md)
+- [Phase 5 conservative Google Workspace connector](docs/implementation/PHASE5_GOOGLE_CONNECTOR.md)
 
 ## Current executable slice
 
@@ -229,9 +233,23 @@ A custom `OPENAI_BASE_URL` likewise requires `--provider-profile` or
 `VOREN_RESPONSES_PROFILE`; wire compatibility is not treated as identical
 capability support.
 
-The command still operates only on AgentDojo. It prints every proposed effect
-and requires an interactive exact-effect approval before commit. There is no
-automatic-approval flag.
+The AgentDojo command prints every proposed effect and requires an interactive
+exact-effect approval before commit. There is no automatic-approval flag.
+
+The production-shaped Google path uses the same Runtime but has a deliberately
+smaller action surface: create a Gmail draft or a private calendar hold; it does
+not send email or invite attendees. Tokens are environment-only:
+
+```bash
+export GOOGLE_WORKSPACE_ACCESS_TOKEN='short-lived-oauth-token'
+export VOREN_GOOGLE_ACCOUNT_EMAIL='you@example.com'
+voren google --model 'your-model-id' \
+  'Read the project update and prepare a reply draft. Do not send it.'
+```
+
+This command requires explicit approval before either reversible write. The
+repository has deterministic HTTP-contract coverage; a real-account run is not
+claimed until a dated redacted live-smoke artifact exists.
 
 To run an explicitly labelled evaluation and write a machine-readable artifact:
 

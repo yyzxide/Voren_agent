@@ -58,3 +58,22 @@ HTTP 响应丢失，以及进程重启后不重发的 Reconciliation。
 CI 不具备 Google Credential，因此这些测试证明的是 Translation 和故障语义，不是
 真实 Google 账号已经成功运行。带日期的 Live Smoke Artifact 仍是人工 Release
 Gate，并且绝不能包含邮箱正文或 Token。
+
+## CLI 纵向切片
+
+安装后的 `voren google` 与 AgentDojo 路径复用相同的有界 Agent Loop、加密
+Transcript Checkpoint、SQLite Run Event、Operation Ledger、精确 Approval Prompt、
+Action Gateway 和 Verified Receipt；只替换 Read/Action Adapter 及其冻结的 Contract
+Version。
+
+配置模型 Credential、`VOREN_TRANSCRIPT_KEY`、`GOOGLE_WORKSPACE_ACCESS_TOKEN`、
+`VOREN_GOOGLE_ACCOUNT_EMAIL`，以及 `.env.example` 中可选的 Calendar/Time-zone
+变量后执行：
+
+```bash
+voren google --model 'your-model-id' \
+  '阅读项目更新邮件并准备回复草稿，不要发送。'
+```
+
+Access Token 只能从环境读取；CLI 刻意不提供可能把 Token 暴露在进程列表或 Shell
+History 中的参数，也没有自动批准开关。

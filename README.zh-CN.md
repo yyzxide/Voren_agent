@@ -13,8 +13,10 @@
 > Artifact 也已实现。Provider 和评测 Contract 已在无 Credential 环境中通过
 > 测试，模型 Token Usage 会贯穿 Runtime 与评测 Artifact。Background Responses
 > 轮询、Deadline/Operator Cancellation、Provider Confirmation 证据和加密
-> Mid-loop Transcript Recovery 也已实现。目前还没有记录 Live-model Run，
-> 也没有生产环境 Connector。Phase 2 已经开始：当前具备兼容 Agent Skills、
+> Mid-loop Transcript Recovery 也已实现。目前还没有记录 Live-model Run。保守的
+> Google Workspace REST Connector 已支持带来源的 Gmail/Calendar Read、Gmail
+> Draft 与私人 Calendar Hold，并复用相同的审批/回执边界，但尚未通过需要 Credential
+> 的 Live Smoke。Phase 2 已经开始：当前具备兼容 Agent Skills、
 > 内容寻址的静态 Skill Store、精确 Active Version Snapshot，以及接入 Agent Loop
 > 且有大小限制的版本冻结 Instruction Context。Phase 3 现已具备 Evidence-gated
 > 非激活 Candidate、Paired Held-out Evaluation、事务化 Decision、原子
@@ -84,6 +86,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [Phase 3 可复现 Skill-learning Demo](docs/implementation/PHASE3_REPRODUCIBLE_DEMO.zh-CN.md)
 - [Phase 3 Learning-policy 消融](docs/implementation/PHASE3_LEARNING_ABLATION.zh-CN.md)
 - [Phase 4 本地 Web 与 SSE 展示](docs/implementation/PHASE4_WEB_SURFACE.zh-CN.md)
+- [Phase 5 保守的 Google Workspace Connector](docs/implementation/PHASE5_GOOGLE_CONNECTOR.zh-CN.md)
 
 ## 当前可运行切片
 
@@ -211,8 +214,22 @@ voren agentdojo --provider-profile deepseek --model deepseek-v4-flash \
 自定义 `OPENAI_BASE_URL` 时也必须通过 `--provider-profile` 或
 `VOREN_RESPONSES_PROFILE` 明确声明能力，不能把“格式兼容”当成全部能力相同。
 
-Command 仍然只操作 AgentDojo。Commit 前会显示全部 Proposed Effect，并要求在
-终端进行精确副作用审批；CLI 不提供 Auto Approval 开关。
+AgentDojo Command 会在 Commit 前显示全部 Proposed Effect，并要求在终端进行精确
+副作用审批；CLI 不提供 Auto Approval 开关。
+
+面向真实供应商的 Google 路径复用同一 Runtime，但 Action Surface 有意更小：只能
+创建 Gmail Draft 或没有参与者的私人 Calendar Hold，不发送邮件，也不邀请参与者。
+Token 只能从环境读取：
+
+```bash
+export GOOGLE_WORKSPACE_ACCESS_TOKEN='short-lived-oauth-token'
+export VOREN_GOOGLE_ACCOUNT_EMAIL='you@example.com'
+voren google --model 'your-model-id' \
+  '阅读项目更新邮件并准备回复草稿，不要发送。'
+```
+
+两个可逆写操作都必须先得到显式审批。仓库已有确定性 HTTP Contract Coverage；在
+生成带日期且脱敏的 Live-smoke Artifact 前，不声称真实账号已经成功运行。
 
 要运行明确标注模式的评测并生成机器可读 Artifact：
 

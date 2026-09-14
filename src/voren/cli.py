@@ -5,20 +5,27 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 from voren.actions.errors import ApprovalRejectedError
-from voren.actions.gateway import ActionGateway
+from voren.actions.gateway import ActionDefinition, ActionGateway
 from voren.actions.ledger import SQLiteOperationLedger
 from voren.actions.models import ApprovalDecision
+from voren.actions.ports import ActionAdapter
 from voren.adapters.agentdojo_reads import AgentDojoReadAdapter
 from voren.adapters.agentdojo_workspace import (
     AgentDojoDependencyError,
     AgentDojoWorkspaceAdapter,
+)
+from voren.adapters.google_workspace import (
+    GOOGLE_WORKSPACE_CONTRACT_VERSION,
+    GoogleWorkspaceConfig,
+    GoogleWorkspaceConfigurationError,
+    GoogleWorkspaceConnector,
 )
 from voren.adapters.workspace_contracts import (
     WORKSPACE_CONTRACT_VERSION,
@@ -52,6 +59,7 @@ from voren.knowledge.store import KnowledgeStoreError, SQLiteKnowledgeStore
 from voren.memory.context import MemoryContextAssembler
 from voren.memory.service import MemoryService
 from voren.memory.store import MemoryStoreError, SQLiteMemoryStore
+from voren.observations.read_tools import ReadToolAdapter
 from voren.providers.openai_responses import (
     ModelConfigurationError,
     OpenAIResponsesModelAdapter,
@@ -79,7 +87,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="voren",
         description=(
-            "Run Voren in AgentDojo and manage evidence-gated Skill versions."
+            "Run controlled Voren workspaces and manage evidence-gated Skill "
+            "versions."
         ),
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -132,6 +141,59 @@ def build_parser() -> argparse.ArgumentParser:
         help="Explicit episode memory ID to freeze; repeat as needed.",
     )
     agentdojo.set_defaults(handler=run_agentdojo)
+
+    google = subcommands.add_parser(
+        "google",
+        help=(
+            "Run one real-model request against a conservatively scoped Google "
+            "Workspace account."
+        ),
+    )
+    google.add_argument("request", help="Operator request for Voren.")
+    google.add_argument(
+        "--model",
+        help="Responses API model ID; alternatively set VOREN_MODEL.",
+    )
+    google.add_argument(
+        "--base-url",
+        help="Responses-compatible API base URL; defaults to OPENAI_BASE_URL.",
+    )
+    google.add_argument(
+        "--provider-profile",
+        choices=tuple(item.value for item in ResponsesProviderProfile),
+        help=(
+            "Explicit endpoint capabilities; alternatively set "
+            "VOREN_RESPONSES_PROFILE. Required with a custom base URL."
+        ),
+    )
+    google.add_argument(
+        "--database",
+        type=Path,
+        default=Path(".voren/google.sqlite3"),
+        help="SQLite trace and operation database.",
+    )
+    google.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=60.0,
+        help="Overall model-response deadline and per-HTTP-call timeout.",
+    )
+    google.add_argument("--max-output-tokens", type=int, default=2_048)
+    google.add_argument("--max-model-steps", type=int, default=8)
+    google.add_argument("--max-tool-calls", type=int, default=12)
+    google.add_argument(
+        "--profile-memory",
+        action="append",
+        default=[],
+        help="Explicit active profile memory ID to freeze; repeat as needed.",
+    )
+    google.add_argument(
+        "--episode-memory",
+        action="append",
+        default=[],
+        help="Explicit episode memory ID to freeze; repeat as needed.",
+    )
+    google.set_defaults(handler=run_google)
 
     evaluation = subcommands.add_parser(
         "eval-agentdojo",
@@ -495,6 +557,90 @@ def run_agentdojo(
     approval_reader: ApprovalReader = input,
     output: Output = print,
 ) -> int:
+    resolved_model, model_name, provider_name = _resolve_run_model(args, model)
+    workspace = AgentDojoWorkspaceAdapter()
+    calendar_action = create_calendar_event_definition(
+        account_email=workspace.account_email
+    )
+    email_action = send_email_definition()
+    return _run_workspace_request(
+        args,
+        model=resolved_model,
+        model_name=model_name,
+        provider_name=provider_name,
+        action_adapter=workspace,
+        read_tools=AgentDojoReadAdapter(workspace),
+        action_definitions=(calendar_action, email_action),
+        action_descriptions={
+            calendar_action.name: (
+                "Propose a calendar event and its invitation email. Execution "
+                "always requires exact-effect operator approval."
+            ),
+            email_action.name: (
+                "Propose an outbound email. Execution always requires "
+                "exact-effect operator approval."
+            ),
+        },
+        workflow="agentdojo_email_calendar",
+        world_adapter="agentdojo_workspace_v1.2.2",
+        action_contract_versions=(WORKSPACE_CONTRACT_VERSION,),
+        cancellation=cancellation,
+        transcript_key=transcript_key,
+        approval_reader=approval_reader,
+        output=output,
+    )
+
+
+def run_google(
+    args: argparse.Namespace,
+    *,
+    model: ModelAdapter | None = None,
+    connector: GoogleWorkspaceConnector | None = None,
+    cancellation: CancellationToken | None = None,
+    transcript_key: str | None = None,
+    approval_reader: ApprovalReader = input,
+    output: Output = print,
+) -> int:
+    """Run the same controlled loop against a real Google REST boundary."""
+
+    resolved_model, model_name, provider_name = _resolve_run_model(args, model)
+    active_connector = connector or GoogleWorkspaceConnector(
+        GoogleWorkspaceConfig.from_environment()
+    )
+    draft_action, calendar_action = active_connector.action_definitions
+    return _run_workspace_request(
+        args,
+        model=resolved_model,
+        model_name=model_name,
+        provider_name=provider_name,
+        action_adapter=active_connector,
+        read_tools=active_connector,
+        action_definitions=(draft_action, calendar_action),
+        action_descriptions={
+            draft_action.name: (
+                "Propose a Gmail draft. This never sends the email and always "
+                "requires exact-effect operator approval."
+            ),
+            calendar_action.name: (
+                "Propose a private Google Calendar hold with no attendees and no "
+                "requested invitations. Execution always requires exact-effect "
+                "operator approval."
+            ),
+        },
+        workflow="google_email_calendar",
+        world_adapter="google_workspace_rest_v1",
+        action_contract_versions=(GOOGLE_WORKSPACE_CONTRACT_VERSION,),
+        cancellation=cancellation,
+        transcript_key=transcript_key,
+        approval_reader=approval_reader,
+        output=output,
+    )
+
+
+def _resolve_run_model(
+    args: argparse.Namespace,
+    model: ModelAdapter | None,
+) -> tuple[ModelAdapter, str, str]:
     model_name = args.model or os.environ.get("VOREN_MODEL")
     if not model_name:
         raise ModelConfigurationError("pass --model or set VOREN_MODEL")
@@ -511,12 +657,27 @@ def run_agentdojo(
         if isinstance(model, OpenAIResponsesModelAdapter)
         else "injected_model_adapter"
     )
+    return model, model_name, provider_name
 
-    workspace = AgentDojoWorkspaceAdapter()
-    action_definition = create_calendar_event_definition(
-        account_email=workspace.account_email
-    )
-    email_definition = send_email_definition()
+
+def _run_workspace_request(
+    args: argparse.Namespace,
+    *,
+    model: ModelAdapter,
+    model_name: str,
+    provider_name: str,
+    action_adapter: ActionAdapter,
+    read_tools: ReadToolAdapter,
+    action_definitions: tuple[ActionDefinition, ...],
+    action_descriptions: Mapping[str, str],
+    workflow: str,
+    world_adapter: str,
+    action_contract_versions: tuple[str, ...],
+    cancellation: CancellationToken | None,
+    transcript_key: str | None,
+    approval_reader: ApprovalReader,
+    output: Output,
+) -> int:
     args.database.parent.mkdir(parents=True, exist_ok=True)
     ledger = SQLiteOperationLedger(args.database)
     store = SQLiteRunStore(args.database)
@@ -551,8 +712,8 @@ def run_agentdojo(
             else MemoryContextAssembler(memory_store).empty()
         )
         gateway = ActionGateway(
-            definitions=(action_definition, email_definition),
-            adapter=workspace,
+            definitions=action_definitions,
+            adapter=action_adapter,
             ledger=ledger,
         )
         manager = RunManager(
@@ -562,22 +723,13 @@ def run_agentdojo(
         )
         loop = AgentLoop(
             model=model,
-            read_tools=AgentDojoReadAdapter(workspace),
-            action_tools=(
+            read_tools=read_tools,
+            action_tools=tuple(
                 external_action_tool(
-                    action_definition,
-                    description=(
-                        "Propose a calendar event and its invitation email. "
-                        "Execution always requires exact-effect operator approval."
-                    ),
-                ),
-                external_action_tool(
-                    email_definition,
-                    description=(
-                        "Propose an outbound email. Execution always requires "
-                        "exact-effect operator approval."
-                    ),
-                ),
+                    definition,
+                    description=action_descriptions[definition.name],
+                )
+                for definition in action_definitions
             ),
             run_manager=manager,
             transcript_store=transcript_store,
@@ -590,10 +742,10 @@ def run_agentdojo(
         result = loop.run(
             user_request=args.request,
             config=RunConfig(
-                workflow="agentdojo_email_calendar",
-                world_adapter="agentdojo_workspace_v1.2.2",
+                workflow=workflow,
+                world_adapter=world_adapter,
                 policy_version="provenance-and-exact-effects-v1",
-                action_contract_versions=(WORKSPACE_CONTRACT_VERSION,),
+                action_contract_versions=action_contract_versions,
                 memory_versions=memory_context.memory_versions,
                 metadata={"model": model_name, "provider": provider_name},
             ),
@@ -1410,9 +1562,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         ModelConfigurationError,
         AgentDojoDependencyError,
         CandidateStoreError,
+        GoogleWorkspaceConfigurationError,
         KnowledgeStoreError,
         MemoryStoreError,
         SkillFormatError,
+        TranscriptKeyError,
         ValueError,
     ) as error:
         parser.error(str(error))
