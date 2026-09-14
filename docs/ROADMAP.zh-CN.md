@@ -95,8 +95,9 @@ Action Core 子切片已完成：
 - 使用 AES-256-GCM 保存绑定冻结配置的 Transcript Checkpoint，并在安全的模型
   请求边界跨进程恢复上下文与预算。
 
-仍待补充的外部证据：一次有记录的 Live-model Golden Run，以及使用当前 Runner
-生成的 Live Prompt Injection Artifact。Action Envelope 与确定性双模式覆盖现已
+当前 Runner 的 [带日期 Live Evidence](evidence/2026-09-14-AGENTDOJO-LIVE.zh-CN.md)
+现已保存 Golden Run、Prompt-injection Trial 和一次负向 Static-Skill 对照。Action
+Envelope 与确定性双模式覆盖现已
 包含日历 `injection_task_2` 和邮件 `injection_task_3`/`injection_task_4`，详见
 [Phase 1 可验证 Email Action](implementation/PHASE1_EMAIL_ACTION.zh-CN.md)。
 Contract Test 只能证明 Translation、Measurement 与 Orchestration，不能证明 Live
@@ -196,8 +197,8 @@ Base/Candidate Result、Decision 与 Lifecycle Audit，详见
 
 实现状态：**确定性证据范围已于 2026-09-14 完成**。双模式 AgentDojo Runner、
 带完整性绑定的 JSON Artifact、污染测试、Candidate 生成式报告、Learning-policy
-Ablation 和 Web Trace 展示覆盖了下列事项。有记录的 Live-model 攻击 Artifact
-仍属于外部证据门槛，不能由确定性测试推导。
+Ablation、Web Trace 展示与带日期的 Live-model Artifact 覆盖了下列事项。小规模
+Live 样本与确定性测试分开报告，不能扩展为通用安全结论。
 
 实现：
 

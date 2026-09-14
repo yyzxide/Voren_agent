@@ -15,10 +15,11 @@ current repository state.
 > approval/resume, explicit Responses-provider capability profiles, typed
 > Memory and source-bound Knowledge, deterministic Skill routing, gated
 > candidate learning, local Web/SSE walkthrough, and conservative Google
-> Workspace connector are connected through the same runtime. The remaining
-> evidence gates are deliberately external: a recorded live-model golden and
-> injection evaluation, a live-model Skill comparison, and a redacted Google
-> test-account smoke run. Deterministic tests do not prove those live claims.
+> Workspace connector are connected through the same runtime. A dated
+> live-model golden/injection run and No-Skill/static-Skill comparison are now
+> preserved as raw integrity-checked evidence; the Skill sample regressed and is
+> not presented as an improvement. The remaining external gate is a redacted
+> Google test-account smoke run.
 
 Voren is a single-agent assistant for email and calendar work. Its
 engineering focus is not broad personal-assistant coverage, but a narrower
@@ -66,6 +67,7 @@ the first release.
 - [Phase 1 provenance-aware agent loop](docs/implementation/PHASE1_AGENT_LOOP.md)
 - [Phase 1 Responses adapter and CLI](docs/implementation/PHASE1_MODEL_ADAPTER_CLI.md)
 - [Phase 1 dual-mode AgentDojo evaluation](docs/implementation/PHASE1_EVALUATION_HARNESS.md)
+- [2026-09-14 live AgentDojo evidence](docs/evidence/2026-09-14-AGENTDOJO-LIVE.md)
 - [Phase 1 model-usage accounting](docs/implementation/PHASE1_USAGE_ACCOUNTING.md)
 - [Phase 1 provider cancellation](docs/implementation/PHASE1_PROVIDER_CANCELLATION.md)
 - [Phase 1 encrypted transcript recovery](docs/implementation/PHASE1_TRANSCRIPT_RECOVERY.md)

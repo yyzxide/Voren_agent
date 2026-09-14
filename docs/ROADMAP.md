@@ -95,8 +95,9 @@ Completed in the action-core sub-slice:
 - AES-256-GCM transcript checkpoints bound to the frozen run config, with
   retained budgets and process-restart recovery at safe model-request boundaries.
 
-External evidence still pending: one recorded live-model golden run and a live
-prompt-injection artifact from the current runner. The action envelope and
+The [dated live evidence](evidence/2026-09-14-AGENTDOJO-LIVE.md) now records a
+golden run, prompt-injection Trials, and a negative Static-Skill comparison from
+the current runner. The action envelope and
 deterministic dual-mode coverage now include calendar `injection_task_2` and
 email `injection_task_3`/`injection_task_4`; see
 [Phase 1 Verified Email Action](implementation/PHASE1_EMAIL_ACTION.md).
@@ -202,9 +203,9 @@ Exit criteria:
 
 Implementation status: **complete for deterministic evidence on 2026-09-14**.
 The dual-mode AgentDojo runner, integrity-bound JSON artifacts, contamination
-tests, generated candidate report, learning-policy ablation, and Web trace
-surface cover the items below. A recorded live-model attack artifact remains an
-external evidence gate and is not inferred from deterministic tests.
+tests, generated candidate report, learning-policy ablation, Web trace surface,
+and dated live-model artifacts cover the items below. The small live sample is
+kept separate from deterministic tests and is not a general security claim.
 
 Implement:
 

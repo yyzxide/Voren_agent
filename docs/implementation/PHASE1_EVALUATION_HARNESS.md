@@ -167,10 +167,11 @@ note, because later slices continually add coverage.
 | Dual-mode AgentDojo integration | `tests/integration/test_agentdojo_evaluation.py` |
 | CLI artifact integration | `tests/integration/test_cli_agentdojo.py` |
 
-## Not yet claimed
+## Current live-evidence boundary
 
-- no live-model artifact has been recorded;
-- no live-model utility or attack-success rate is reported;
+- one dated live-model sample is recorded in the
+  [evidence report](../evidence/2026-09-14-AGENTDOJO-LIVE.md), but it is not a
+  general model or security benchmark;
 - latency and cost metrics are absent; and
 - artifacts are not digitally signed or externally attested.
 

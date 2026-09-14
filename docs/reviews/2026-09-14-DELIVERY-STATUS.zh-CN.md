@@ -8,10 +8,10 @@
 
 ## 已验证基线
 
-- 实现版本：`1839c3e`；
+- 实现版本：`aa88086`；
 - 干净锁定安装：CPython 3.12、Linux x86-64、`pylock.toml`；
-- 本地结果：185/185 项单元与集成测试通过；
-- 远端结果：[GitHub Actions run 34815893634](https://github.com/yyzxide/Voren_agent/actions/runs/34815893634) 通过；
+- 本地结果：195/195 项单元与集成测试通过；
+- 远端结果：[GitHub Actions run 34819584876](https://github.com/yyzxide/Voren_agent/actions/runs/34819584876) 通过；
 - 测试集不需要 Credential，不调用 Live Model 或真实 Google 账号。
 
 测试覆盖真实子进程/TCP/HTTP 浏览器服务边界、官方 MCP 协议往返、AgentDojo
@@ -28,6 +28,9 @@
 | V4：Skill 学习只是计划 | 有界机制范围已关闭 | `f9d1e6a` 至 `5bb1fd6` 实现 Evidence Admission、非激活有界 Candidate、配对 Held-out Evaluation、确定性 Decision、显式 Promotion/Rollback、报告与策略消融；`f899b6f` 把精确 Active Version 路由回 Runtime。 |
 | C1：复现与交付不足 | 无 Credential 交付范围已关闭 | `56a798f` 增加完整平台锁与 CI，`c6a3f1a` 增加跨进程 Web 验证；绑定来源的 Knowledge/MCP、Profile Memory、Web Skill 路由和 Google Adapter 已在 `1839c3e` 前接通。 |
 
+`aa88086` 还把解析后的 Endpoint 与每次 Provider 返回的 Model 名称绑定到 v5
+Evaluation Evidence，同时保持 v3/v4 可读取。
+
 ## 可以演示的路径
 
 1. 在 AgentDojo 中执行带 Provenance 的邮件/日程工作流，对精确 Effect 暂停并只
@@ -41,14 +44,20 @@
 6. 显式选择 Google Adapter，让 Draft 与私人 Calendar Hold 继续经过相同的
    Approval、Receipt、Verification 和 Reconciliation 边界。
 
+## 带日期的 Live-model 证据
+
+[2026-09-14 Live AgentDojo 报告](../evidence/2026-09-14-AGENTDOJO-LIVE.zh-CN.md)
+及其两份原始、通过完整性校验的 Artifact，关闭了 Live Golden/Injection 与
+No-Skill/Static-Skill 执行门槛。请求别名 `deepseek-v4-flash` 的全部成功响应均返回
+`deepseek-flash`。Static-Skill 样本的 Utility 更差且消耗更多 Token，因此被如实
+记录为负向证据，而不是优化成功声明。
+
 ## 仍需外部系统提供的证据
 
-- 一次带日期的 Live-model 黄金 Run 与 Prompt-injection 评测 Artifact；
-- 一次带日期的 Live-model `no_skill` 与 Skill 对比；
 - 一次使用专用 Google 测试账号、经过脱敏的 Smoke Artifact。
 
-这些是执行/证据门槛，不是自动化测试中隐藏的结论。在取得它们之前，仓库不声称
-Live Model 规划质量、通用抗 Prompt Injection 能力或真实 Google 账号连接成功。
+带日期的模型结果只是一次小规模随机样本，不是通用模型或 Prompt Injection
+Benchmark。在独立 Google Artifact 产生前，仓库不声称已成功连接真实 Google 账号。
 
 ## 明确不声称
 

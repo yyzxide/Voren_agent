@@ -154,10 +154,10 @@ Grader，Action Receipt 也通过 Exact-effect Verification。
 | 双模式 AgentDojo Integration | `tests/integration/test_agentdojo_evaluation.py` |
 | CLI Artifact Integration | `tests/integration/test_cli_agentdojo.py` |
 
-## 尚未声称完成
+## 当前 Live Evidence 边界
 
-- 没有保存过 Live Model Artifact；
-- 没有报告任何真实模型 Utility 或 Attack Success Rate；
+- [Evidence 报告](../evidence/2026-09-14-AGENTDOJO-LIVE.zh-CN.md)已保存一次带日期的
+  Live-model 样本，但它不是通用模型或安全 Benchmark；
 - 没有 Latency 或 Cost 指标；
 - Artifact 没有数字签名或外部见证。
 

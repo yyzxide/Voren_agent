@@ -102,7 +102,8 @@ definitions, a synchronous model protocol, hard limits for model steps, total
 and repeated calls, and observation bytes, plus structured boundary events.
 It deliberately stops after producing one external-action proposal. An HTTPS
 Responses API adapter and interactive AgentDojo CLI now implement the provider
-boundary; a recorded live-model run has not yet been performed. The adapter now
+boundary. A dated live-model run and its exact provider provenance are preserved
+in the [evidence report](evidence/2026-09-14-AGENTDOJO-LIVE.md). The adapter
 uses background Responses, bounded polling, and the provider cancel endpoint.
 A thread-safe cancellation token flows through the loop; cancellation stops
 local tool processing and records whether provider cancellation was confirmed.
@@ -119,8 +120,8 @@ marked incomplete rather than treated as zero-cost.
 runtime-enforcement runners, AgentDojo graders, and integrity-bound JSON
 artifacts. It reuses the same runtime but creates an isolated workspace for
 every trial. Evaluation ground truth enters only the deterministic approval
-simulator, never model context. Current evidence uses scripted models; no live
-model artifact exists yet.
+simulator, never model context. Deterministic scripted coverage and the small
+dated live sample are reported separately.
 
 ### 4.3 Action Gateway
 

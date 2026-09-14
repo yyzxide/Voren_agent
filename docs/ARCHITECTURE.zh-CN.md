@@ -97,7 +97,8 @@ Runtime 刻意保持较小范围：
 Protocol、Model Step/总调用数/重复调用/Observation Bytes 硬限制，以及结构化
 Boundary Event。Runtime 在生成一个 External-action Proposal 后刻意停止。
 HTTPS Responses API Adapter 与交互式 AgentDojo CLI 已经实现 Provider
-Boundary，但尚未执行有记录的 Live-model Run。Provider Timeout Cancellation
+Boundary；带日期的 Live-model Run 与精确 Provider Provenance 已保存在
+[Evidence 报告](evidence/2026-09-14-AGENTDOJO-LIVE.zh-CN.md)。Provider Timeout Cancellation
 已经通过 Background Responses、受限轮询和 Provider Cancel Endpoint 实现。
 线程安全 Cancellation Token 会贯穿 Loop；取消后本地不再处理 Tool，并记录
 Provider 是否确认取消。Compaction 仍未实现。Mid-loop Transcript 会在安全的
@@ -110,8 +111,8 @@ Input、Output、Cached、Cache-write 和 Reasoning Token 已在 Provider Bounda
 `evaluation/` 已实现固定 Case Manifest、Agent Behavior 与 Runtime Enforcement
 双模式 Runner、AgentDojo Grader 以及带完整性 Digest 的 JSON Artifact。它复用
 相同 Runtime，但为每个 Trial 创建隔离 Workspace；评测 Ground Truth 只进入
-确定性 Approval Simulator，不进入 Model Context。当前证据来自 Scripted Model，
-Live Model Artifact 仍未生成。
+确定性 Approval Simulator，不进入 Model Context。确定性 Scripted Coverage 与小规模
+带日期 Live 样本分开报告。
 
 ### 4.3 Action Gateway
 

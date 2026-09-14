@@ -13,9 +13,10 @@
 > Claim、只观察不重发的崩溃 Reconciliation、持久审批与恢复、显式 Responses
 > Provider 能力 Profile、类型化 Memory 与绑定来源的 Knowledge、确定性 Skill
 > 路由、受门禁保护的 Candidate 学习、本地 Web/SSE Walkthrough，以及保守的
-> Google Workspace Connector 已接入同一 Runtime。剩余证据门槛刻意保留在外部：
-> 有记录的 Live-model 黄金与注入评测、Live-model Skill 对比，以及脱敏的 Google
-> 测试账号 Smoke Run。确定性测试通过不能证明这些 Live 结论。
+> Google Workspace Connector 已接入同一 Runtime。带日期的 Live-model 黄金/注入
+> Run 与 No-Skill/Static-Skill 对比现已保存为原始、通过完整性校验的证据；Skill
+> 样本发生退化，因此不会包装成优化成功。剩余外部门槛是一份脱敏的 Google 测试
+> 账号 Smoke Run。
 
 Voren 是一个面向邮件与日程工作的单 Agent 助手。它的工程重点不是
 覆盖尽可能多的个人助理功能，而是回答一个更窄的问题：
@@ -60,6 +61,7 @@ Voren 是一个面向邮件与日程工作的单 Agent 助手。它的工程重�
 - [Phase 1 Provenance-aware Agent Loop](docs/implementation/PHASE1_AGENT_LOOP.zh-CN.md)
 - [Phase 1 Responses Adapter 与 CLI](docs/implementation/PHASE1_MODEL_ADAPTER_CLI.zh-CN.md)
 - [Phase 1 双模式 AgentDojo 评测](docs/implementation/PHASE1_EVALUATION_HARNESS.zh-CN.md)
+- [2026-09-14 Live AgentDojo 证据](docs/evidence/2026-09-14-AGENTDOJO-LIVE.zh-CN.md)
 - [Phase 1 模型用量统计](docs/implementation/PHASE1_USAGE_ACCOUNTING.zh-CN.md)
 - [Phase 1 Provider Cancellation](docs/implementation/PHASE1_PROVIDER_CANCELLATION.zh-CN.md)
 - [Phase 1 加密 Transcript 恢复](docs/implementation/PHASE1_TRANSCRIPT_RECOVERY.zh-CN.md)
