@@ -1,5 +1,6 @@
 """Offline, evidence-gated Skill candidate lifecycle."""
 
+from voren.learning.agentdojo import AgentDojoSkillEvaluator, SkillModelFactory
 from voren.learning.evaluation import (
     CandidateEvaluationArtifact,
     CandidateTrialResult,
@@ -38,6 +39,7 @@ from voren.learning.store import (
 __all__ = [
     "CandidateAdmissionError",
     "CandidateAdmissionPolicy",
+    "AgentDojoSkillEvaluator",
     "CandidateDecision",
     "CandidateEvaluationArtifact",
     "CandidateEvaluationError",
@@ -60,5 +62,6 @@ __all__ = [
     "SkillCandidate",
     "SkillCandidateService",
     "SkillDiff",
+    "SkillModelFactory",
     "TrialMeasurement",
 ]

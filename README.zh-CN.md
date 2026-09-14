@@ -3,8 +3,9 @@
 [English](README.md)
 
 [2026-09-14 作品集审计](docs/reviews/2026-09-14-PORTFOLIO-AUDIT.zh-CN.md)记录了
-最新验证与调整后的交付顺序。动作并发领取、外部提交后且 Receipt 落盘前的崩溃
-窗口仍待修复；现有确定性测试通过不代表所有恢复路径已经完善。
+审计基线与调整后的交付顺序。后续切片已增加原子 Operation Claim，并使用只做
+外部状态观察、绝不重发动作的 Reconciliation 处理外部提交后且 Receipt 落盘前
+的崩溃窗口。现有确定性测试通过仍不代表 Live Model 质量。
 
 > 当前状态：Phase 1 进行中。安全动作核心、持久 Approval Pause、带 Provenance
 > Label 的 AgentDojo Read、有界 Loop、Responses API Adapter 和交互式 CLI 已经
@@ -15,7 +16,10 @@
 > Mid-loop Transcript Recovery 也已实现。目前还没有记录 Live-model Run，
 > 也没有生产环境 Connector。Phase 2 已经开始：当前具备兼容 Agent Skills、
 > 内容寻址的静态 Skill Store、精确 Active Version Snapshot，以及接入 Agent Loop
-> 且有大小限制的版本冻结 Instruction Context。
+> 且有大小限制的版本冻结 Instruction Context。Phase 3 现已具备 Evidence-gated
+> 非激活 Candidate、Paired Held-out Evaluation、事务化 Decision、原子
+> Promotion/Rollback、完整性审计链，以及精确版本的 AgentDojo Skill Evaluator。
+> 公开 Learning CLI 与有记录的 Live Comparison 尚未完成。
 
 Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的工程重点不是
 覆盖尽可能多的个人助理功能，而是回答一个更窄的问题：
@@ -65,6 +69,10 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [Phase 1 加密 Transcript 恢复](docs/implementation/PHASE1_TRANSCRIPT_RECOVERY.zh-CN.md)
 - [Phase 2 静态 Skill Store](docs/implementation/PHASE2_STATIC_SKILL_STORE.zh-CN.md)
 - [Phase 2 版本冻结的 Skill Context](docs/implementation/PHASE2_SKILL_CONTEXT.zh-CN.md)
+- [Phase 3 Candidate 暂存](docs/implementation/PHASE3_CANDIDATE_STAGING.zh-CN.md)
+- [Phase 3 配对评测](docs/implementation/PHASE3_PAIRED_EVALUATION.zh-CN.md)
+- [Phase 3 晋升与回滚](docs/implementation/PHASE3_PROMOTION_ROLLBACK.zh-CN.md)
+- [Phase 3 AgentDojo Skill Evaluator](docs/implementation/PHASE3_AGENTDOJO_SKILL_EVALUATOR.zh-CN.md)
 
 ## 当前可运行切片
 

@@ -3,9 +3,10 @@
 [简体中文](README.zh-CN.md)
 
 The [2026-09-14 portfolio audit](docs/reviews/2026-09-14-PORTFOLIO-AUDIT.zh-CN.md)
-records current verification and the revised delivery order. Concurrent operation
-claims and the external-commit-before-receipt crash window still need correction;
-passing scripted tests must not be read as a complete recovery guarantee.
+records the audit baseline and revised delivery order. Subsequent slices added
+atomic operation claims and observation-only reconciliation for the external-
+commit-before-receipt crash window. Scripted tests still must not be read as
+live-model quality evidence.
 
 > Status: Phase 1 in progress. The safe-action core, durable approval pause,
 > provenance-labelled AgentDojo reads, bounded loop, Responses API adapter, and
@@ -19,7 +20,10 @@ passing scripted tests must not be read as a complete recovery guarantee.
 > live-model run and production connectors do not exist. Phase 2 has started
 > with an Agent Skills-compatible, content-addressed static skill store, exact
 > active-version snapshots, and bounded version-pinned instructions wired into
-> the agent loop.
+> the agent loop. Phase 3 now has evidence-gated inactive candidates, paired
+> held-out evaluation, transactional decisions, atomic promotion/rollback, an
+> integrity-chained audit, and an exact-version AgentDojo Skill evaluator. A
+> public learning CLI and recorded live comparison are not yet complete.
 
 Voren is a planned single-agent assistant for email and calendar work. Its
 engineering focus is not broad personal-assistant coverage, but a narrower
@@ -72,6 +76,10 @@ the first release.
 - [Phase 1 encrypted transcript recovery](docs/implementation/PHASE1_TRANSCRIPT_RECOVERY.md)
 - [Phase 2 static skill store](docs/implementation/PHASE2_STATIC_SKILL_STORE.md)
 - [Phase 2 version-pinned skill context](docs/implementation/PHASE2_SKILL_CONTEXT.md)
+- [Phase 3 candidate staging](docs/implementation/PHASE3_CANDIDATE_STAGING.md)
+- [Phase 3 paired evaluation](docs/implementation/PHASE3_PAIRED_EVALUATION.md)
+- [Phase 3 promotion and rollback](docs/implementation/PHASE3_PROMOTION_ROLLBACK.md)
+- [Phase 3 AgentDojo Skill evaluator](docs/implementation/PHASE3_AGENTDOJO_SKILL_EVALUATOR.md)
 
 ## Current executable slice
 

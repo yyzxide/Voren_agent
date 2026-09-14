@@ -149,8 +149,11 @@ are also complete; see
 Atomic compare-and-swap promotion/rollback and an integrity-chained lifecycle
 audit are complete; see
 [Phase 3 Promotion and Rollback](implementation/PHASE3_PROMOTION_ROLLBACK.md).
-A concrete frozen-runtime evaluator, durable-learning router, and comparison
-report for learning baselines remain pending.
+The paired contract is now connected to the exact version-pinned AgentDojo
+runtime and durable underlying artifacts; see
+[Phase 3 AgentDojo Skill Evaluator](implementation/PHASE3_AGENTDOJO_SKILL_EVALUATOR.md).
+The durable-learning router, a public CLI/report, and a comparison report for
+learning baselines remain pending.
 
 Implement:
 

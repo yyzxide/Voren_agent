@@ -43,6 +43,7 @@ from voren.runtime.agent_loop import AgentLoop, SYSTEM_INSTRUCTION
 from voren.runtime.models import RuntimeLimits, RuntimeResultStatus, ToolKind
 from voren.runtime.ports import ModelAdapter
 from voren.runtime.tools import external_action_tool
+from voren.skills.context import SkillContextSnapshot
 
 
 ATTACK_TEMPLATE_VERSION = "fixed-important-instructions/v1"
@@ -96,7 +97,9 @@ def phase1_smoke_manifest() -> EvaluationManifest:
     )
 
 
-def evaluation_input_digests() -> tuple[str, str, str]:
+def evaluation_input_digests(
+    skill_context: SkillContextSnapshot | None = None,
+) -> tuple[str, str, str]:
     """Return prompt, tool-schema, and attack-template digests."""
 
     action_definition = create_calendar_event_definition()
@@ -117,8 +120,14 @@ def evaluation_input_digests() -> tuple[str, str, str]:
             "kind": ToolKind.EXTERNAL_ACTION.value,
         }
     )
+    system_instruction = SYSTEM_INSTRUCTION
+    if skill_context is not None and skill_context.rendered_instructions:
+        system_instruction = (
+            f"{SYSTEM_INSTRUCTION.rstrip()}\n\n"
+            f"{skill_context.rendered_instructions}\n"
+        )
     return (
-        digest_json(SYSTEM_INSTRUCTION),
+        digest_json(system_instruction),
         digest_json(tools),
         digest_json(ATTACK_TEMPLATE),
     )
@@ -134,6 +143,7 @@ class AgentDojoEvaluationRunner:
         database: Path,
         limits: RuntimeLimits | None = None,
         clock: Callable[[], datetime] | None = None,
+        skill_context: SkillContextSnapshot | None = None,
     ) -> None:
         try:
             from agentdojo.task_suite.load_suites import get_suite
@@ -147,6 +157,7 @@ class AgentDojoEvaluationRunner:
         self._database = database
         self._limits = limits or RuntimeLimits()
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._skill_context = skill_context or SkillContextSnapshot.no_skill()
 
     def run(
         self,
@@ -169,9 +180,8 @@ class AgentDojoEvaluationRunner:
         )
         return ExperimentArtifact.create(config=config, trials=trials)
 
-    @staticmethod
     def _validate_config(
-        config: ExperimentConfig, manifest: EvaluationManifest
+        self, config: ExperimentConfig, manifest: EvaluationManifest
     ) -> None:
         if (
             manifest.manifest_id != config.manifest_id
@@ -183,7 +193,9 @@ class AgentDojoEvaluationRunner:
             raise ValueError("experiment config does not match evaluation manifest")
         if manifest.dataset_version != AGENTDOJO_BENCHMARK_VERSION:
             raise ValueError("unsupported AgentDojo benchmark version")
-        prompt_digest, tool_digest, attack_digest = evaluation_input_digests()
+        prompt_digest, tool_digest, attack_digest = evaluation_input_digests(
+            self._skill_context
+        )
         if (
             config.system_prompt_digest != prompt_digest
             or config.tool_schema_digest != tool_digest
@@ -240,6 +252,7 @@ class AgentDojoEvaluationRunner:
                 ),
                 run_manager=manager,
                 limits=self._limits,
+                skill_context=self._skill_context,
             )
             result = loop.run(
                 user_request=user_task.PROMPT,
@@ -251,12 +264,14 @@ class AgentDojoEvaluationRunner:
                     ),
                     policy_version=self._policy_version(mode),
                     action_contract_versions=(WORKSPACE_CONTRACT_VERSION,),
+                    skill_versions=self._skill_context.skill_versions,
                     metadata={
                         "experiment_id": config.experiment_id,
                         "case_id": case.case_id,
                         "evaluation_mode": mode.value,
                         "model": config.model,
                         "provider": config.provider,
+                        "skill_context_digest": self._skill_context.context_digest,
                     },
                 ),
             )

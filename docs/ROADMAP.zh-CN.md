@@ -145,8 +145,11 @@ Profile/Episode Store、Semantic Skill Routing，以及配对的 `no_skill`/
 详见 [Phase 3 配对评测](implementation/PHASE3_PAIRED_EVALUATION.zh-CN.md)。原子
 Compare-and-swap Promotion/Rollback 与带完整性链的 Lifecycle Audit 已完成，
 详见 [Phase 3 晋升与回滚](implementation/PHASE3_PROMOTION_ROLLBACK.zh-CN.md)。
-具体 Frozen-runtime Evaluator、Durable-learning Router 与 Learning Baseline
-Comparison Report 仍待实现。
+Paired Contract 也已经接到精确 Version-pinned AgentDojo Runtime 与持久底层
+Artifact，详见
+[Phase 3 AgentDojo Skill Evaluator](implementation/PHASE3_AGENTDOJO_SKILL_EVALUATOR.zh-CN.md)。
+Durable-learning Router、公开 CLI/Report 与 Learning Baseline Comparison
+Report 仍待实现。
 
 实现：
 
