@@ -151,7 +151,9 @@ Artifact，详见
 显式 Install/Stage/Decide/Inspect/Promote/Rollback CLI 也已完成，详见
 [Phase 3 Skill CLI](implementation/PHASE3_SKILL_CLI.zh-CN.md)，并已加入显式付费
 的 `skill eval-agentdojo` Artifact-generation Command。Durable-learning Router
-与 Learning Baseline Comparison Report 仍待实现。
+与 Integrity-bound Evidence Store 也已完成，详见
+[Phase 3 Durable Learning Router](implementation/PHASE3_DURABLE_LEARNING_ROUTER.zh-CN.md)。
+Learning Baseline Comparison Report 仍待实现。
 
 实现：
 

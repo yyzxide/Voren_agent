@@ -117,6 +117,7 @@ class AgentDojoSkillEvaluatorTest(unittest.TestCase):
         candidate = SkillCandidateService(
             skills=self.skills,
             candidates=self.candidates,
+            require_persisted_evidence=False,
         ).stage(
             candidate_id=candidate_id,
             base_ref=base.ref,

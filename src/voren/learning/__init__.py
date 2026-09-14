@@ -13,6 +13,11 @@ from voren.learning.evaluation import (
     PairedCaseResult,
     TrialMeasurement,
 )
+from voren.learning.evidence import (
+    DurableLearningRouter,
+    LearningEvidenceArtifact,
+    LearningEvidenceRoutingError,
+)
 from voren.learning.lifecycle import CandidateEventType, CandidateLifecycleEvent
 from voren.learning.models import (
     CandidateStatus,
@@ -57,9 +62,12 @@ __all__ = [
     "CandidateTrialResult",
     "EvaluationCaseKind",
     "EvaluationInfrastructureFailure",
+    "DurableLearningRouter",
     "EvidenceRef",
     "EvidenceSource",
     "HeldOutCase",
+    "LearningEvidenceArtifact",
+    "LearningEvidenceRoutingError",
     "PairedCaseResult",
     "PairedEvaluationRunner",
     "read_candidate_evaluation",

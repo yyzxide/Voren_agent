@@ -7,8 +7,9 @@ from datetime import datetime
 from pathlib import Path
 
 from voren.learning.evaluation import CandidateEvaluationArtifact
+from voren.learning.evidence import LearningEvidenceArtifact
 from voren.learning.lifecycle import CandidateEventType, CandidateLifecycleEvent
-from voren.learning.models import CandidateStatus, SkillCandidate
+from voren.learning.models import CandidateStatus, EvidenceRef, SkillCandidate
 from voren.learning.policy import CandidateDecision
 from voren.skills.models import SkillVersionRef
 
@@ -27,6 +28,15 @@ class SQLiteCandidateStore:
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA journal_mode=WAL")
         self._connection.execute("PRAGMA foreign_keys=ON")
+        self._connection.execute(
+            """CREATE TABLE IF NOT EXISTS learning_evidence (
+                   evidence_id TEXT PRIMARY KEY,
+                   source TEXT NOT NULL,
+                   artifact_digest TEXT NOT NULL UNIQUE,
+                   artifact_json TEXT NOT NULL,
+                   created_at TEXT NOT NULL
+               )"""
+        )
         self._connection.execute(
             """CREATE TABLE IF NOT EXISTS skill_candidates (
                    candidate_id TEXT PRIMARY KEY,
@@ -70,6 +80,68 @@ class SQLiteCandidateStore:
 
     def close(self) -> None:
         self._connection.close()
+
+    def record_evidence(
+        self, artifact: LearningEvidenceArtifact
+    ) -> LearningEvidenceArtifact:
+        artifact.assert_integrity()
+        with self._connection:
+            self._connection.execute(
+                """INSERT INTO learning_evidence (
+                       evidence_id, source, artifact_digest,
+                       artifact_json, created_at
+                   ) VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT(evidence_id) DO NOTHING""",
+                (
+                    artifact.evidence_id,
+                    artifact.source.value,
+                    artifact.artifact_digest,
+                    artifact.model_dump_json(),
+                    artifact.created_at.isoformat(),
+                ),
+            )
+        stored = self.get_evidence(artifact.evidence_id)
+        if stored != artifact:
+            raise CandidateStoreError(
+                f"evidence ID {artifact.evidence_id!r} is already bound "
+                "to another artifact"
+            )
+        return stored
+
+    def get_evidence(self, evidence_id: str) -> LearningEvidenceArtifact:
+        row = self._connection.execute(
+            """SELECT source, artifact_digest, artifact_json
+               FROM learning_evidence WHERE evidence_id = ?""",
+            (evidence_id,),
+        ).fetchone()
+        if row is None:
+            raise CandidateStoreError(f"unknown evidence ID {evidence_id!r}")
+        try:
+            artifact = LearningEvidenceArtifact.model_validate_json(
+                row["artifact_json"]
+            )
+            artifact.assert_integrity()
+        except ValueError as error:
+            raise CandidateStoreError(
+                "learning evidence failed integrity validation"
+            ) from error
+        if (
+            artifact.source.value != row["source"]
+            or artifact.artifact_digest != row["artifact_digest"]
+        ):
+            raise CandidateStoreError(
+                "learning evidence columns disagree with its artifact"
+            )
+        return artifact
+
+    def require_evidence(self, evidence: tuple[EvidenceRef, ...]) -> None:
+        for expected in evidence:
+            stored = self.get_evidence(expected.evidence_id).as_ref()
+            if stored != expected:
+                raise CandidateStoreError(
+                    f"evidence reference {expected.evidence_id!r} does not "
+                    "match its durable artifact"
+                )
 
     def stage(self, candidate: SkillCandidate) -> SkillCandidate:
         record_json = candidate.model_dump_json()

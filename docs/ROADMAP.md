@@ -155,7 +155,9 @@ runtime and durable underlying artifacts; see
 The explicit install/stage/decide/inspect/promote/rollback CLI is complete; see
 [Phase 3 Skill CLI](implementation/PHASE3_SKILL_CLI.md). It now also exposes an
 explicit paid `skill eval-agentdojo` Artifact-generation command. The durable-
-learning router and comparison report for learning baselines remain pending.
+learning router and integrity-bound Evidence Store are complete; see
+[Phase 3 Durable Learning Router](implementation/PHASE3_DURABLE_LEARNING_ROUTER.md).
+The comparison report for learning baselines remains pending.
 
 Implement:
 

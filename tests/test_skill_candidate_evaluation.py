@@ -47,7 +47,9 @@ class SkillCandidateEvaluationTest(unittest.TestCase):
         self.addCleanup(self.candidates.close)
         self.addCleanup(self.skills.close)
         self.service = SkillCandidateService(
-            skills=self.skills, candidates=self.candidates
+            skills=self.skills,
+            candidates=self.candidates,
+            require_persisted_evidence=False,
         )
         self.runner = PairedEvaluationRunner()
         self.now = datetime(2026, 9, 14, 12, 0, tzinfo=UTC)

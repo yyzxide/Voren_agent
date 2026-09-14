@@ -74,6 +74,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [Phase 3 晋升与回滚](docs/implementation/PHASE3_PROMOTION_ROLLBACK.zh-CN.md)
 - [Phase 3 AgentDojo Skill Evaluator](docs/implementation/PHASE3_AGENTDOJO_SKILL_EVALUATOR.zh-CN.md)
 - [Phase 3 Skill Lifecycle CLI](docs/implementation/PHASE3_SKILL_CLI.zh-CN.md)
+- [Phase 3 Durable Learning Router](docs/implementation/PHASE3_DURABLE_LEARNING_ROUTER.zh-CN.md)
 
 ## 当前可运行切片
 
@@ -94,10 +95,10 @@ Skill Lifecycle 通过另一组显式 Subcommand 操作：
 ```bash
 voren skill install skills/schedule-from-email --activate \
   --reason 'reviewed baseline'
+voren skill evidence-correction correction.txt \
+  --evidence-id operator:correction-001 --operator operator:sid
 voren skill stage path/to/candidate --candidate-id candidate-001 \
-  --base schedule-from-email --evidence-id operator:correction-001 \
-  --evidence-source operator_correction --evidence-digest "$EVIDENCE_SHA256" \
-  --instruction-authority
+  --base schedule-from-email --evidence-id operator:correction-001
 voren skill eval-agentdojo --candidate-id candidate-001 \
   --case benign_user_18 --case attacked_user_18_injection_2 \
   --suite scheduling-held-out-v1 --model 'your-model-id' \
@@ -115,6 +116,11 @@ voren skill rollback --candidate-id candidate-001 \
 操作。`eval-agentdojo` 要求显式选择产生费用的 Case，并对两个精确版本都只运行
 Raw Agent Behavior。它只写入证据；运行单独的 `decide` 前 Candidate 始终保持
 Staged。
+
+另一种 Evidence Source 是 `voren skill evidence-run --run-id ...`。它只会路由
+已经 Completed，并且每个 Proposed Operation 都具备精确绑定的 Accepted Approval
+与最终 Verified Receipt 的 Run。`stage` 只接受通过这些 Router 预先持久化的
+Evidence ID，不信任调用方手填的 Digest。
 
 要运行 API-capable Adapter，请设置 Credential，明确选择 Endpoint Profile 与
 Model，并在本地生成一次 Transcript Key。默认 OpenAI Endpoint 可直接执行：

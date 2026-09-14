@@ -37,7 +37,11 @@ from voren.learning.artifacts import read_candidate_evaluation
 from voren.learning.agentdojo import AgentDojoSkillEvaluator, SkillModelFactory
 from voren.learning.artifacts import write_candidate_evaluation
 from voren.learning.evaluation import EvaluationCaseKind, HeldOutCase
-from voren.learning.models import CandidateStatus, EvidenceRef, EvidenceSource
+from voren.learning.evidence import (
+    DurableLearningRouter,
+    LearningEvidenceRoutingError,
+)
+from voren.learning.models import CandidateStatus
 from voren.learning.runner import PairedEvaluationRunner
 from voren.learning.service import SkillCandidateService
 from voren.learning.store import CandidateStoreError, SQLiteCandidateStore
@@ -185,31 +189,42 @@ def build_parser() -> argparse.ArgumentParser:
     install.add_argument("--reason", help="Required when --activate is used.")
     install.set_defaults(handler=run_skill_install)
 
+    correction = skill_commands.add_parser(
+        "evidence-correction",
+        help="Persist an operator-authored correction as learning evidence.",
+    )
+    correction.add_argument("path", type=Path, help="UTF-8 correction text file.")
+    correction.add_argument("--evidence-id", required=True)
+    correction.add_argument("--operator", required=True)
+    _add_skill_storage_arguments(correction)
+    correction.set_defaults(handler=run_skill_evidence_correction)
+
+    run_evidence = skill_commands.add_parser(
+        "evidence-run",
+        help="Route an eligible completed Run into durable learning evidence.",
+    )
+    run_evidence.add_argument("--run-id", required=True)
+    run_evidence.add_argument("--evidence-id", required=True)
+    run_evidence.add_argument(
+        "--evidence-case",
+        action="append",
+        default=[],
+        help="Evaluation Case used by this Run; repeat as needed.",
+    )
+    _add_skill_storage_arguments(run_evidence)
+    run_evidence.set_defaults(handler=run_skill_evidence_run)
+
     stage = skill_commands.add_parser(
-        "stage", help="Stage a bounded inactive candidate from one evidence item."
+        "stage", help="Stage a bounded inactive candidate from durable evidence."
     )
     stage.add_argument("path", type=Path, help="Candidate Skill package path.")
     stage.add_argument("--candidate-id", required=True)
     stage.add_argument("--base", required=True, help="Active base Skill name.")
-    stage.add_argument("--evidence-id", required=True)
     stage.add_argument(
-        "--evidence-source",
-        required=True,
-        choices=tuple(source.value for source in EvidenceSource),
-    )
-    stage.add_argument(
-        "--evidence-digest", required=True, help="SHA-256 of durable evidence."
-    )
-    stage.add_argument(
-        "--instruction-authority",
-        action="store_true",
-        help="Required only for an operator_correction evidence source.",
-    )
-    stage.add_argument(
-        "--evidence-case",
+        "--evidence-id",
         action="append",
-        default=[],
-        help="Evaluation case used as learning evidence; repeat as needed.",
+        required=True,
+        help="Previously persisted Evidence ID; repeat to bind multiple items.",
     )
     _add_skill_storage_arguments(stage)
     stage.set_defaults(handler=run_skill_stage)
@@ -283,6 +298,11 @@ def build_parser() -> argparse.ArgumentParser:
         "inspect", help="Print one candidate, evaluations, and audit events as JSON."
     )
     inspect.add_argument("--candidate-id", required=True)
+    inspect.add_argument(
+        "--include-evidence-payload",
+        action="store_true",
+        help="Include potentially sensitive correction or Run snapshot content.",
+    )
     _add_skill_storage_arguments(inspect)
     inspect.set_defaults(handler=run_skill_inspect)
 
@@ -603,21 +623,19 @@ def run_skill_stage(
     skills, candidates = _open_skill_stores(args)
     try:
         base_ref = skills.freeze_active((args.base,))[0]
-        evidence = EvidenceRef(
-            evidence_id=args.evidence_id,
-            source=EvidenceSource(args.evidence_source),
-            digest=args.evidence_digest,
-            instruction_authority=args.instruction_authority,
-            evaluation_case_ids=tuple(args.evidence_case),
+        evidence = tuple(
+            candidates.get_evidence(evidence_id).as_ref()
+            for evidence_id in args.evidence_id
         )
         candidate = SkillCandidateService(
             skills=skills,
             candidates=candidates,
+            require_persisted_evidence=True,
         ).stage(
             candidate_id=args.candidate_id,
             base_ref=base_ref,
             package=AgentSkillParser().load(args.path),
-            evidence=(evidence,),
+            evidence=evidence,
         )
         output(f"candidate: {candidate.candidate_id}")
         output(f"status: {candidate.status.value}")
@@ -626,6 +644,56 @@ def run_skill_stage(
         output(f"diff digest: {candidate.diff.diff_digest}")
         return 0
     finally:
+        candidates.close()
+        skills.close()
+
+
+def run_skill_evidence_correction(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    correction = args.path.read_text(encoding="utf-8")
+    skills, candidates = _open_skill_stores(args)
+    try:
+        evidence = DurableLearningRouter(
+            evidence_store=candidates
+        ).record_operator_correction(
+            evidence_id=args.evidence_id,
+            correction=correction,
+            operator_ref=args.operator,
+        )
+        output(f"evidence: {evidence.evidence_id}")
+        output(f"source: {evidence.source.value}")
+        output(f"artifact digest: {evidence.digest}")
+        return 0
+    finally:
+        candidates.close()
+        skills.close()
+
+
+def run_skill_evidence_run(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    skills, candidates = _open_skill_stores(args)
+    runs = SQLiteRunStore(args.database)
+    try:
+        evidence = DurableLearningRouter(
+            evidence_store=candidates,
+            run_store=runs,
+        ).select_verified_run(
+            evidence_id=args.evidence_id,
+            run_id=args.run_id,
+            evaluation_case_ids=tuple(args.evidence_case),
+        )
+        output(f"evidence: {evidence.evidence_id}")
+        output(f"source: {evidence.source.value}")
+        output(f"artifact digest: {evidence.digest}")
+        return 0
+    finally:
+        runs.close()
         candidates.close()
         skills.close()
 
@@ -806,6 +874,13 @@ def run_skill_inspect(
         candidate = candidates.get(args.candidate_id)
         payload = {
             "candidate": candidate.model_dump(mode="json"),
+            "evidence": [
+                _evidence_for_inspection(
+                    candidates.get_evidence(item.evidence_id),
+                    include_payload=args.include_evidence_payload,
+                )
+                for item in candidate.evidence
+            ],
             "evaluations": [
                 artifact.model_dump(mode="json")
                 for artifact in candidates.list_evaluations(args.candidate_id)
@@ -820,6 +895,14 @@ def run_skill_inspect(
     finally:
         candidates.close()
         skills.close()
+
+
+def _evidence_for_inspection(artifact, *, include_payload: bool) -> dict:
+    payload = artifact.model_dump(mode="json")
+    payload["payload_bytes"] = len(artifact.payload.encode("utf-8"))
+    if not include_payload:
+        payload.pop("payload")
+    return payload
 
 
 def run_skill_promote(

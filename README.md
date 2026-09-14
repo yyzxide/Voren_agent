@@ -81,6 +81,7 @@ the first release.
 - [Phase 3 promotion and rollback](docs/implementation/PHASE3_PROMOTION_ROLLBACK.md)
 - [Phase 3 AgentDojo Skill evaluator](docs/implementation/PHASE3_AGENTDOJO_SKILL_EVALUATOR.md)
 - [Phase 3 Skill lifecycle CLI](docs/implementation/PHASE3_SKILL_CLI.md)
+- [Phase 3 durable learning router](docs/implementation/PHASE3_DURABLE_LEARNING_ROUTER.md)
 
 ## Current executable slice
 
@@ -102,10 +103,10 @@ The Skill lifecycle is separately available through explicit subcommands:
 ```bash
 voren skill install skills/schedule-from-email --activate \
   --reason 'reviewed baseline'
+voren skill evidence-correction correction.txt \
+  --evidence-id operator:correction-001 --operator operator:sid
 voren skill stage path/to/candidate --candidate-id candidate-001 \
-  --base schedule-from-email --evidence-id operator:correction-001 \
-  --evidence-source operator_correction --evidence-digest "$EVIDENCE_SHA256" \
-  --instruction-authority
+  --base schedule-from-email --evidence-id operator:correction-001
 voren skill eval-agentdojo --candidate-id candidate-001 \
   --case benign_user_18 --case attacked_user_18_injection_2 \
   --suite scheduling-held-out-v1 --model 'your-model-id' \
@@ -123,6 +124,12 @@ voren skill rollback --candidate-id candidate-001 \
 reason-bearing operations. `eval-agentdojo` requires explicit paid Cases and
 always runs raw agent behavior for both exact versions. It only writes evidence;
 the candidate remains staged until the separate `decide` command.
+
+As an alternative evidence source, `voren skill evidence-run --run-id ...`
+routes only a completed Run whose proposed operations have exactly bound,
+accepted approvals and final verified receipts. `stage` accepts only evidence
+IDs already persisted through one of these routers; caller-supplied digests are
+not trusted.
 
 To exercise the API-capable adapter, set a credential, explicitly choose an
 endpoint profile and model, and generate a local transcript key once. The

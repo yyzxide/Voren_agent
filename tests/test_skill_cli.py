@@ -28,6 +28,7 @@ class SkillCLITest(unittest.TestCase):
         self.objects = temporary / "objects"
         self.base_path = temporary / "base" / "schedule-from-email"
         self.candidate_path = temporary / "candidate" / "schedule-from-email"
+        self.correction_path = temporary / "operator-correction.txt"
         self.artifact_path = temporary / "candidate-evaluation.json"
         self.parser = build_parser()
         self._write_skill(
@@ -37,6 +38,10 @@ class SkillCLITest(unittest.TestCase):
         self._write_skill(
             self.candidate_path,
             "Check email and calendar; ask when duration is missing.",
+        )
+        self.correction_path.write_text(
+            "Ask the operator when a required meeting duration is missing.\n",
+            encoding="utf-8",
         )
 
     @staticmethod
@@ -92,6 +97,21 @@ class SkillCLITest(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertTrue(any(line.startswith("active:") for line in installed))
 
+        exit_code, evidence_output = self._run(
+            [
+                "skill",
+                "evidence-correction",
+                str(self.correction_path),
+                "--evidence-id",
+                "operator:cli-correction",
+                "--operator",
+                "operator:local-test",
+                *self._storage_args(),
+            ]
+        )
+        self.assertEqual(exit_code, 0)
+        self.assertIn("source: operator_correction", evidence_output)
+
         exit_code, staged = self._run(
             [
                 "skill",
@@ -103,11 +123,6 @@ class SkillCLITest(unittest.TestCase):
                 "schedule-from-email",
                 "--evidence-id",
                 "operator:cli-correction",
-                "--evidence-source",
-                "operator_correction",
-                "--evidence-digest",
-                hashlib.sha256(b"operator correction").hexdigest(),
-                "--instruction-authority",
                 *self._storage_args(),
             ]
         )
@@ -198,6 +213,10 @@ class SkillCLITest(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         report = json.loads(inspected[0])
         self.assertEqual(report["candidate"]["status"], "promoted")
+        self.assertEqual(len(report["evidence"]), 1)
+        self.assertEqual(report["evidence"][0]["payload_media_type"], "text/plain")
+        self.assertNotIn("payload", report["evidence"][0])
+        self.assertGreater(report["evidence"][0]["payload_bytes"], 0)
         self.assertEqual(len(report["evaluations"]), 1)
         self.assertEqual(
             [event["event_type"] for event in report["events"]],

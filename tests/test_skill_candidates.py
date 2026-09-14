@@ -29,7 +29,9 @@ class SkillCandidateTest(unittest.TestCase):
         self.addCleanup(self.candidates.close)
         self.addCleanup(self.skills.close)
         self.service = SkillCandidateService(
-            skills=self.skills, candidates=self.candidates
+            skills=self.skills,
+            candidates=self.candidates,
+            require_persisted_evidence=False,
         )
         self.now = datetime(2026, 9, 14, 10, 0, tzinfo=UTC)
         self._write_skill("Check the email, then check the calendar.")
@@ -154,6 +156,7 @@ class SkillCandidateTest(unittest.TestCase):
             skills=self.skills,
             candidates=self.candidates,
             policy=CandidateAdmissionPolicy(max_changed_lines=1),
+            require_persisted_evidence=False,
         )
         package = self._candidate_package(
             "First changed line.\n\nSecond changed line."

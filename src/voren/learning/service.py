@@ -25,11 +25,13 @@ class SkillCandidateService:
         candidates: SQLiteCandidateStore,
         policy: CandidateAdmissionPolicy | None = None,
         evaluation_policy: CandidateEvaluationPolicy | None = None,
+        require_persisted_evidence: bool = True,
     ) -> None:
         self._skills = skills
         self._candidates = candidates
         self._policy = policy or CandidateAdmissionPolicy()
         self._evaluation_policy = evaluation_policy or CandidateEvaluationPolicy()
+        self._require_persisted_evidence = require_persisted_evidence
 
     def stage(
         self,
@@ -46,6 +48,8 @@ class SkillCandidateService:
                 "candidate base is stale and no longer the active Skill version"
             )
         self._policy.admit_evidence(evidence)
+        if self._require_persisted_evidence:
+            self._candidates.require_evidence(evidence)
         base = self._skills.load_package(base_ref)
         diff = self._policy.compare_packages(base, package)
         candidate_version = self._skills.install(package, created_at=created_at)

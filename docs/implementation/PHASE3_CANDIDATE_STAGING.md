@@ -13,7 +13,8 @@ A candidate must name the exact active base version and carry at least one
 reference to either an operator correction or a verified run. Model reflection
 and external observation may be supporting evidence, but cannot authorize a
 candidate by themselves. Evidence references are immutable identifiers and
-SHA-256 digests; durable evidence-object storage remains a later slice.
+SHA-256 digests. The subsequent durable-router slice now persists and verifies
+those exact evidence objects before the public CLI permits staging.
 
 The first edit policy is intentionally narrow:
 

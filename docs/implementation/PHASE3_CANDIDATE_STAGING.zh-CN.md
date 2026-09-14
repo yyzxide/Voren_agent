@@ -11,8 +11,9 @@
 
 Candidate 必须指向精确的当前 Active Base Version，并至少引用一条人工纠正或
 已验证 Run。模型反思与外部观察可以作为辅助证据，但不能独立授权创建
-Candidate。Evidence Reference 是不可变 ID 与 SHA-256 Digest；持久 Evidence
-Object Store 属于后续切片，当前尚未实现。
+Candidate。Evidence Reference 是不可变 ID 与 SHA-256 Digest。后续
+Durable-router 切片现已持久化并验证这些精确 Evidence Object；公开 CLI 只有在
+验证之后才允许暂存。
 
 第一版编辑策略有意限制得很窄：
 
