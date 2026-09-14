@@ -204,6 +204,12 @@ class SQLiteSkillStore:
             resources=resources,
         )
 
+    def load_package(self, ref: SkillVersionRef) -> SkillPackage:
+        """Load an integrity-checked package for offline review or learning."""
+
+        version = self.get_version(ref)
+        return self._load_verified_package(version)
+
     def load_resource(
         self, ref: SkillVersionRef, relative_path: str
     ) -> SkillFile:

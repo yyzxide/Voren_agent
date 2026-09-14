@@ -138,6 +138,11 @@ Profile/Episode Store、Semantic Skill Routing，以及配对的 `no_skill`/
 
 ## 5. Phase 3：Candidate 学习与晋升
 
+状态：**进行中**。Evidence Eligibility、只允许 `SKILL.md` 指令文本发生有界
+变化的 Admission Policy，以及非激活 Candidate 的 SQLite 持久化已完成。详见
+[Phase 3 Candidate 暂存](implementation/PHASE3_CANDIDATE_STAGING.zh-CN.md)。
+Paired Evaluation、Promotion Decision、原子晋升与 Rollback 仍待实现。
+
 实现：
 
 - Evidence Eligibility Rule；

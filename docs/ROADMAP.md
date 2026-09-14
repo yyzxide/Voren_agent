@@ -139,6 +139,13 @@ Exit criteria:
 
 ## 5. Phase 3: candidate learning and promotion
 
+Status: **in progress**. Evidence eligibility, an admission policy limited to
+bounded `SKILL.md` instruction edits, and SQLite persistence of inactive
+candidates are complete. See
+[Phase 3 Candidate Staging](implementation/PHASE3_CANDIDATE_STAGING.md).
+Paired evaluation, promotion decisions, atomic promotion, and rollback remain
+pending.
+
 Implement:
 
 - evidence eligibility rules;
