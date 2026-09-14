@@ -98,12 +98,30 @@ the first release.
 
 ## Current executable slice
 
+The committed `pylock.toml` freezes the complete runtime and integration-test
+dependency graph for CPython 3.12 on Linux x86-64. Install it in a clean virtual
+environment with pip 26.2.1, then install Voren itself without resolving a
+second dependency graph:
+
 ```bash
-python -m pip install -e '.[agentdojo,mcp]'
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade 'pip==26.2.1'
+python -m pip install --requirement pylock.toml
+python -m pip install 'setuptools==80.9.0' 'wheel==0.45.1'
+python -m pip install --no-deps --no-build-isolation --editable .
 python -m unittest discover -s tests -v
 python scripts/demo_agent_loop.py
 python scripts/demo_skill_learning.py
 python scripts/demo_learning_ablation.py
+```
+
+`pylock.toml` is a platform-specific PEP 751 lock rather than a promise that
+Linux wheels will install on every operating system. Resolve directly from
+`pyproject.toml` on another platform, or regenerate and review the lock there:
+
+```bash
+python -m pip lock --only-deps --editable '.[agentdojo,mcp,web]' --output pylock.toml
 ```
 
 Local meeting notes and extracted attachment text can be imported as immutable,
@@ -135,7 +153,6 @@ a real stdio subprocess.
 The local Web walkthrough works without a model credential:
 
 ```bash
-python -m pip install -e '.[web]'
 voren-web
 # open http://127.0.0.1:8080
 ```

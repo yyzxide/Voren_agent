@@ -90,12 +90,29 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 
 ## 当前可运行切片
 
+仓库提交的 `pylock.toml` 冻结了 CPython 3.12、Linux x86-64 环境下完整的运行时与
+集成测试依赖图。在干净虚拟环境中用 pip 26.2.1 安装锁定依赖，再安装 Voren 本身，
+避免进行第二次依赖解析：
+
 ```bash
-python -m pip install -e '.[agentdojo,mcp]'
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade 'pip==26.2.1'
+python -m pip install --requirement pylock.toml
+python -m pip install 'setuptools==80.9.0' 'wheel==0.45.1'
+python -m pip install --no-deps --no-build-isolation --editable .
 python -m unittest discover -s tests -v
 python scripts/demo_agent_loop.py
 python scripts/demo_skill_learning.py
 python scripts/demo_learning_ablation.py
+```
+
+`pylock.toml` 是平台相关的 PEP 751 锁文件，并不承诺 Linux Wheel 能直接安装到所有
+操作系统。其他平台可以直接依据 `pyproject.toml` 解析依赖，或在目标平台重新生成并
+审阅锁文件：
+
+```bash
+python -m pip lock --only-deps --editable '.[agentdojo,mcp,web]' --output pylock.toml
 ```
 
 本地会议纪要和已提取的附件文本可作为不可变、绑定来源的版本导入和检索，不需要
@@ -125,7 +142,6 @@ Voren 更严格的 Provenance Envelope。仓库测试会执行进程内协议往
 本地 Web Walkthrough 不需要模型 Credential：
 
 ```bash
-python -m pip install -e '.[web]'
 voren-web
 # 打开 http://127.0.0.1:8080
 ```
