@@ -75,43 +75,91 @@ class SQLiteOperationLedger:
         return ApprovalDecision.model_validate_json(approval_json)
 
     def authorize(self, operation_id: str, approval: ApprovalDecision) -> None:
-        row = self._get_row(operation_id)
-        status = str(row["status"])
         approval_json = approval.model_dump_json()
-        if status == "authorized" and row["approval_json"] == approval_json:
-            return
-        if status != "prepared":
-            raise InvalidOperationStateError(
-                f"cannot authorize operation {operation_id!r} from state {status!r}"
-            )
-        self._update(
+        if self._transition(
             operation_id,
+            expected_statuses=("prepared",),
             status="authorized",
             approval_json=approval_json,
+        ):
+            return
+
+        row = self._get_row(operation_id)
+        status = str(row["status"])
+        if status == "authorized" and row["approval_json"] == approval_json:
+            return
+        raise InvalidOperationStateError(
+            f"cannot authorize operation {operation_id!r} from state {status!r}"
         )
 
     def mark_committing(self, operation_id: str) -> None:
+        if self._transition(
+            operation_id,
+            expected_statuses=("authorized",),
+            status="committing",
+        ):
+            return
         status = self.get_status(operation_id)
-        if status != "authorized":
-            raise InvalidOperationStateError(
-                f"cannot commit operation {operation_id!r} from state {status!r}"
-            )
-        self._update(operation_id, status="committing")
+        raise InvalidOperationStateError(
+            f"cannot commit operation {operation_id!r} from state {status!r}"
+        )
 
     def mark_ambiguous(self, operation_id: str) -> None:
+        if self._transition(
+            operation_id,
+            expected_statuses=("committing",),
+            status="ambiguous",
+        ):
+            return
         status = self.get_status(operation_id)
-        if status != "committing":
-            raise InvalidOperationStateError(
-                f"cannot mark operation {operation_id!r} ambiguous from state {status!r}"
-            )
-        self._update(operation_id, status="ambiguous")
+        raise InvalidOperationStateError(
+            f"cannot mark operation {operation_id!r} ambiguous from state {status!r}"
+        )
 
     def store_receipt(self, receipt: ActionReceipt) -> None:
-        self._get_row(receipt.operation_id)
-        self._update(
+        row = self._get_row(receipt.operation_id)
+        proposal = ActionProposal.model_validate_json(row["proposal_json"])
+        approval_json = row["approval_json"]
+        approval = (
+            None
+            if approval_json is None
+            else ApprovalDecision.model_validate_json(approval_json)
+        )
+        if receipt.proposal_digest != proposal.digest:
+            raise InvalidOperationStateError(
+                f"receipt for operation {receipt.operation_id!r} has the wrong proposal digest"
+            )
+        if approval is None or receipt.approval_id != approval.approval_id:
+            raise InvalidOperationStateError(
+                f"receipt for operation {receipt.operation_id!r} has the wrong approval"
+            )
+
+        receipt_json = receipt.model_dump_json()
+        if row["receipt_json"] == receipt_json:
+            return
+        if row["receipt_json"] is not None:
+            raise InvalidOperationStateError(
+                f"operation {receipt.operation_id!r} already has a different receipt"
+            )
+        if self._transition(
             receipt.operation_id,
+            expected_statuses=("committing", "ambiguous"),
             status=receipt.status.value,
-            receipt_json=receipt.model_dump_json(),
+            receipt_json=receipt_json,
+            require_empty_receipt=True,
+        ):
+            return
+
+        current = self._get_row(receipt.operation_id)
+        if current["receipt_json"] == receipt_json:
+            return
+        status = str(current["status"])
+        if current["receipt_json"] is not None:
+            raise InvalidOperationStateError(
+                f"operation {receipt.operation_id!r} already has a different receipt"
+            )
+        raise InvalidOperationStateError(
+            f"cannot store receipt for operation {receipt.operation_id!r} from state {status!r}"
         )
 
     def _get_row(self, operation_id: str) -> sqlite3.Row:
@@ -122,7 +170,17 @@ class SQLiteOperationLedger:
             raise InvalidOperationStateError(f"unknown operation_id {operation_id!r}")
         return row
 
-    def _update(self, operation_id: str, *, status: str, **fields: str) -> None:
+    def _transition(
+        self,
+        operation_id: str,
+        *,
+        expected_statuses: tuple[str, ...],
+        status: str,
+        require_empty_receipt: bool = False,
+        **fields: str,
+    ) -> bool:
+        if not expected_statuses:
+            raise ValueError("expected_statuses must not be empty")
         assignments = ["status = ?", "updated_at = ?"]
         values: list[str] = [status, datetime.now(UTC).isoformat()]
         for name, value in fields.items():
@@ -130,9 +188,16 @@ class SQLiteOperationLedger:
                 raise ValueError(f"unsupported ledger field {name!r}")
             assignments.append(f"{name} = ?")
             values.append(value)
+        placeholders = ", ".join("?" for _ in expected_statuses)
         values.append(operation_id)
+        values.extend(expected_statuses)
+        receipt_guard = " AND receipt_json IS NULL" if require_empty_receipt else ""
         with self._connection:
-            self._connection.execute(
-                f"UPDATE operations SET {', '.join(assignments)} WHERE operation_id = ?",  # noqa: S608
+            cursor = self._connection.execute(
+                f"""UPDATE operations
+                    SET {', '.join(assignments)}
+                    WHERE operation_id = ?
+                      AND status IN ({placeholders}){receipt_guard}""",  # noqa: S608
                 values,
             )
+        return cursor.rowcount == 1

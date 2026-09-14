@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import tempfile
+import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from voren.actions.errors import (
     ApprovalMismatchError,
+    InvalidOperationStateError,
     InvalidProposalError,
     StaleApprovalError,
 )
@@ -136,6 +139,58 @@ class ActionGatewayTest(unittest.TestCase):
         self.assertEqual(len(self.adapter.events), 1)
         self.assertEqual(len(self.adapter.emails), 1)
 
+    def test_two_connections_cannot_both_claim_one_authorized_operation(self) -> None:
+        proposal = self._prepare()
+        self.gateway.authorize(proposal, self._approval(proposal))
+        barrier = threading.Barrier(2)
+
+        def claim(_: int) -> str:
+            ledger = SQLiteOperationLedger(self.ledger_path)
+            try:
+                barrier.wait(timeout=5)
+                try:
+                    ledger.mark_committing(proposal.operation_id)
+                except InvalidOperationStateError:
+                    return "rejected"
+                return "claimed"
+            finally:
+                ledger.close()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(claim, range(2)))
+
+        self.assertEqual(results.count("claimed"), 1)
+        self.assertEqual(results.count("rejected"), 1)
+        self.assertEqual(self.ledger.get_status(proposal.operation_id), "committing")
+
+    def test_conflicting_approval_cannot_replace_authorized_decision(self) -> None:
+        proposal = self._prepare()
+        approvals = (
+            self._approval(proposal, approval_id="approval-a"),
+            self._approval(proposal, approval_id="approval-b"),
+        )
+        barrier = threading.Barrier(2)
+
+        def authorize(approval: ApprovalDecision) -> str:
+            ledger = SQLiteOperationLedger(self.ledger_path)
+            try:
+                barrier.wait(timeout=5)
+                try:
+                    ledger.authorize(proposal.operation_id, approval)
+                except InvalidOperationStateError:
+                    return "rejected"
+                return "authorized"
+            finally:
+                ledger.close()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(authorize, approvals))
+
+        self.assertEqual(results.count("authorized"), 1)
+        self.assertEqual(results.count("rejected"), 1)
+        stored = self.ledger.get_approval(proposal.operation_id)
+        self.assertIn(stored, approvals)
+
     def test_timeout_after_commit_recovers_by_observing_state(self) -> None:
         adapter = FakeWorkspaceAdapter(failure_mode="after_commit")
         gateway = self._new_gateway(adapter)
@@ -205,6 +260,22 @@ class ActionGatewayTest(unittest.TestCase):
             self.assertEqual(reopened.get_proposal(proposal.operation_id), proposal)
         finally:
             reopened.close()
+
+    def test_durable_receipt_cannot_be_overwritten(self) -> None:
+        proposal = self._prepare()
+        authorized = self.gateway.authorize(proposal, self._approval(proposal))
+        receipt = self.gateway.commit(authorized)
+        conflicting = receipt.model_copy(
+            update={
+                "status": ReceiptStatus.VERIFICATION_FAILED,
+                "error": "stale worker result",
+            }
+        )
+
+        with self.assertRaises(InvalidOperationStateError):
+            self.ledger.store_receipt(conflicting)
+
+        self.assertEqual(self.ledger.get_receipt(proposal.operation_id), receipt)
 
 
 if __name__ == "__main__":

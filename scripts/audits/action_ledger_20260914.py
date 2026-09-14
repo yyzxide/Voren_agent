@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from threading import Barrier
 import json
 
+from voren.actions.errors import InvalidOperationStateError
 from voren.actions.gateway import ActionGateway
 from voren.actions.ledger import SQLiteOperationLedger
 from voren.actions.models import ApprovalDecision
@@ -30,15 +31,14 @@ with TemporaryDirectory(prefix="voren-audit-race-") as tmp:
     _, action = seed(ledger, FakeWorkspaceAdapter())
     ledger.close()
     barrier = Barrier(2)
-    class InterleavedLedger(SQLiteOperationLedger):
-        def _update(self, operation_id, *, status, **fields):
-            if status == "committing":
-                barrier.wait(timeout=10)
-            return super()._update(operation_id, status=status, **fields)
     def claim(_):
-        worker = InterleavedLedger(path)
+        worker = SQLiteOperationLedger(path)
         try:
-            worker.mark_committing(action.proposal.operation_id)
+            barrier.wait(timeout=10)
+            try:
+                worker.mark_committing(action.proposal.operation_id)
+            except InvalidOperationStateError:
+                return "rejected"
             return "claimed"
         finally:
             worker.close()
