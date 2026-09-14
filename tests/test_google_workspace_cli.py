@@ -83,6 +83,7 @@ class GoogleWorkspaceCLITest(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("receipt: verified", output)
+        self.assertTrue(any(line.startswith("run id: ") for line in output))
         posts = [call for call in self.transport.calls if call[0] == "POST"]
         self.assertEqual(len(posts), 1)
         self.assertTrue(posts[0][1].endswith("/drafts"))

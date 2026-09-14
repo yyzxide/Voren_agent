@@ -851,6 +851,7 @@ def _run_workspace_request(
             cancellation=cancellation,
         )
         _print_usage(result.usage, output)
+        output(f"run id: {result.run_id}")
 
         if result.status is RuntimeResultStatus.COMPLETED:
             output(result.final_text or "")
