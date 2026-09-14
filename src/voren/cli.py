@@ -47,6 +47,8 @@ from voren.learning.runner import PairedEvaluationRunner
 from voren.learning.report import render_candidate_report, write_candidate_report
 from voren.learning.service import SkillCandidateService
 from voren.learning.store import CandidateStoreError, SQLiteCandidateStore
+from voren.knowledge.models import KnowledgeDocument, KnowledgeSourceKind
+from voren.knowledge.store import KnowledgeStoreError, SQLiteKnowledgeStore
 from voren.memory.context import MemoryContextAssembler
 from voren.memory.service import MemoryService
 from voren.memory.store import MemoryStoreError, SQLiteMemoryStore
@@ -409,6 +411,45 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_memory_storage_argument(memory_inspect)
     memory_inspect.set_defaults(handler=run_memory_inspect)
+
+    knowledge = subcommands.add_parser(
+        "knowledge",
+        help="Manage source-bound meeting and attachment knowledge.",
+    )
+    knowledge_commands = knowledge.add_subparsers(
+        dest="knowledge_command", required=True
+    )
+    knowledge_ingest = knowledge_commands.add_parser(
+        "ingest", help="Install and activate one immutable local document version."
+    )
+    knowledge_ingest.add_argument("path", type=Path)
+    knowledge_ingest.add_argument("--document-id", required=True)
+    knowledge_ingest.add_argument("--title", required=True)
+    knowledge_ingest.add_argument("--source-uri", required=True)
+    knowledge_ingest.add_argument(
+        "--source-kind",
+        required=True,
+        choices=tuple(item.value for item in KnowledgeSourceKind),
+    )
+    knowledge_ingest.add_argument("--reason", required=True)
+    _add_knowledge_storage_argument(knowledge_ingest)
+    knowledge_ingest.set_defaults(handler=run_knowledge_ingest)
+
+    knowledge_search = knowledge_commands.add_parser(
+        "search", help="Search active document versions with source citations."
+    )
+    knowledge_search.add_argument("query")
+    knowledge_search.add_argument("--limit", type=int, default=5)
+    _add_knowledge_storage_argument(knowledge_search)
+    knowledge_search.set_defaults(handler=run_knowledge_search)
+
+    knowledge_inspect = knowledge_commands.add_parser(
+        "inspect", help="Inspect one active version; content is redacted by default."
+    )
+    knowledge_inspect.add_argument("--document-id", required=True)
+    knowledge_inspect.add_argument("--include-content", action="store_true")
+    _add_knowledge_storage_argument(knowledge_inspect)
+    knowledge_inspect.set_defaults(handler=run_knowledge_inspect)
     return parser
 
 
@@ -433,6 +474,15 @@ def _add_memory_storage_argument(parser: argparse.ArgumentParser) -> None:
         type=Path,
         default=Path(".voren/voren.sqlite3"),
         help="SQLite evidence, memory, and run database.",
+    )
+
+
+def _add_knowledge_storage_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--database",
+        type=Path,
+        default=Path(".voren/voren.sqlite3"),
+        help="SQLite knowledge and runtime database.",
     )
 
 
@@ -1231,6 +1281,77 @@ def run_memory_inspect(
         memories.close()
 
 
+def run_knowledge_ingest(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    document = KnowledgeDocument.create(
+        document_id=args.document_id,
+        title=args.title,
+        source_uri=args.source_uri,
+        source_kind=KnowledgeSourceKind(args.source_kind),
+        content=args.path.read_text(encoding="utf-8"),
+        created_at=datetime.now(UTC),
+    )
+    store = SQLiteKnowledgeStore(args.database)
+    try:
+        store.install(document)
+        store.activate(document.ref, reason=args.reason)
+        output(
+            f"knowledge: {document.ref.document_id}@{document.ref.version_id}"
+        )
+        output(f"source: {document.source_uri}")
+        output(f"content digest: {document.content_digest}")
+        output("instruction authority: false")
+        return 0
+    finally:
+        store.close()
+
+
+def run_knowledge_search(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    store = SQLiteKnowledgeStore(args.database)
+    try:
+        hits = store.search(args.query, limit=args.limit)
+        output(
+            json.dumps(
+                {
+                    "query": args.query,
+                    "results": [hit.model_dump(mode="json") for hit in hits],
+                    "instruction_authority": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
+    finally:
+        store.close()
+
+
+def run_knowledge_inspect(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    store = SQLiteKnowledgeStore(args.database)
+    try:
+        document = store.get_active(args.document_id)
+        payload = document.model_dump(mode="json")
+        payload["content_bytes"] = len(document.content.encode("utf-8"))
+        if not args.include_content:
+            payload.pop("content")
+        output(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0
+    finally:
+        store.close()
+
+
 def _open_skill_stores(
     args: argparse.Namespace,
 ) -> tuple[SQLiteSkillStore, SQLiteCandidateStore]:
@@ -1289,6 +1410,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ModelConfigurationError,
         AgentDojoDependencyError,
         CandidateStoreError,
+        KnowledgeStoreError,
         MemoryStoreError,
         SkillFormatError,
         ValueError,

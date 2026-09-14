@@ -28,6 +28,7 @@ class SourceKind(StrEnum):
     EMAIL = "email"
     CALENDAR = "calendar"
     CONTACT = "contact"
+    KNOWLEDGE = "knowledge"
     RUNTIME = "runtime"
 
 

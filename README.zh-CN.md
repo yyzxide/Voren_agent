@@ -72,6 +72,7 @@ Voren 计划成为一个面向邮件与日程工作的单 Agent 助手。它的�
 - [Phase 2 静态 Skill Store](docs/implementation/PHASE2_STATIC_SKILL_STORE.zh-CN.md)
 - [Phase 2 版本冻结的 Skill Context](docs/implementation/PHASE2_SKILL_CONTEXT.zh-CN.md)
 - [Phase 2 类型化 Memory 与冻结 Context](docs/implementation/PHASE2_TYPED_MEMORY.zh-CN.md)
+- [Phase 2 绑定来源的业务知识检索](docs/implementation/PHASE2_KNOWLEDGE_RETRIEVAL.zh-CN.md)
 - [Phase 3 Candidate 暂存](docs/implementation/PHASE3_CANDIDATE_STAGING.zh-CN.md)
 - [Phase 3 配对评测](docs/implementation/PHASE3_PAIRED_EVALUATION.zh-CN.md)
 - [Phase 3 晋升与回滚](docs/implementation/PHASE3_PROMOTION_ROLLBACK.zh-CN.md)
@@ -91,6 +92,19 @@ python scripts/demo_agent_loop.py
 python scripts/demo_skill_learning.py
 python scripts/demo_learning_ablation.py
 ```
+
+本地会议纪要和已提取的附件文本可作为不可变、绑定来源的版本导入和检索，不需要
+API Key：
+
+```bash
+voren knowledge ingest notes/demo.md --document-id meeting:demo \
+  --title 'Demo review' --source-uri 'file:///controlled/notes/demo.md' \
+  --source-kind meeting_note --reason 'operator reviewed import'
+voren knowledge search '审批 回执'
+```
+
+Search Result 会包含精确版本、Source URI 与 Content Digest；其中正文始终属于
+无指令权威的数据，不能直接变成 Profile 或 Skill Instruction。
 
 Agent Loop Demo 会执行带 Provenance Label 的邮件与日历读取，在外部动作前
 暂停并打印精确 Effects，然后应用 Scripted Operator Approval，最后使用

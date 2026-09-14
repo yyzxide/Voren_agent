@@ -79,6 +79,7 @@ the first release.
 - [Phase 2 static skill store](docs/implementation/PHASE2_STATIC_SKILL_STORE.md)
 - [Phase 2 version-pinned skill context](docs/implementation/PHASE2_SKILL_CONTEXT.md)
 - [Phase 2 typed memory and frozen context](docs/implementation/PHASE2_TYPED_MEMORY.md)
+- [Phase 2 source-bound knowledge retrieval](docs/implementation/PHASE2_KNOWLEDGE_RETRIEVAL.md)
 - [Phase 3 candidate staging](docs/implementation/PHASE3_CANDIDATE_STAGING.md)
 - [Phase 3 paired evaluation](docs/implementation/PHASE3_PAIRED_EVALUATION.md)
 - [Phase 3 promotion and rollback](docs/implementation/PHASE3_PROMOTION_ROLLBACK.md)
@@ -98,6 +99,20 @@ python scripts/demo_agent_loop.py
 python scripts/demo_skill_learning.py
 python scripts/demo_learning_ablation.py
 ```
+
+Local meeting notes and extracted attachment text can be imported as immutable,
+source-bound versions and searched without an API key:
+
+```bash
+voren knowledge ingest notes/demo.md --document-id meeting:demo \
+  --title 'Demo review' --source-uri 'file:///controlled/notes/demo.md' \
+  --source-kind meeting_note --reason 'operator reviewed import'
+voren knowledge search 'approval receipt'
+```
+
+Search results include the exact version, source URI, and content digest. Their
+text remains non-authoritative data and cannot directly become Profile or Skill
+instructions.
 
 The agent-loop demo performs provenance-labelled email/calendar reads, pauses
 before an external action, prints the exact effects, then applies a scripted
