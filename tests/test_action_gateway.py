@@ -414,6 +414,46 @@ class ActionGatewayTest(unittest.TestCase):
 
         self.assertEqual(self.ledger.get_receipt(proposal.operation_id), receipt)
 
+    def test_delayed_observation_recovers_and_archives_original_failure(self) -> None:
+        proposal = self._prepare()
+        authorized = self.gateway.authorize(proposal, self._approval(proposal))
+        original_observe = self.adapter.observe
+        self.adapter.observe = lambda _: ()
+        failed = self.gateway.commit(authorized)
+        self.assertEqual(failed.status, ReceiptStatus.VERIFICATION_FAILED)
+        self.adapter.observe = original_observe
+        verified = self.gateway.reconcile(proposal.operation_id)
+        self.assertEqual(verified.status, ReceiptStatus.VERIFIED)
+        self.assertEqual(self.adapter.commit_attempts, 1)
+        self.assertEqual(self.ledger.receipt_history(proposal.operation_id), (failed,))
+        self.assertEqual(self.gateway.reconcile(proposal.operation_id), verified)
+
+    def test_unexpected_effect_is_not_erased_by_later_clean_observation(self) -> None:
+        adapter = FakeWorkspaceAdapter(failure_mode="unexpected_effect")
+        gateway = self._new_gateway(adapter)
+        proposal = gateway.prepare("create_calendar_event", self._arguments())
+        failed = gateway.commit(gateway.authorize(proposal, self._approval(proposal)))
+        original_observe = adapter.observe
+        adapter.observe = lambda p: tuple(x for x in original_observe(p) if x.effect.effect_id != "unexpected_audit")
+        self.assertEqual(gateway.reconcile(proposal.operation_id), failed)
+        self.assertEqual(adapter.commit_attempts, 1)
+
+
+    def test_violation_seen_during_reconciliation_remains_sticky(self) -> None:
+        adapter = FakeWorkspaceAdapter(failure_mode="unexpected_effect")
+        gateway = self._new_gateway(adapter)
+        proposal = gateway.prepare("create_calendar_event", self._arguments())
+        original_observe = adapter.observe
+        adapter.observe = lambda _: ()
+        missing = gateway.commit(gateway.authorize(proposal, self._approval(proposal)))
+        adapter.observe = original_observe
+        violation = gateway.reconcile(proposal.operation_id)
+        self.assertEqual(violation.status, ReceiptStatus.VERIFICATION_FAILED)
+        self.assertTrue(violation.verification.unexpected_effect_ids)
+        adapter.observe = lambda p: tuple(x for x in original_observe(p) if x.effect.effect_id != "unexpected_audit")
+        self.assertEqual(gateway.reconcile(proposal.operation_id), violation)
+        self.assertEqual(self.ledger.receipt_history(proposal.operation_id), (missing,))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -4,6 +4,7 @@ import importlib.util
 import socket
 import tempfile
 import unittest
+from unittest.mock import patch
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -596,6 +597,62 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
         finally:
             memories.close()
             evidence.close()
+
+
+    def test_google_restart_recovers_each_dispatch_boundary_without_resend(self) -> None:
+        from voren.actions.ledger import SQLiteOperationLedger
+        from voren.web.models import CreateRunRequest, DecideRunRequest
+        from voren.web.service import WebDecisionConflictError
+        for boundary in ("authorized", "before_receipt", "after_receipt"):
+            with self.subTest(boundary=boundary), tempfile.TemporaryDirectory() as tmp:
+                transport = FakeGoogleTransport()
+                config = GoogleWorkspaceConfig(access_token="test-token", account_email="sid@example.com", time_zone="Asia/Shanghai")
+                def service():
+                    return VorenWebService(
+                        database=Path(tmp) / "web.sqlite3",
+                        model_factory=lambda: ScriptedModelAdapter((ModelResponse(tool_calls=(ToolCall(
+                            call_id="calendar-action", name="create_private_calendar_event",
+                            arguments={"title": "Recovery test", "start_time": "2026-09-15T09:00:00+08:00", "end_time": "2026-09-15T10:00:00+08:00"},
+                        ),)),)),
+                        mode="live", workspace_name="google", workspace_recoverable=True,
+                        workspace_factory=lambda: create_google_web_workspace(connector=GoogleWorkspaceConnector(config, transport=transport, clock=lambda: self.now)),
+                        clock=lambda: self.now,
+                    )
+                first = service()
+                pending = first.submit(CreateRunRequest(client_request_id="recovery-test", request="Create a private calendar hold"))
+                decision = DecideRunRequest(decision_id="approval-test", proposal_digest=pending.proposal.digest, approved=True)
+                method_name = "authorize" if boundary == "authorized" else "store_receipt"
+                original = getattr(SQLiteOperationLedger, method_name)
+                def crash(ledger, *args, **kwargs):
+                    if boundary != "before_receipt":
+                        original(ledger, *args, **kwargs)
+                    raise KeyboardInterrupt("simulated crash at dispatch boundary")
+                with patch.object(SQLiteOperationLedger, method_name, crash):
+                    with self.assertRaises(KeyboardInterrupt):
+                        first.decide(pending.run_id, decision)
+                restarted = service()
+                with self.assertRaises(WebDecisionConflictError):
+                    restarted.decide(pending.run_id, decision.model_copy(update={"decision_id": "different-decision"}))
+                recovered = restarted.decide(pending.run_id, decision)
+                self.assertEqual(recovered.status, "completed")
+                self.assertTrue(recovered.receipt.verification.passed)
+                self.assertEqual(sum(call[0] == "POST" for call in transport.calls), 1)
+                self.assertEqual(restarted.decide(pending.run_id, decision), recovered)
+
+
+    def test_web_rechecks_delayed_effects_using_the_original_decision(self) -> None:
+        pending = self.client.post("/api/runs", json={"client_request_id":"delayed-web", "request":"安排徒步日程"}).json()
+        workspace = self.service._pending_workspaces[pending["run_id"]]
+        decision = {"decision_id":"delayed-decision", "proposal_digest":pending["proposal"]["digest"], "approved":True}
+        with patch.object(workspace.action_adapter, "commit", wraps=workspace.action_adapter.commit) as commit:
+            with patch.object(workspace.action_adapter, "observe", return_value=()):
+                first = self.client.post(f"/api/runs/{pending['run_id']}/decision", json=decision)
+            self.assertEqual(first.json()["status"], "needs_reconciliation")
+            self.assertFalse(self.service.get(pending["run_id"]).recovery_required)
+            second = self.client.post(f"/api/runs/{pending['run_id']}/decision", json=decision)
+            self.assertEqual(second.json()["status"], "completed")
+            self.assertTrue(second.json()["receipt"]["verification"]["passed"])
+            self.assertEqual(commit.call_count, 1)
 
 
 if __name__ == "__main__":

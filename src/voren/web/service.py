@@ -339,21 +339,19 @@ class VorenWebService:
             )
         if current.decision_id is not None:
             if (
-                current.decision_id == request.decision_id
-                and current.decision_approved is request.approved
+                current.decision_id != request.decision_id
+                or current.decision_approved is not request.approved
             ):
+                raise WebDecisionConflictError("run already has another decision")
+            if current.status != "needs_reconciliation":
                 return current
-            raise WebDecisionConflictError("run already has another decision")
         ledger = SQLiteOperationLedger(self.database)
         run_store = SQLiteRunStore(self.database)
         try:
             existing_approval = ledger.get_approval(proposal.operation_id)
             existing_receipt = ledger.get_receipt(proposal.operation_id)
             run = run_store.get_run(run_id)
-            if existing_approval is not None and (
-                existing_receipt is not None
-                or run.status.value in {"completed", "cancelled", "needs_reconciliation"}
-            ):
+            if existing_approval is not None:
                 if (
                     existing_approval.approval_id != request.decision_id
                     or existing_approval.proposal_digest
@@ -363,6 +361,7 @@ class VorenWebService:
                     raise WebDecisionConflictError(
                         "durable operation already has another decision"
                     )
+            if existing_approval is not None and run.status.value in {"completed", "failed", "cancelled"}:
                 restored = current.model_copy(
                     update={
                         "status": run.status.value,
@@ -379,7 +378,10 @@ class VorenWebService:
             workspace = self._pending_workspaces.get(run_id)
             if workspace is None:
                 if (
-                    not self.workspace_recoverable
+                    (not self.workspace_recoverable and not (
+                        existing_receipt is not None
+                        and existing_receipt.status.value in {"verified", "failed"}
+                    ))
                     or current.workspace != self.workspace_name
                 ):
                     raise WebApprovalRecoveryRequiredError(
@@ -398,7 +400,7 @@ class VorenWebService:
                 ),
                 clock=self._clock,
             )
-            approval = ApprovalDecision.for_proposal(
+            approval = existing_approval or ApprovalDecision.for_proposal(
                 proposal,
                 approval_id=request.decision_id,
                 decided_by="operator:web-local",
@@ -407,7 +409,13 @@ class VorenWebService:
             )
             receipt = None
             try:
-                receipt = manager.resume_with_approval(run_id, approval)
+                operation_status = ledger.get_status(proposal.operation_id)
+                if run.status.value == "needs_reconciliation":
+                    receipt = manager.reconcile_pending_action(run_id)
+                elif existing_receipt is not None or operation_status in {"committing", "ambiguous", "verification_failed"}:
+                    receipt = manager.recover_pending_receipt(run_id)
+                else:
+                    receipt = manager.resume_with_approval(run_id, approval)
             except ApprovalRejectedError:
                 pass
             run = run_store.get_run(run_id)
@@ -421,7 +429,10 @@ class VorenWebService:
                 }
             )
             self._index.save(updated)
-            self._pending_workspaces.pop(run_id, None)
+            if run.status.value == "needs_reconciliation":
+                self._pending_workspaces[run_id] = workspace
+            else:
+                self._pending_workspaces.pop(run_id, None)
             return updated
         finally:
             run_store.close()
@@ -446,7 +457,7 @@ class VorenWebService:
             store.close()
 
     def _with_recovery_state(self, view: RunView) -> RunView:
-        if view.status != RuntimeResultStatus.WAITING_APPROVAL.value:
+        if view.status not in {RuntimeResultStatus.WAITING_APPROVAL.value, "needs_reconciliation"}:
             return view
         with self._lock:
             recoverable = view.run_id in self._pending_workspaces

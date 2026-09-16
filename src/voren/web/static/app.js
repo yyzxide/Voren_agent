@@ -103,7 +103,17 @@ function renderSkillRoute(route) {
 
 function renderApproval(run) {
   const card = $("approval-card");
-  if (run.status !== "waiting_approval" || !run.proposal || run.recovery_required) {
+  const reconciling = run.status === "needs_reconciliation";
+  const mismatch = reconciling && (
+    run.receipt?.verification.unexpected_effect_ids.length
+    || run.receipt?.verification.mismatched_effect_ids.length
+  );
+  if (mismatch) {
+    card.classList.add("hidden");
+    appendMessage("system", "结果与批准内容不符，需要人工核对；系统不会重发该动作。");
+    return;
+  }
+  if ((!reconciling && run.status !== "waiting_approval") || !run.proposal || run.recovery_required) {
     card.classList.add("hidden");
     if (run.recovery_required) {
       appendMessage("system", "进程已重启，受控 Workspace Handle 不再存在；系统不会自动重发动作，请重新发起任务。");
@@ -111,6 +121,9 @@ function renderApproval(run) {
     return;
   }
   card.classList.remove("hidden");
+  $("approval-label").textContent = reconciling ? "等待结果核对" : "等待你的决定";
+  $("approve-button").textContent = reconciling ? "重新核对结果" : "批准这些副作用";
+  $("reject-button").classList.toggle("hidden", reconciling);
   $("proposal-digest").textContent = run.proposal.digest;
   const effects = $("effects");
   effects.replaceChildren();
@@ -220,7 +233,7 @@ async function decide(approved) {
   ) {
     state.decision = {
       run_id: state.run.run_id,
-      decision_id: crypto.randomUUID(),
+      decision_id: state.run.decision_id || crypto.randomUUID(),
       proposal_digest: state.run.proposal.digest,
       approved,
     };

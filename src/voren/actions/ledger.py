@@ -30,6 +30,16 @@ class SQLiteOperationLedger:
             """
         )
         self._connection.commit()
+        self._connection.execute(
+            """CREATE TABLE IF NOT EXISTS operation_receipt_history (
+                operation_id TEXT NOT NULL,
+                receipt_json TEXT NOT NULL,
+                archived_at TEXT NOT NULL,
+                UNIQUE(operation_id, receipt_json),
+                FOREIGN KEY(operation_id) REFERENCES operations(operation_id)
+            )"""
+        )
+        self._connection.commit()
 
     def close(self) -> None:
         self._connection.close()
@@ -149,11 +159,29 @@ class SQLiteOperationLedger:
         )
 
     def replace_ambiguous_receipt(self, receipt: ActionReceipt) -> None:
-        """Atomically replace an inconclusive receipt after exact reconciliation."""
+        self.replace_reconcilable_receipt(receipt)
 
-        if receipt.status.value != "verified" or not receipt.verification.passed:
+    def receipt_history(self, operation_id: str) -> tuple[ActionReceipt, ...]:
+        return tuple(
+            ActionReceipt.model_validate_json(row["receipt_json"])
+            for row in self._connection.execute(
+                "SELECT receipt_json FROM operation_receipt_history WHERE operation_id = ? ORDER BY rowid",
+                (operation_id,),
+            )
+        )
+
+    def replace_reconcilable_receipt(self, receipt: ActionReceipt) -> None:
+        """Archive inconclusive evidence and store a verified result or observed violation."""
+
+        verified = receipt.status.value == "verified" and receipt.verification.passed
+        unsafe_observation = (
+            receipt.status.value == "verification_failed"
+            and not receipt.verification.passed
+            and bool(receipt.verification.unexpected_effect_ids or receipt.verification.mismatched_effect_ids)
+        )
+        if not verified and not unsafe_observation:
             raise InvalidOperationStateError(
-                "an ambiguous receipt may only be replaced by exact verified evidence"
+                "replacement requires exact verified evidence or a newly observed violation"
             )
         row = self._get_row(receipt.operation_id)
         self._validate_receipt_binding(row, receipt)
@@ -163,7 +191,14 @@ class SQLiteOperationLedger:
                 f"operation {receipt.operation_id!r} has no ambiguous receipt to replace"
             )
         existing = ActionReceipt.model_validate_json(existing_json)
-        if existing.status.value != "ambiguous" or str(row["status"]) != "ambiguous":
+        previous_status = existing.status.value
+        missing_only = (
+            previous_status == "verification_failed"
+            and bool(existing.verification.missing_effect_ids)
+            and not existing.verification.unexpected_effect_ids
+            and not existing.verification.mismatched_effect_ids
+        )
+        if (previous_status != "ambiguous" and not missing_only) or str(row["status"]) != previous_status:
             raise InvalidOperationStateError(
                 f"operation {receipt.operation_id!r} is not awaiting reconciliation"
             )
@@ -173,11 +208,16 @@ class SQLiteOperationLedger:
         with self._connection:
             cursor = self._connection.execute(
                 """UPDATE operations
-                   SET status = 'verified', receipt_json = ?, updated_at = ?
-                   WHERE operation_id = ? AND status = 'ambiguous'
+                   SET status = ?, receipt_json = ?, updated_at = ?
+                   WHERE operation_id = ? AND status = ?
                      AND receipt_json = ?""",
-                (receipt_json, now, receipt.operation_id, existing_json),
+                (receipt.status.value, receipt_json, now, receipt.operation_id, previous_status, existing_json),
             )
+            if cursor.rowcount == 1:
+                self._connection.execute(
+                    "INSERT OR IGNORE INTO operation_receipt_history VALUES (?, ?, ?)",
+                    (receipt.operation_id, existing_json, now),
+                )
         if cursor.rowcount == 1:
             return
         current = self._get_row(receipt.operation_id)

@@ -239,6 +239,96 @@ class TranscriptRecoveryTest(unittest.TestCase):
         finally:
             reopened.close()
 
+    def test_crashes_inside_a_model_step_replay_saved_response_and_reads(self) -> None:
+        for boundary in ("response_saved", "model.responded", "tool.observed"):
+            with self.subTest(boundary=boundary), tempfile.TemporaryDirectory() as tmp:
+                self.database = Path(tmp) / "run.sqlite3"
+                first_model = ScriptedModelAdapter((ModelResponse(
+                    tool_calls=(
+                        ToolCall(call_id="read-1", name="search_emails", arguments={"query": "hiking"}),
+                        ToolCall(call_id="read-2", name="search_emails", arguments={"query": "trip"}),
+                    ),
+                    usage=ModelUsage(input_tokens=10, output_tokens=2, total_tokens=12),
+                ),))
+                loop, reads, transcripts, store, ledger = self.open_loop(model=first_model)
+                original_record = loop._run_manager.record_runtime_event
+                original_save = transcripts.save
+                interrupted = False
+
+                def record(*args, **kwargs):
+                    nonlocal interrupted
+                    original_record(*args, **kwargs)
+                    if args[1].value == boundary and not interrupted:
+                        interrupted = True
+                        raise KeyboardInterrupt("crash after durable event")
+
+                def save(checkpoint):
+                    nonlocal interrupted
+                    original_save(checkpoint)
+                    if boundary == "response_saved" and checkpoint.pending_response and not interrupted:
+                        interrupted = True
+                        raise KeyboardInterrupt("crash before response event")
+
+                loop._run_manager.record_runtime_event = record
+                transcripts.save = save
+                try:
+                    with self.assertRaises(KeyboardInterrupt):
+                        loop.run(user_request="Find hiking emails", config=self.config())
+                    calls_before = list(reads.calls)
+                finally:
+                    self.close_stack(transcripts, store, ledger)
+                resumed_model = ScriptedModelAdapter((ModelResponse(text="Done", usage=ModelUsage(input_tokens=3, output_tokens=1, total_tokens=4)),))
+                loop, reads, transcripts, store, ledger = self.open_loop(model=resumed_model)
+                try:
+                    result = loop.resume("run-recovery-1")
+                    self.assertEqual(result.status, RuntimeResultStatus.COMPLETED)
+                    self.assertEqual(result.model_steps, 2)
+                    self.assertEqual(result.tool_calls, 2)
+                    self.assertEqual(result.usage.total_tokens, 16)
+                    self.assertEqual(len(resumed_model.requests), 1)
+                    self.assertEqual(calls_before + reads.calls, ["read-1", "read-2"])
+                    events = store.list_events("run-recovery-1")
+                    self.assertEqual(sum(e.event_type is RunEventType.MODEL_RESPONDED for e in events), 2)
+                finally:
+                    self.close_stack(transcripts, store, ledger)
+
+    def test_legacy_checkpoint_digest_remains_readable(self) -> None:
+        stack = self.create_interrupted_run()
+        _, _, transcripts, store, ledger = stack
+        try:
+            checkpoint = transcripts.load("run-recovery-1")
+            legacy = checkpoint.model_copy(update={"schema_version": "voren.transcript.v1"})
+            transcripts.save(legacy)
+            self.assertEqual(transcripts.load(legacy.run_id), legacy)
+        finally:
+            self.close_stack(transcripts, store, ledger)
+
+
+    def test_cancelling_a_saved_response_keeps_consumed_model_budget(self) -> None:
+        from voren.runtime.cancellation import CancellationToken
+        model = ScriptedModelAdapter((ModelResponse(text="saved response"),))
+        loop, reads, transcripts, store, ledger = self.open_loop(model=model)
+        def crash(*args):
+            raise KeyboardInterrupt("saved response, before publishing event")
+        loop._record_model_response = crash
+        try:
+            with self.assertRaises(KeyboardInterrupt):
+                loop.run(user_request="Summarize", config=self.config())
+        finally:
+            self.close_stack(transcripts, store, ledger)
+        resumed_model = ScriptedModelAdapter(())
+        loop, reads, transcripts, store, ledger = self.open_loop(model=resumed_model)
+        try:
+            cancellation = CancellationToken()
+            cancellation.cancel()
+            result = loop.resume("run-recovery-1", cancellation=cancellation)
+            self.assertEqual(result.status, RuntimeResultStatus.CANCELLED)
+            self.assertEqual(result.model_steps, 1)
+            self.assertEqual(result.usage.model_requests, 1)
+            self.assertEqual(resumed_model.requests, [])
+        finally:
+            self.close_stack(transcripts, store, ledger)
+
 
 if __name__ == "__main__":
     unittest.main()

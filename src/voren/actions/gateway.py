@@ -163,10 +163,17 @@ class ActionGateway:
         self._validate_approval_binding(proposal, approval)
 
         existing = self._ledger.get_receipt(operation_id)
-        if existing is not None and existing.status is not ReceiptStatus.AMBIGUOUS:
-            return existing
+        if existing is not None:
+            retryable_observation = (
+                existing.status is ReceiptStatus.VERIFICATION_FAILED
+                and bool(existing.verification.missing_effect_ids)
+                and not existing.verification.unexpected_effect_ids
+                and not existing.verification.mismatched_effect_ids
+            )
+            if existing.status is not ReceiptStatus.AMBIGUOUS and not retryable_observation:
+                return existing
         status = self._ledger.get_status(operation_id)
-        if status not in {"committing", "ambiguous"}:
+        if status not in {"committing", "ambiguous", "verification_failed"}:
             raise InvalidOperationStateError(
                 f"cannot reconcile operation {operation_id!r} from state {status!r}"
             )
@@ -189,9 +196,28 @@ class ActionGateway:
             if existing is None:
                 self._ledger.store_receipt(receipt)
             else:
-                self._ledger.replace_ambiguous_receipt(receipt)
+                self._ledger.replace_reconcilable_receipt(receipt)
             return self._ledger.get_receipt(operation_id) or receipt
 
+        if verification.unexpected_effect_ids or verification.mismatched_effect_ids:
+            receipt = ActionReceipt(
+                operation_id=proposal.operation_id,
+                proposal_digest=proposal.digest,
+                approval_id=approval.approval_id,
+                status=ReceiptStatus.VERIFICATION_FAILED,
+                committed=existing.committed if existing is not None else None,
+                recovered_after_ambiguous_commit=True,
+                expected_effects=proposal.effects,
+                observed_effects=observed,
+                verification=verification,
+                error="reconciliation observed an unexpected or mismatched effect; manual review required",
+                completed_at=self._clock(),
+            )
+            if existing is None:
+                self._ledger.store_receipt(receipt)
+            else:
+                self._ledger.replace_reconcilable_receipt(receipt)
+            return receipt
         if existing is not None:
             return existing
         receipt = ActionReceipt(

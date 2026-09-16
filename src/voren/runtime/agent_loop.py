@@ -261,67 +261,93 @@ class AgentLoop:
             if cancellation.cancelled:
                 return self._cancel(
                     run_id=run.run_id,
-                    step=step - 1,
+                    step=usage.model_requests,
                     tool_calls=tool_call_count,
                     usage=usage.snapshot(),
                     reason=cancellation.reason or CancellationReason.OPERATOR,
                     provider_confirmed=None,
                 )
-            usage.request_started()
-            self._run_manager.record_runtime_event(
-                run.run_id,
-                RunEventType.MODEL_REQUESTED,
-                dedupe_key=f"model.requested:{step}",
-                payload={
-                    "step": step,
-                    "message_count": len(messages),
-                    "transcript_digest": self._digest(
-                        [message.model_dump(mode="json") for message in messages]
-                    ),
-                },
+            pending = (
+                resume_checkpoint if resume_checkpoint is not None
+                and step == start_step else None
             )
-            try:
-                raw_response = self._model.complete(
-                    messages=tuple(messages),
-                    tools=self._tools,
-                    cancellation=cancellation,
-                )
-                response = ModelResponse.model_validate(raw_response)
-                usage.record(response.usage)
-            except ModelRequestCancelled as error:
-                usage.record(error.usage)
-                return self._cancel(
-                    run_id=run.run_id,
-                    step=step,
-                    tool_calls=tool_call_count,
-                    usage=usage.snapshot(),
-                    reason=error.reason,
-                    provider_confirmed=error.provider_confirmed,
-                    detail_code=error.detail_code,
-                )
-            except Exception as error:
-                provider_code = getattr(error, "code", None)
-                safe_provider_code = (
-                    provider_code
-                    if isinstance(provider_code, str) and len(provider_code) <= 80
-                    else None
-                )
-                return self._fail(
-                    run_id=run.run_id,
-                    step=step,
-                    tool_calls=tool_call_count,
-                    usage=usage.snapshot(),
-                    error_code="model_adapter_failed",
-                    error_detail_code=safe_provider_code,
-                    details={
-                        "error_type": type(error).__name__,
-                        **(
-                            {"provider_code": safe_provider_code}
-                            if safe_provider_code is not None
-                            else {}
+            cached_observations = {
+                item.tool_call_id: item for item in pending.pending_observations
+            } if pending is not None else {}
+            if pending is not None and pending.pending_response is not None:
+                response = pending.pending_response
+            else:
+                usage.request_started()
+                self._run_manager.record_runtime_event(
+                    run.run_id,
+                    RunEventType.MODEL_REQUESTED,
+                    dedupe_key=f"model.requested:{step}",
+                    payload={
+                        "step": step,
+                        "message_count": len(messages),
+                        "transcript_digest": self._digest(
+                            [message.model_dump(mode="json") for message in messages]
                         ),
                     },
                 )
+                try:
+                    raw_response = self._model.complete(
+                        messages=tuple(messages),
+                        tools=self._tools,
+                        cancellation=cancellation,
+                    )
+                    response = ModelResponse.model_validate(raw_response)
+                    usage.record(response.usage)
+                except ModelRequestCancelled as error:
+                    usage.record(error.usage)
+                    return self._cancel(
+                        run_id=run.run_id,
+                        step=step,
+                        tool_calls=tool_call_count,
+                        usage=usage.snapshot(),
+                        reason=error.reason,
+                        provider_confirmed=error.provider_confirmed,
+                        detail_code=error.detail_code,
+                    )
+                except Exception as error:
+                    provider_code = getattr(error, "code", None)
+                    safe_provider_code = (
+                        provider_code
+                        if isinstance(provider_code, str) and len(provider_code) <= 80
+                        else None
+                    )
+                    return self._fail(
+                        run_id=run.run_id,
+                        step=step,
+                        tool_calls=tool_call_count,
+                        usage=usage.snapshot(),
+                        error_code="model_adapter_failed",
+                        error_detail_code=safe_provider_code,
+                        details={
+                            "error_type": type(error).__name__,
+                            **(
+                                {"provider_code": safe_provider_code}
+                                if safe_provider_code is not None
+                                else {}
+                            ),
+                        },
+                    )
+
+            # Persist the response before its event. Replay this exact response
+            # after a crash, rebuilding tool counters from the pre-response state.
+            step_checkpoint = self._save_checkpoint(
+                run_id=run.run_id,
+                config_digest=run.config_digest,
+                next_model_step=step,
+                messages=messages,
+                signature_counts=signature_counts,
+                seen_call_ids=seen_call_ids,
+                observation_digests=observation_digests,
+                tool_call_count=tool_call_count,
+                usage=usage.snapshot(),
+                pending_response=response,
+                pending_observations=tuple(cached_observations.values()),
+            )
 
             self._record_model_response(run.run_id, step, response)
             if cancellation.cancelled:
@@ -460,11 +486,13 @@ class AgentLoop:
                 tool_call_count += 1
                 self._record_tool_call(run.run_id, tool_call_count, call, ToolKind.READ)
                 try:
-                    raw_observation = self._read_tools.execute(
-                        tool_call_id=call.call_id,
-                        tool_name=call.name,
-                        arguments=call.arguments,
-                    )
+                    raw_observation = cached_observations.get(call.call_id)
+                    if raw_observation is None:
+                        raw_observation = self._read_tools.execute(
+                            tool_call_id=call.call_id,
+                            tool_name=call.name,
+                            arguments=call.arguments,
+                        )
                     observation = ToolObservation.model_validate(raw_observation)
                     observation.assert_integrity()
                     if (
@@ -495,6 +523,12 @@ class AgentLoop:
                             "allowed": self._limits.max_observation_bytes,
                         },
                     )
+                if step_checkpoint is not None and self._transcript_store is not None:
+                    cached_observations[call.call_id] = observation
+                    step_checkpoint = step_checkpoint.model_copy(update={
+                        "pending_observations": tuple(cached_observations.values()),
+                    })
+                    self._transcript_store.save(step_checkpoint)
                 self._run_manager.record_runtime_event(
                     run.run_id,
                     RunEventType.TOOL_OBSERVED,
@@ -590,22 +624,26 @@ class AgentLoop:
         observation_digests: list[str],
         tool_call_count: int,
         usage: RuntimeUsage,
-    ) -> None:
+        pending_response: ModelResponse | None = None,
+        pending_observations: tuple[ToolObservation, ...] = (),
+    ) -> TranscriptCheckpoint | None:
         if self._transcript_store is None:
-            return
-        self._transcript_store.save(
-            TranscriptCheckpoint(
-                run_id=run_id,
-                config_digest=config_digest,
-                next_model_step=next_model_step,
-                messages=tuple(messages),
-                tool_call_count=tool_call_count,
-                signature_counts=dict(signature_counts),
-                seen_call_ids=tuple(sorted(seen_call_ids)),
-                observation_digests=tuple(observation_digests),
-                usage=usage,
-            )
+            return None
+        checkpoint = TranscriptCheckpoint(
+            run_id=run_id,
+            config_digest=config_digest,
+            next_model_step=next_model_step,
+            messages=tuple(messages),
+            tool_call_count=tool_call_count,
+            signature_counts=dict(signature_counts),
+            seen_call_ids=tuple(sorted(seen_call_ids)),
+            observation_digests=tuple(observation_digests),
+            usage=usage,
+            pending_response=pending_response,
+            pending_observations=pending_observations,
         )
+        self._transcript_store.save(checkpoint)
+        return checkpoint
 
     def _check_call_budget(
         self,

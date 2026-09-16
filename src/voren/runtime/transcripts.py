@@ -16,10 +16,11 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from voren.actions.errors import InvalidOperationStateError
-from voren.runtime.models import ModelMessage, RuntimeUsage
+from voren.runtime.models import ModelMessage, ModelResponse, RuntimeUsage
+from voren.observations.models import ToolObservation
 
 
-TRANSCRIPT_SCHEMA_VERSION = "voren.transcript.v1"
+TRANSCRIPT_SCHEMA_VERSION = "voren.transcript.v2"
 
 
 class TranscriptKeyError(ValueError):
@@ -45,15 +46,30 @@ class TranscriptCheckpoint(BaseModel):
     seen_call_ids: tuple[str, ...] = ()
     observation_digests: tuple[str, ...] = ()
     usage: RuntimeUsage = Field(default_factory=RuntimeUsage)
+    pending_response: ModelResponse | None = None
+    pending_observations: tuple[ToolObservation, ...] = ()
 
     @model_validator(mode="after")
     def state_is_consistent(self) -> Self:
-        if self.schema_version != TRANSCRIPT_SCHEMA_VERSION:
+        if self.schema_version not in {"voren.transcript.v1", TRANSCRIPT_SCHEMA_VERSION}:
             raise ValueError("unsupported transcript checkpoint schema")
-        if self.next_model_step != self.usage.model_requests + 1:
+        if self.schema_version == "voren.transcript.v1" and self.pending_response is not None:
+            raise ValueError("legacy checkpoints cannot contain a pending response")
+        expected_step = self.usage.model_requests + (self.pending_response is None)
+        if self.next_model_step != expected_step:
             raise ValueError(
-                "next_model_step must follow the persisted model request count"
+                "next_model_step must match the persisted request phase"
             )
+        if self.pending_observations and self.pending_response is None:
+            raise ValueError("pending observations require a saved response")
+        calls = {call.call_id: call for call in self.pending_response.tool_calls} if self.pending_response else {}
+        observed_ids = [item.tool_call_id for item in self.pending_observations]
+        if len(observed_ids) != len(set(observed_ids)):
+            raise ValueError("pending observations must have unique call IDs")
+        for item in self.pending_observations:
+            item.assert_integrity()
+            if item.tool_call_id not in calls or calls[item.tool_call_id].name != item.tool_name:
+                raise ValueError("pending observation does not match the saved response")
         if self.tool_call_count != len(self.seen_call_ids):
             raise ValueError("tool_call_count must match unique seen call IDs")
         if len(self.seen_call_ids) != len(set(self.seen_call_ids)):
@@ -73,8 +89,12 @@ class TranscriptCheckpoint(BaseModel):
         return self
 
     def calculated_digest(self) -> str:
+        payload = self.model_dump(mode="json")
+        if self.schema_version == "voren.transcript.v1":
+            payload.pop("pending_response")
+            payload.pop("pending_observations")
         canonical = json.dumps(
-            self.model_dump(mode="json"),
+            payload,
             sort_keys=True,
             separators=(",", ":"),
             ensure_ascii=False,

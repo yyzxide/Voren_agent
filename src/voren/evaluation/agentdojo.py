@@ -261,11 +261,13 @@ class AgentDojoEvaluationRunner:
                 definitions=(action_definition, email_definition),
                 adapter=workspace,
                 ledger=ledger,
+                clock=self._clock,
             )
             manager = RunManager(
                 store=store,
                 operation_ledger=ledger,
                 action_gateway=gateway,
+                clock=self._clock,
             )
             loop = AgentLoop(
                 model=self._model_factory(case, mode),

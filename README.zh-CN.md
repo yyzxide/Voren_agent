@@ -49,6 +49,8 @@ Voren 是一个面向邮件与日程工作的单 Agent 助手。它的工程重�
 多 Agent 编排、消息渠道 Gateway、主动定时执行、插件市场、GUI 自动化和
 多个生产环境连接器均不属于第一个版本。
 
+最新修复说明：[2026-09-16 执行恢复修复](docs/reviews/2026-09-16-RECOVERY-FIXES.zh-CN.md)。
+
 ## 设计文档
 
 - [产品定义](docs/PRODUCT.zh-CN.md)
