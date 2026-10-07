@@ -191,6 +191,14 @@ class SQLiteOperationLedger:
                 f"operation {receipt.operation_id!r} has no ambiguous receipt to replace"
             )
         existing = ActionReceipt.model_validate_json(existing_json)
+        if (
+            existing.verification.unexpected_effect_ids
+            or existing.verification.mismatched_effect_ids
+        ):
+            raise InvalidOperationStateError(
+                f"operation {receipt.operation_id!r} has an observed violation; "
+                "manual review required"
+            )
         previous_status = existing.status.value
         missing_only = (
             previous_status == "verification_failed"

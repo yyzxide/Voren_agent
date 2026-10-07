@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from voren.actions.errors import (
+    AmbiguousCommitError,
     ApprovalMismatchError,
     InvalidOperationStateError,
     InvalidProposalError,
@@ -15,7 +16,13 @@ from voren.actions.errors import (
 )
 from voren.actions.gateway import ActionGateway
 from voren.actions.ledger import SQLiteOperationLedger
-from voren.actions.models import ApprovalDecision, ReceiptStatus
+from voren.actions.models import (
+    ActionReceipt,
+    ApprovalDecision,
+    ObservedEffect,
+    ReceiptStatus,
+    verify_exact_effects,
+)
 from voren.adapters.fake_workspace import FakeWorkspaceAdapter
 from voren.adapters.workspace_contracts import (
     create_calendar_event_definition,
@@ -453,6 +460,135 @@ class ActionGatewayTest(unittest.TestCase):
         adapter.observe = lambda p: tuple(x for x in original_observe(p) if x.effect.effect_id != "unexpected_audit")
         self.assertEqual(gateway.reconcile(proposal.operation_id), violation)
         self.assertEqual(self.ledger.receipt_history(proposal.operation_id), (missing,))
+
+    def _timed_out_violation(self, violation: str):
+        adapter = FakeWorkspaceAdapter(
+            failure_mode="unexpected_effect" if violation == "unexpected" else "none"
+        )
+        gateway = self._new_gateway(adapter)
+        proposal = gateway.prepare("create_calendar_event", self._arguments())
+        authorized = gateway.authorize(proposal, self._approval(proposal))
+        original_commit = adapter.commit
+
+        def commit_then_timeout(p) -> None:
+            original_commit(p)
+            if violation == "mismatched":
+                email_id = adapter.operation_references[p.operation_id]["email_id"]
+                adapter.emails[email_id]["recipients"].append("unapproved@example.com")
+            raise AmbiguousCommitError("response lost after a mutation")
+
+        adapter.commit = commit_then_timeout
+        return adapter, gateway, authorized
+
+    def _reopen_ledger(self) -> SQLiteOperationLedger:
+        self.ledger.close()
+        self.ledger = SQLiteOperationLedger(self.ledger_path)
+        self.addCleanup(self.ledger.close)
+        return self.ledger
+
+    def test_timeout_violation_survives_clean_observation_and_restart(self) -> None:
+        for violation in ("unexpected", "mismatched"):
+            with self.subTest(violation=violation):
+                adapter, gateway, authorized = self._timed_out_violation(violation)
+                proposal = authorized.proposal
+                receipt = gateway.commit(authorized)
+                self.assertEqual(receipt.status, ReceiptStatus.VERIFICATION_FAILED)
+                self.assertIsNone(receipt.committed)
+                self.assertTrue(receipt.recovered_after_ambiguous_commit)
+                self.assertTrue(
+                    getattr(receipt.verification, f"{violation}_effect_ids")
+                )
+
+                # The later lookup hides the violation; it does not undo it.
+                adapter.observe = lambda p: tuple(
+                    ObservedEffect(effect=effect) for effect in p.effects
+                )
+                self.assertEqual(gateway.reconcile(proposal.operation_id), receipt)
+                reopened = self._reopen_ledger()
+                restarted_gateway = ActionGateway(
+                    definitions=(create_calendar_event_definition(),),
+                    adapter=adapter,
+                    ledger=reopened,
+                    clock=lambda: self.now,
+                )
+                self.assertEqual(
+                    restarted_gateway.reconcile(proposal.operation_id), receipt
+                )
+                self.assertEqual(restarted_gateway.commit(authorized), receipt)
+                self.assertEqual(reopened.receipt_history(proposal.operation_id), ())
+                self.assertEqual(adapter.commit_attempts, 1)
+
+    def _store_legacy_ambiguous_violation(self, violation: str):
+        adapter, _, authorized = self._timed_out_violation(violation)
+        proposal = authorized.proposal
+        self.ledger.mark_committing(proposal.operation_id)
+        with self.assertRaises(AmbiguousCommitError):
+            adapter.commit(proposal)
+        self.ledger.mark_ambiguous(proposal.operation_id)
+        observed = adapter.observe(proposal)
+        # Earlier gateways stored this combination after an ambiguous commit.
+        receipt = ActionReceipt(
+            operation_id=proposal.operation_id,
+            proposal_digest=proposal.digest,
+            approval_id=authorized.approval.approval_id,
+            status=ReceiptStatus.AMBIGUOUS,
+            committed=None,
+            recovered_after_ambiguous_commit=True,
+            expected_effects=proposal.effects,
+            observed_effects=observed,
+            verification=verify_exact_effects(proposal.effects, observed),
+            error="response lost after a mutation",
+            completed_at=self.now,
+        )
+        self.ledger.store_receipt(receipt)
+        return adapter, proposal, receipt
+
+    def test_legacy_ambiguous_violation_cannot_be_reconciled_after_restart(self) -> None:
+        for violation in ("unexpected", "mismatched"):
+            with self.subTest(violation=violation):
+                adapter, proposal, receipt = self._store_legacy_ambiguous_violation(
+                    violation
+                )
+                adapter.observe = lambda p: tuple(
+                    ObservedEffect(effect=effect) for effect in p.effects
+                )
+                reopened = self._reopen_ledger()
+                gateway = ActionGateway(
+                    definitions=(create_calendar_event_definition(),),
+                    adapter=adapter,
+                    ledger=reopened,
+                    clock=lambda: self.now,
+                )
+                self.assertEqual(gateway.reconcile(proposal.operation_id), receipt)
+                self.assertEqual(reopened.get_status(proposal.operation_id), "ambiguous")
+                self.assertEqual(reopened.receipt_history(proposal.operation_id), ())
+                self.assertEqual(adapter.commit_attempts, 1)
+
+    def test_ledger_rejects_replacing_legacy_ambiguous_violation(self) -> None:
+        for violation in ("unexpected", "mismatched"):
+            with self.subTest(violation=violation):
+                _, proposal, receipt = self._store_legacy_ambiguous_violation(violation)
+                clean = tuple(ObservedEffect(effect=effect) for effect in proposal.effects)
+                replacement = receipt.model_copy(
+                    update={
+                        "status": ReceiptStatus.VERIFIED,
+                        "committed": True,
+                        "observed_effects": clean,
+                        "verification": verify_exact_effects(proposal.effects, clean),
+                        "error": None,
+                    }
+                )
+                reopened = self._reopen_ledger()
+                for replace in (
+                    reopened.replace_reconcilable_receipt,
+                    reopened.replace_ambiguous_receipt,
+                ):
+                    with self.assertRaisesRegex(
+                        InvalidOperationStateError, "observed violation"
+                    ):
+                        replace(replacement)
+                self.assertEqual(reopened.get_receipt(proposal.operation_id), receipt)
+                self.assertEqual(reopened.receipt_history(proposal.operation_id), ())
 
 
 if __name__ == "__main__":

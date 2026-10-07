@@ -99,7 +99,7 @@ class CandidateAdmissionPolicy:
         except UnicodeDecodeError as error:
             raise CandidateAdmissionError("SKILL.md must be valid UTF-8") from error
 
-        diff = "".join(
+        diff_lines = tuple(
             difflib.unified_diff(
                 before.splitlines(keepends=True),
                 after.splitlines(keepends=True),
@@ -107,7 +107,8 @@ class CandidateAdmissionPolicy:
                 tofile=f"{candidate.metadata.name}@{candidate.content_digest}/SKILL.md",
             )
         )
-        added, removed = self._changed_lines(diff)
+        diff = "".join(diff_lines)
+        added, removed = self._changed_lines(diff_lines)
         if added + removed == 0:
             raise CandidateAdmissionError("candidate does not change Skill instructions")
         if added + removed > self.max_changed_lines:
@@ -124,12 +125,17 @@ class CandidateAdmissionPolicy:
         )
 
     @staticmethod
-    def _changed_lines(diff: str) -> tuple[int, int]:
+    def _changed_lines(diff_lines: tuple[str, ...]) -> tuple[int, int]:
         added = 0
         removed = 0
-        for line in diff.splitlines():
-            if line.startswith("+++") or line.startswith("---"):
+        in_hunk = False
+        for line in diff_lines:
+            if line.startswith("@@ "):
+                in_hunk = True
                 continue
+            if not in_hunk:
+                continue
+            # Inside a hunk, +++/--- are changed content, not file headers.
             if line.startswith("+"):
                 added += 1
             elif line.startswith("-"):

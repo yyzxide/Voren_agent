@@ -164,6 +164,13 @@ class ActionGateway:
 
         existing = self._ledger.get_receipt(operation_id)
         if existing is not None:
+            # A later lookup cannot undo an effect already observed. This also
+            # protects ambiguous receipts persisted by earlier gateway versions.
+            if (
+                existing.verification.unexpected_effect_ids
+                or existing.verification.mismatched_effect_ids
+            ):
+                return existing
             retryable_observation = (
                 existing.status is ReceiptStatus.VERIFICATION_FAILED
                 and bool(existing.verification.missing_effect_ids)
@@ -253,6 +260,12 @@ class ActionGateway:
             status = ReceiptStatus.VERIFIED
             committed: bool | None = True
             error = None
+        elif verification.unexpected_effect_ids or verification.mismatched_effect_ids:
+            status = ReceiptStatus.VERIFICATION_FAILED
+            committed = None if recovered_after_ambiguous_commit else True
+            error = (
+                "observed an unexpected or mismatched effect; manual review required"
+            )
         elif recovered_after_ambiguous_commit:
             status = ReceiptStatus.AMBIGUOUS
             committed = None

@@ -171,6 +171,79 @@ class SkillCandidateTest(unittest.TestCase):
                 created_at=self.now + timedelta(minutes=1),
             )
 
+    def test_header_like_additions_cannot_bypass_changed_line_limit(self) -> None:
+        instruction = "Check the email, then check the calendar."
+        additions = "\n".join(f"++ instruction {index}" for index in range(80))
+        package = self._candidate_package(
+            f"{instruction}\nOne ordinary addition.\n{additions}"
+        )
+
+        with self.assertRaisesRegex(CandidateAdmissionError, "changed-line limit"):
+            self.service.stage(
+                candidate_id="candidate-header-like-additions",
+                base_ref=self.base.ref,
+                package=package,
+                evidence=self._evidence(),
+                created_at=self.now + timedelta(minutes=1),
+            )
+
+        self.assertEqual(self.candidates.list_for_skill(self.base.ref.name), ())
+        self.assertEqual(self.skills.freeze_active(), (self.base.ref,))
+
+    def test_header_like_deletions_cannot_bypass_changed_line_limit(self) -> None:
+        instruction = "Check the email, then check the calendar."
+        deletions = "\n".join(f"-- instruction {index}" for index in range(80))
+        base_package = self._candidate_package(
+            f"{instruction}\nOne ordinary deletion.\n{deletions}"
+        )
+        base = self.skills.install(base_package, created_at=self.now)
+        self.skills.activate(
+            base.ref, reason="reviewed baseline with examples", activated_at=self.now
+        )
+
+        with self.assertRaisesRegex(CandidateAdmissionError, "changed-line limit"):
+            self.service.stage(
+                candidate_id="candidate-header-like-deletions",
+                base_ref=base.ref,
+                package=self._candidate_package(instruction),
+                evidence=self._evidence(),
+                created_at=self.now + timedelta(minutes=1),
+            )
+
+        self.assertEqual(self.candidates.list_for_skill(base.ref.name), ())
+        self.assertEqual(self.skills.freeze_active(), (base.ref,))
+
+    def test_bounded_mixed_diff_counts_header_like_content(self) -> None:
+        base = self._candidate_package("Keep this instruction.\n-- Old guidance.")
+        candidate = self._candidate_package(
+            "Keep this instruction.\n++ New guidance.\nAn ordinary addition."
+        )
+
+        diff = CandidateAdmissionPolicy(max_changed_lines=3).compare_packages(
+            base, candidate
+        )
+
+        self.assertEqual((diff.added_lines, diff.removed_lines), (2, 1))
+
+    def test_diff_counts_replacement_without_trailing_newlines(self) -> None:
+        self._write_skill("Old guidance.")
+        skill_file = self.source / "SKILL.md"
+        skill_file.write_text(skill_file.read_text().rstrip("\n"), encoding="utf-8")
+        base = self.parser.load(self.source)
+        self._write_skill("New guidance.")
+        skill_file.write_text(skill_file.read_text().rstrip("\n"), encoding="utf-8")
+        candidate = self.parser.load(self.source)
+
+        diff = CandidateAdmissionPolicy(max_changed_lines=2).compare_packages(
+            base, candidate
+        )
+
+        self.assertEqual((diff.added_lines, diff.removed_lines), (1, 1))
+        with self.assertRaisesRegex(CandidateAdmissionError, "changed-line limit"):
+            CandidateAdmissionPolicy(max_changed_lines=1).compare_packages(
+                base, candidate
+            )
+
     def test_stale_base_cannot_stage_after_active_pointer_changes(self) -> None:
         next_package = self._candidate_package("Use a manually reviewed revision.")
         next_version = self.skills.install(
