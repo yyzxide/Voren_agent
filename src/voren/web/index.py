@@ -131,6 +131,19 @@ class SQLiteWebRunIndex:
             raise WebRequestInProgressError(f"web run {run_id!r} is in progress")
         return RunView.model_validate_json(row["response_json"])
 
+    def abandon_unstarted(self, *, client_request_id: str, run_id: str) -> bool:
+        """Release a published identity only when no durable Run was created."""
+        with self._connect() as connection:
+            deleted = connection.execute(
+                """
+                DELETE FROM web_run_requests
+                WHERE client_request_id = ? AND run_id = ?
+                AND NOT EXISTS (SELECT 1 FROM runs WHERE runs.run_id = ?)
+                """,
+                (client_request_id, run_id, run_id),
+            )
+            return deleted.rowcount == 1
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(str(self._database), timeout=10.0)
         connection.row_factory = sqlite3.Row

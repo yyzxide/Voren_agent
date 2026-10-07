@@ -29,6 +29,13 @@ class DecideRunRequest(WebModel):
     approved: bool
 
 
+class ActionHistoryView(WebModel):
+    proposal: ActionProposal
+    decision_id: str | None = None
+    decision_approved: bool | None = None
+    receipt: ActionReceipt | None = None
+
+
 class RunView(WebModel):
     client_request_id: str
     run_id: str
@@ -37,6 +44,7 @@ class RunView(WebModel):
     final_text: str | None = None
     proposal: ActionProposal | None = None
     receipt: ActionReceipt | None = None
+    action_history: tuple[ActionHistoryView, ...] = ()
     decision_id: str | None = None
     decision_approved: bool | None = None
     usage: RuntimeUsage = Field(default_factory=RuntimeUsage)

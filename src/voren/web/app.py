@@ -14,12 +14,14 @@ from fastapi.sse import EventSourceResponse, ServerSentEvent
 from fastapi.staticfiles import StaticFiles
 
 from voren.adapters.agentdojo_workspace import AgentDojoDependencyError
+from voren.actions.errors import InvalidOperationStateError
 from voren.adapters.google_workspace import GoogleWorkspaceConfigurationError
 from voren.providers.openai_responses import (
     ModelConfigurationError,
     OpenAIResponsesModelAdapter,
 )
 from voren.runtime.models import RuntimeResultStatus
+from voren.runtime.transcripts import TranscriptKeyError
 from voren.skills.routing import SkillRoutingMode
 from voren.web.demo_model import DemoWorkspaceModel
 from voren.web.index import (
@@ -115,7 +117,7 @@ def create_app(
     static_root = Path(__file__).with_name("static")
     app = FastAPI(
         title="Voren Agent",
-        version="0.1.0",
+        version="0.2.0",
         description=(
             "Local controlled email/calendar Agent with exact-effect approval."
         ),
@@ -156,12 +158,13 @@ def create_app(
             return active_service.submit(payload)
         except WebRequestConflictError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
-        except WebRequestInProgressError as error:
+        except (WebRequestInProgressError, InvalidOperationStateError) as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
         except (
             ModelConfigurationError,
             AgentDojoDependencyError,
             GoogleWorkspaceConfigurationError,
+            TranscriptKeyError,
         ) as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
 
@@ -183,9 +186,25 @@ def create_app(
         except (
             WebDecisionConflictError,
             WebApprovalRecoveryRequiredError,
+            InvalidOperationStateError,
         ) as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
-        except GoogleWorkspaceConfigurationError as error:
+        except (GoogleWorkspaceConfigurationError, ModelConfigurationError, TranscriptKeyError) as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+
+    @app.post("/api/runs/{run_id}/resume", response_model=RunView)
+    def resume_run(run_id: str) -> RunView:
+        try:
+            return active_service.resume(run_id)
+        except WebRunNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except (
+            WebDecisionConflictError,
+            WebApprovalRecoveryRequiredError,
+            InvalidOperationStateError,
+        ) as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except (GoogleWorkspaceConfigurationError, ModelConfigurationError, TranscriptKeyError) as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
 
     @app.get("/api/runs/{run_id}/events")

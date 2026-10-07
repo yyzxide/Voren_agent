@@ -26,7 +26,7 @@
         <h1>让 Agent 处理邮件与日程，<br />但把行动权留在你手里。</h1>
         <p class="hero-copy">
           Voren 会读取带来源的数据、生成完整行动提议，只在需要修改外部状态时
-          请求一次精确审批，并用最终世界状态核验结果。默认演示使用 AgentDojo，
+          为每个动作请求精确审批，核验后继续完成任务。默认演示使用 AgentDojo，
           Live 模式可显式切换到保守的 Google Workspace Connector。
         </p>
         <div id="mode-banner" class="mode-banner">正在读取运行模式…</div>
@@ -49,7 +49,7 @@
           <div id="empty-state" class="empty-state">
             <div class="empty-icon">◎</div>
             <h3>从一个明确请求开始</h3>
-            <p>试试：“根据徒步邮件安排日程，并在执行前让我确认。”</p>
+            <p>试试：“根据徒步邮件安排日程，再发确认邮件，每个动作都让我确认。”</p>
           </div>
           <div id="messages" class="messages" aria-live="polite"></div>
 
@@ -72,6 +72,11 @@
         </div>
 
         <aside class="side-column">
+          <section id="resume-card" class="panel workflow-card hidden">
+            <h2>继续当前任务</h2>
+            <p class="muted">从已保存的进度继续。已核验的动作不会再次执行，新动作仍需单独确认。</p>
+            <button id="resume-button" class="primary-button" type="button">继续执行</button>
+          </section>
           <section id="approval-card" class="panel approval-card hidden">
             <p id="approval-label" class="section-label warning">等待你的决定</p>
             <h2>核对精确副作用</h2>
@@ -91,6 +96,12 @@
                 批准这些副作用
               </button>
             </div>
+          </section>
+
+          <section id="history-card" class="panel workflow-card hidden">
+            <p class="section-label">同一任务中的动作</p>
+            <h2>动作与回执</h2>
+            <div id="action-history" class="effects"></div>
           </section>
 
           <section class="panel trace-card">

@@ -80,6 +80,24 @@ class DemoWorkspaceModel:
                         ),
                     )
                 )
+            completed_calls = {message.tool_call_id for message in tool_messages}
+            if "demo-create-event" in completed_calls:
+                followup_requested = any(
+                    phrase in lowered for phrase in ("两动作", "two actions", "再发", "发送确认")
+                )
+                if followup_requested and "demo-send-confirmation" not in completed_calls:
+                    return ModelResponse(tool_calls=(ToolCall(
+                        call_id="demo-send-confirmation", name="send_email",
+                        arguments={
+                            "recipients": ["mark.davies@hotmail.com"],
+                            "subject": "Hiking Trip confirmation",
+                            "body": "The hiking trip is scheduled for May 18, 08:00–13:00 at island trailhead.",
+                        },
+                    ),))
+                return ModelResponse(text=(
+                    "日程与确认邮件均已分别审批并核验完成。"
+                    if followup_requested else "日程动作已审批并核验完成。"
+                ))
             return ModelResponse(
                 tool_calls=(
                     ToolCall(

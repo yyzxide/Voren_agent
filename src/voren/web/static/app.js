@@ -5,6 +5,7 @@ const state = {
   events: new Map(),
   submission: null,
   decision: null,
+  renderedMessages: new Set(),
 };
 
 const $ = (id) => document.getElementById(id);
@@ -50,24 +51,60 @@ function appendMessage(role, text) {
 }
 
 function renderRun(run) {
+  if (state.run?.run_id !== run.run_id) state.renderedMessages.clear();
   state.run = run;
+  if (state.decision && state.decision.proposal_digest !== run.proposal?.digest) {
+    state.decision = null;
+  }
   saveSession();
   renderMemoryContext(run.memory_versions || []);
   renderSkillRoute(run.skill_routing);
-  if (run.final_text) appendMessage("agent", run.final_text);
+  if (run.final_text) appendOnce("agent", run.final_text);
   if (run.error_code) {
-    appendMessage("system", `运行停止：${run.error_code}${run.error_detail_code ? ` / ${run.error_detail_code}` : ""}`);
+    appendOnce("system", `运行停止：${run.error_code}${run.error_detail_code ? ` / ${run.error_detail_code}` : ""}`);
   }
   if (run.receipt) {
-    appendMessage(
+    appendOnce(
       "system",
       `动作回执：${run.receipt.status} · 精确副作用核验 ${run.receipt.verification.passed ? "通过" : "失败"}`,
     );
-  } else if (run.decision_approved === false) {
-    appendMessage("system", "你已拒绝本次提议；没有执行外部写操作。");
   }
+  if (run.decision_approved === false) {
+    appendOnce("system", "你已拒绝本次提议；该动作没有执行，先前已完成的动作保留在回执中。");
+  }
+  renderHistory(run.action_history || []);
+  $("resume-card").classList.toggle("hidden", run.recovery_required || !(
+    run.status === "running" || (run.status === "completed" && !run.final_text)
+  ));
   renderApproval(run);
   openEvents(run);
+}
+
+function appendOnce(role, text) {
+  const key = `${role}:${text}`;
+  if (state.renderedMessages.has(key)) return;
+  state.renderedMessages.add(key);
+  appendMessage(role, text);
+}
+
+function renderHistory(history) {
+  $("history-card").classList.toggle("hidden", !history.length);
+  const list = $("action-history");
+  list.replaceChildren();
+  history.forEach((action, index) => {
+    const item = document.createElement("article");
+    item.className = "effect";
+    const title = document.createElement("strong");
+    title.textContent = `${index + 1}. ${action.proposal.action_name}`;
+    const detail = document.createElement("p");
+    detail.textContent = action.receipt
+      ? `${action.receipt.status} · 精确副作用核验 ${action.receipt.verification.passed ? "通过" : "未通过"}`
+      : (action.decision_approved === false ? "已拒绝" : "等待审批");
+    const identity = document.createElement("code");
+    identity.textContent = action.proposal.operation_id;
+    item.append(title, detail, identity);
+    list.appendChild(item);
+  });
 }
 
 function renderMemoryContext(versions) {
@@ -110,13 +147,15 @@ function renderApproval(run) {
   );
   if (mismatch) {
     card.classList.add("hidden");
-    appendMessage("system", "结果与批准内容不符，需要人工核对；系统不会重发该动作。");
+    appendOnce("system", "结果与批准内容不符，需要人工核对；系统不会重发该动作。");
     return;
   }
   if ((!reconciling && run.status !== "waiting_approval") || !run.proposal || run.recovery_required) {
     card.classList.add("hidden");
     if (run.recovery_required) {
-      appendMessage("system", "进程已重启，受控 Workspace Handle 不再存在；系统不会自动重发动作，请重新发起任务。");
+      appendOnce("system", run.workspace === "google"
+        ? "当前 Google 连接无法恢复此任务，请检查原账号、日历、时区和连接配置。已完成动作仍保留在回执中。"
+        : "当前任务的原工作区无法恢复，任务已暂停。请先核对已完成的动作；不要重复执行。AgentDojo 演示的外部状态仅保存在原进程中。");
     }
     return;
   }
@@ -157,6 +196,7 @@ function openEvents(run) {
     "model.requested", "model.responded", "tool.called", "tool.observed",
     "action.proposed", "run.waiting_approval", "approval.accepted", "approval.rejected",
     "action.receipt", "action.reconciled", "run.completed", "run.failed", "run.cancelled",
+    "action.result_consumed", "run.continued", "run.needs_reconciliation",
   ];
   for (const name of names) source.addEventListener(name, receiveEvent);
   source.onerror = () => {
@@ -229,6 +269,7 @@ async function decide(approved) {
   if (
     !state.decision
     || state.decision.run_id !== state.run.run_id
+    || state.decision.proposal_digest !== state.run.proposal.digest
     || state.decision.approved !== approved
   ) {
     state.decision = {
@@ -255,6 +296,18 @@ async function decide(approved) {
     appendMessage("system", `决定未生效：${error.message}`);
   } finally {
     setDecisionBusy(false);
+  }
+}
+
+async function resumeRun() {
+  if (!state.run) return;
+  $("resume-button").disabled = true;
+  try {
+    renderRun(await api(`/api/runs/${encodeURIComponent(state.run.run_id)}/resume`, { method: "POST" }));
+  } catch (error) {
+    appendMessage("system", `继续执行失败：${error.message}`);
+  } finally {
+    $("resume-button").disabled = false;
   }
 }
 
@@ -305,10 +358,11 @@ input.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) form.requestSubmit();
 });
 $("example-button").addEventListener("click", () => {
-  input.value = "根据徒步邮件安排日程，并在执行前让我确认。";
+  input.value = "根据徒步邮件安排日程，再发确认邮件，每个动作都让我确认。";
   input.focus();
 });
 $("approve-button").addEventListener("click", () => decide(true));
 $("reject-button").addEventListener("click", () => decide(false));
+$("resume-button").addEventListener("click", resumeRun);
 loadHealth();
 restoreSession();

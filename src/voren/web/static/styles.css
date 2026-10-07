@@ -148,6 +148,11 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(23, 107, 
 .secondary-button { color: var(--ink); background: white; border: 1px solid #cbd7e1; }
 
 .approval-card { padding: 24px; }
+.workflow-card { padding: 24px; }
+.workflow-card h2 { margin-bottom: 12px; }
+.workflow-card .effect { background: #eef4f6; border-color: #dce8eb; }
+.workflow-card .effect p { margin: 6px 0; }
+.workflow-card .effect code { font-size: 12px; overflow-wrap: anywhere; }
 .approval-card h2 { margin-bottom: 8px; }
 .section-label.warning { color: var(--amber); }
 .muted { margin: 0 0 18px; color: var(--muted); }

@@ -48,7 +48,7 @@ if WEB_AVAILABLE:
     from voren.memory.service import MemoryService
     from voren.memory.store import SQLiteMemoryStore
     from voren.providers.openai_responses import ModelConfigurationError
-    from voren.runtime.models import ModelResponse, ToolCall
+    from voren.runtime.models import MessageRole, ModelResponse, ToolCall
     from voren.skills.parser import AgentSkillParser
     from voren.skills.routing import SkillRoutingMode
     from voren.skills.store import SQLiteSkillStore
@@ -60,6 +60,17 @@ if WEB_AVAILABLE:
         WebProfileMemoryMode,
         create_google_web_workspace,
     )
+
+
+    class TranscriptScriptedModel:
+        """A process-independent fixture driven by the restored conversation."""
+
+        def __init__(self, responses):
+            self.responses = responses
+
+        def complete(self, *, messages, tools, cancellation):
+            step = sum(message.role is MessageRole.ASSISTANT for message in messages)
+            return self.responses[step] if step < len(self.responses) else ModelResponse(text="Verified workflow complete.")
 
 
 @unittest.skipUnless(
@@ -254,7 +265,50 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
         self.assertEqual(rejected.status_code, 200)
         self.assertEqual(rejected.json()["status"], "cancelled")
         self.assertIsNone(rejected.json()["receipt"])
-        self.assertFalse(rejected.json()["decision_approved"])
+        self.assertIs(rejected.json()["decision_approved"], False)
+
+    def test_demo_two_actions_have_separate_approvals_and_resume_keeps_pending(self) -> None:
+        pending = self.client.post("/api/runs", json={
+            "client_request_id": "request:demo-two-actions",
+            "request": "根据徒步邮件安排日程，再发确认邮件，每个动作都让我确认。",
+        }).json()
+        path = f"/api/runs/{pending['run_id']}"
+        resumed = self.client.post(path + "/resume")
+        self.assertEqual(resumed.status_code, 200)
+        self.assertEqual(resumed.json()["status"], "waiting_approval")
+        first = {"decision_id": "decision:demo-two-1", "proposal_digest": pending["proposal"]["digest"], "approved": True}
+        next_action = self.client.post(path + "/decision", json=first).json()
+        self.assertEqual(next_action["status"], "waiting_approval")
+        self.assertEqual(next_action["proposal"]["action_name"], "send_email")
+        self.assertIsNone(next_action["decision_id"])
+        self.assertEqual(len(next_action["action_history"]), 2)
+        retry = self.client.post(path + "/decision", json=first).json()
+        self.assertEqual(retry["proposal"]["digest"], next_action["proposal"]["digest"])
+        final = self.client.post(path + "/decision", json={
+            "decision_id": "decision:demo-two-2", "proposal_digest": next_action["proposal"]["digest"], "approved": True,
+        }).json()
+        self.assertEqual(final["status"], "completed")
+        self.assertIn("分别审批", final["final_text"])
+        self.assertEqual(len(final["action_history"]), 2)
+        self.assertTrue(all(item["receipt"]["verification"]["passed"] for item in final["action_history"]))
+        self.assertEqual(self.client.post(path + "/resume").json(), final)
+
+    def test_executor_conflict_allows_retry_without_losing_existing_checkpoint(self) -> None:
+        from voren.runtime.transcripts import SQLiteTranscriptStore
+        pending = self.client.post("/api/runs", json={
+            "client_request_id": "request:keep-existing-checkpoint", "request": "安排徒步日程",
+        }).json()
+        store = SQLiteTranscriptStore.from_local_key(self.database)
+        self.addCleanup(store.close)
+        payload = {"client_request_id": "request:executor-conflict", "request": "你好"}
+        with store.execution_lock():
+            conflict = self.client.post("/api/runs", json=payload)
+        self.assertEqual(conflict.status_code, 409)
+        self.assertIn("another loop", conflict.json()["detail"])
+        self.assertTrue(store.contains(pending["run_id"]))
+        retried = self.client.post("/api/runs", json=payload)
+        self.assertEqual(retried.status_code, 200)
+        self.assertEqual(retried.json()["status"], "completed")
 
     def test_web_skill_routing_can_be_explicitly_disabled(self) -> None:
         self._activate_repository_skill()
@@ -481,7 +535,7 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
             )
 
         def model_factory():
-            return ScriptedModelAdapter(
+            return TranscriptScriptedModel(
                 (
                     ModelResponse(
                         tool_calls=(
@@ -610,7 +664,7 @@ class VorenWebAppIntegrationTest(unittest.TestCase):
                 def service():
                     return VorenWebService(
                         database=Path(tmp) / "web.sqlite3",
-                        model_factory=lambda: ScriptedModelAdapter((ModelResponse(tool_calls=(ToolCall(
+                        model_factory=lambda: TranscriptScriptedModel((ModelResponse(tool_calls=(ToolCall(
                             call_id="calendar-action", name="create_private_calendar_event",
                             arguments={"title": "Recovery test", "start_time": "2026-09-15T09:00:00+08:00", "end_time": "2026-09-15T10:00:00+08:00"},
                         ),)),)),
