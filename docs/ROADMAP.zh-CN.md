@@ -2,6 +2,11 @@
 
 [English](ROADMAP.md)
 
+2026-09-26 的 **0.2.0 切片**在已有基础上增加同一 Run 的多动作审批、验证后续跑、
+加密 Provider 原始响应恢复、跨动作预算与 Web/Google CLI 入口，见
+[实现与验收边界](implementation/V02_MULTI_ACTION.zh-CN.md)。下文 Phase 0—5 保留其
+原始验收范围；真实 Google 账号试用和 Skill 效果提升仍需独立证据。
+
 ## 1. 交付策略
 
 Voren 按照一系列可执行纵向切片构建。只有通过可观察的验收条件，某一阶段才

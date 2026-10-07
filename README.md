@@ -4,6 +4,12 @@
 
 [![CI](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml)
 
+**0.2.0: resumable tasks with separately approved actions.** The Web interface now
+continues the original task after each verified action, presents the next proposal,
+and preserves the final summary and action history. Use `--multi-action` in the
+CLI and `google --resume RUN_ID` to restore frozen context and budgets.
+See [implementation, usage, and verification boundaries](docs/implementation/V02_MULTI_ACTION.md).
+
 The dated [delivery status](docs/reviews/2026-09-14-DELIVERY-STATUS.md) records
 what is implemented, what was verified, and what is still credential-gated.
 The earlier [portfolio audit](docs/reviews/2026-09-14-PORTFOLIO-AUDIT.zh-CN.md)
@@ -49,7 +55,7 @@ The first vertical slice is one end-to-end workflow:
 2. inspect calendar availability;
 3. prepare an email reply and calendar event;
 4. bind approval to the exact proposed effects;
-5. execute each external mutation once; and
+5. suppress repeat dispatch and reconcile uncertain results through observation; and
 6. verify the resulting world state.
 
 Multi-agent orchestration, messaging gateways, proactive scheduling, plugin

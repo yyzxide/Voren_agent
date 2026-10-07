@@ -1,0 +1,452 @@
+test_all_expands_only_manifest_supported_case_mode_pairs (integration.test_agentdojo_evaluation.AgentDojoEvaluationTest.test_all_expands_only_manifest_supported_case_mode_pairs) ... ok
+test_benign_action_preserves_utility_in_both_modes (integration.test_agentdojo_evaluation.AgentDojoEvaluationTest.test_benign_action_preserves_utility_in_both_modes) ... ok
+test_email_injection_cases_are_measured_in_both_modes (integration.test_agentdojo_evaluation.AgentDojoEvaluationTest.test_email_injection_cases_are_measured_in_both_modes) ... ok
+test_runner_rejects_config_that_mislabels_runtime_inputs (integration.test_agentdojo_evaluation.AgentDojoEvaluationTest.test_runner_rejects_config_that_mislabels_runtime_inputs) ... ok
+test_runner_rejects_config_that_mislabels_selected_trials (integration.test_agentdojo_evaluation.AgentDojoEvaluationTest.test_runner_rejects_config_that_mislabels_selected_trials) ... ok
+test_same_injected_action_succeeds_only_without_enforcement (integration.test_agentdojo_evaluation.AgentDojoEvaluationTest.test_same_injected_action_succeeds_only_without_enforcement) ... ok
+test_calendar_read_is_labelled_and_runs_against_a_snapshot (integration.test_agentdojo_read_adapter.AgentDojoReadAdapterTest.test_calendar_read_is_labelled_and_runs_against_a_snapshot) ... ok
+test_email_injection_stays_visible_but_has_no_instruction_authority (integration.test_agentdojo_read_adapter.AgentDojoReadAdapterTest.test_email_injection_stays_visible_but_has_no_instruction_authority) ... ok
+test_stateful_get_unread_tool_is_not_exposed_or_executed (integration.test_agentdojo_read_adapter.AgentDojoReadAdapterTest.test_stateful_get_unread_tool_is_not_exposed_or_executed) ... ok
+test_cli_generates_paired_artifact_without_deciding_or_promoting (integration.test_agentdojo_skill_evaluator.AgentDojoSkillEvaluatorTest.test_cli_generates_paired_artifact_without_deciding_or_promoting) ... ok
+test_exact_base_and_candidate_contexts_produce_durable_trials (integration.test_agentdojo_skill_evaluator.AgentDojoSkillEvaluatorTest.test_exact_base_and_candidate_contexts_produce_durable_trials) ... ok
+test_duplicate_gateway_commit_does_not_duplicate_agentdojo_state (integration.test_agentdojo_workspace_adapter.AgentDojoWorkspaceAdapterTest.test_duplicate_gateway_commit_does_not_duplicate_agentdojo_state) ... ok
+test_gateway_action_passes_official_user_task_18_utility (integration.test_agentdojo_workspace_adapter.AgentDojoWorkspaceAdapterTest.test_gateway_action_passes_official_user_task_18_utility) ... ok
+test_pin_matches_research_snapshot (integration.test_agentdojo_workspace_adapter.AgentDojoWorkspaceAdapterTest.test_pin_matches_research_snapshot) ... ok
+test_send_email_contract_matches_agentdojo_state_and_security_grader (integration.test_agentdojo_workspace_adapter.AgentDojoWorkspaceAdapterTest.test_send_email_contract_matches_agentdojo_state_and_security_grader) ... ok
+test_unrecognized_agentdojo_delta_becomes_unexpected_effect (integration.test_agentdojo_workspace_adapter.AgentDojoWorkspaceAdapterTest.test_unrecognized_agentdojo_delta_becomes_unexpected_effect) ... ok
+test_cli_has_no_automatic_approval_option (integration.test_cli_agentdojo.AgentDojoCLITest.test_cli_has_no_automatic_approval_option) ... usage: voren agentdojo [-h] [--model MODEL] [--base-url BASE_URL]
+                       [--provider-profile {openai,deepseek}]
+                       [--database DATABASE]
+                       [--timeout-seconds TIMEOUT_SECONDS]
+                       [--max-output-tokens MAX_OUTPUT_TOKENS]
+                       [--max-model-steps MAX_MODEL_STEPS]
+                       [--max-tool-calls MAX_TOOL_CALLS] [--multi-action]
+                       [--profile-memory PROFILE_MEMORY]
+                       [--episode-memory EPISODE_MEMORY]
+                       [--skill SKILL | --no-skill]
+                       [--skill-store SKILL_STORE]
+                       request
+voren agentdojo: error: argument --no-skill: not allowed with argument --skill
+ok
+test_evaluation_cli_freezes_exact_active_skill_context (integration.test_cli_agentdojo.AgentDojoCLITest.test_evaluation_cli_freezes_exact_active_skill_context) ... ok
+test_evaluation_cli_writes_integrity_checked_artifact (integration.test_cli_agentdojo.AgentDojoCLITest.test_evaluation_cli_writes_integrity_checked_artifact) ... ok
+test_multi_action_run_approves_calendar_and_email_separately (integration.test_cli_agentdojo.AgentDojoCLITest.test_multi_action_run_approves_calendar_and_email_separately) ... ok
+test_operator_approval_commits_and_verifies (integration.test_cli_agentdojo.AgentDojoCLITest.test_operator_approval_commits_and_verifies) ... ok
+test_operator_rejection_cancels_without_commit_receipt (integration.test_cli_agentdojo.AgentDojoCLITest.test_operator_rejection_cancels_without_commit_receipt) ... ok
+test_pre_requested_runtime_cancellation_returns_130 (integration.test_cli_agentdojo.AgentDojoCLITest.test_pre_requested_runtime_cancellation_returns_130) ... ok
+test_runtime_auto_routes_exact_active_skill_and_records_decision (integration.test_cli_agentdojo.AgentDojoCLITest.test_runtime_auto_routes_exact_active_skill_and_records_decision) ... ok
+test_agent_loop_consumes_mcp_result_as_data_not_instructions (integration.test_mcp_knowledge.MCPKnowledgeIntegrationTest.test_agent_loop_consumes_mcp_result_as_data_not_instructions) ... ok
+test_in_process_protocol_round_trip_preserves_source_boundary (integration.test_mcp_knowledge.MCPKnowledgeIntegrationTest.test_in_process_protocol_round_trip_preserves_source_boundary) ... ok
+test_stdio_subprocess_round_trip_uses_real_json_rpc_transport (integration.test_mcp_knowledge.MCPKnowledgeIntegrationTest.test_stdio_subprocess_round_trip_uses_real_json_rpc_transport) ... ok
+test_demo_search_returns_source_bound_knowledge (integration.test_web_app.VorenWebAppIntegrationTest.test_demo_search_returns_source_bound_knowledge) ... [09/26/26 22:08:47] INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 200 OK"
+ok
+test_demo_two_actions_have_separate_approvals_and_resume_keeps_pending (integration.test_web_app.VorenWebAppIntegrationTest.test_demo_two_actions_have_separate_approvals_and_resume_keeps_pending) ... [09/26/26 22:08:48] INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs/web-acc8
+                             d474-3910-41cf-a961-d7b80ddf047e/re
+                             sume "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs/web-acc8
+                             d474-3910-41cf-a961-d7b80ddf047e/de
+                             cision "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs/web-acc8
+                             d474-3910-41cf-a961-d7b80ddf047e/de
+                             cision "HTTP/1.1 200 OK"
+[09/26/26 22:08:49] INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs/web-acc8
+                             d474-3910-41cf-a961-d7b80ddf047e/de
+                             cision "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs/web-acc8
+                             d474-3910-41cf-a961-d7b80ddf047e/re
+                             sume "HTTP/1.1 200 OK"
+ok
+test_executor_conflict_allows_retry_without_losing_existing_checkpoint (integration.test_web_app.VorenWebAppIntegrationTest.test_executor_conflict_allows_retry_without_losing_existing_checkpoint) ... [09/26/26 22:08:50] INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 409 Conflict"
+                    INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 200 OK"
+ok
+test_google_restart_recovers_each_dispatch_boundary_without_resend (integration.test_web_app.VorenWebAppIntegrationTest.test_google_restart_recovers_each_dispatch_boundary_without_resend) ... ok
+test_google_web_approval_survives_process_restart (integration.test_web_app.VorenWebAppIntegrationTest.test_google_web_approval_survives_process_restart) ... [09/26/26 22:08:53] INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: GET                   _client.py:1085
+                             http://testserver/api/runs/web-4f14
+                             c1de-49e6-48bb-a691-9ee099407dec
+                             "HTTP/1.1 200 OK"
+[09/26/26 22:08:54] INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs/web-4f14
+                             c1de-49e6-48bb-a691-9ee099407dec/de
+                             cision "HTTP/1.1 200 OK"
+ok
+test_google_workspace_cannot_be_mislabeled_as_demo_mode (integration.test_web_app.VorenWebAppIntegrationTest.test_google_workspace_cannot_be_mislabeled_as_demo_mode) ... ok
+test_greeting_returns_an_agent_response_without_an_api_key (integration.test_web_app.VorenWebAppIntegrationTest.test_greeting_returns_an_agent_response_without_an_api_key) ...                     INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 200 OK"
+[09/26/26 22:08:55] INFO     HTTP Request: GET                   _client.py:1085
+                             http://testserver/api/runs/web-cc5a
+                             7ff0-e050-4304-ba45-a2f8d00b7f12/ev
+                             ents/stream "HTTP/1.1 200 OK"
+ok
+test_local_page_and_health_work_without_model_credentials (integration.test_web_app.VorenWebAppIntegrationTest.test_local_page_and_health_work_without_model_credentials) ...                     INFO     HTTP Request: GET                   _client.py:1085
+                             http://testserver/ "HTTP/1.1 200
+                             OK"
+                    INFO     HTTP Request: GET                   _client.py:1085
+                             http://testserver/api/health
+                             "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: GET                   _client.py:1085
+                             http://testserver/static/styles.css
+                             "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: GET                   _client.py:1085
+                             http://testserver/static/app.js
+                             "HTTP/1.1 200 OK"
+ok
+test_lost_decision_response_recovers_durable_receipt_without_resend (integration.test_web_app.VorenWebAppIntegrationTest.test_lost_decision_response_recovers_durable_receipt_without_resend) ... [09/26/26 22:08:56] INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 200 OK"
+ok
+test_model_configuration_failure_releases_request_reservation (integration.test_web_app.VorenWebAppIntegrationTest.test_model_configuration_failure_releases_request_reservation) ...                     INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 503 Service Unavailable"
+                    INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 503 Service Unavailable"
+ok
+test_rejection_is_terminal_and_dispatches_no_action (integration.test_web_app.VorenWebAppIntegrationTest.test_rejection_is_terminal_and_dispatches_no_action) ... [09/26/26 22:08:57] INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs/web-e8a5
+                             27dc-a4d2-423e-91bd-ea355375cef8/de
+                             cision "HTTP/1.1 200 OK"
+ok
+test_restart_marks_in_memory_pending_workspace_as_unrecoverable (integration.test_web_app.VorenWebAppIntegrationTest.test_restart_marks_in_memory_pending_workspace_as_unrecoverable) ... [09/26/26 22:08:58] INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: GET                   _client.py:1085
+                             http://testserver/api/runs/web-4b6d
+                             c5e9-4837-4ed8-a7f9-b2a62d54153a
+                             "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs/web-4b6d
+                             c5e9-4837-4ed8-a7f9-b2a62d54153a/de
+                             cision "HTTP/1.1 409 Conflict"
+ok
+test_same_client_request_id_cannot_be_rebound (integration.test_web_app.VorenWebAppIntegrationTest.test_same_client_request_id_cannot_be_rebound) ... [09/26/26 22:08:59] INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 409 Conflict"
+ok
+test_task_runs_immediately_then_requires_only_exact_effect_decision (integration.test_web_app.VorenWebAppIntegrationTest.test_task_runs_immediately_then_requires_only_exact_effect_decision) ... [09/26/26 22:09:00] INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs/web-2f1b
+                             2644-4879-4070-9add-2ceaa6956090/de
+                             cision "HTTP/1.1 409 Conflict"
+                    INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs/web-2f1b
+                             2644-4879-4070-9add-2ceaa6956090/de
+                             cision "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs/web-2f1b
+                             2644-4879-4070-9add-2ceaa6956090/de
+                             cision "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: GET                   _client.py:1085
+                             http://testserver/api/runs/web-2f1b
+                             2644-4879-4070-9add-2ceaa6956090/ev
+                             ents "HTTP/1.1 200 OK"
+ok
+test_web_freezes_active_profile_memory_as_non_authoritative_data (integration.test_web_app.VorenWebAppIntegrationTest.test_web_freezes_active_profile_memory_as_non_authoritative_data) ... [09/26/26 22:09:01] INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: GET                   _client.py:1085
+                             http://testserver/api/runs/web-679e
+                             dae2-91b6-44cf-86aa-13da94bf8210/ev
+                             ents "HTTP/1.1 200 OK"
+ok
+test_web_profile_memory_can_be_explicitly_disabled (integration.test_web_app.VorenWebAppIntegrationTest.test_web_profile_memory_can_be_explicitly_disabled) ... [09/26/26 22:09:02] INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 200 OK"
+ok
+test_web_rechecks_delayed_effects_using_the_original_decision (integration.test_web_app.VorenWebAppIntegrationTest.test_web_rechecks_delayed_effects_using_the_original_decision) ... [09/26/26 22:09:03] INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs/web-1163
+                             fac3-beba-4d08-9931-236fe4185eab/de
+                             cision "HTTP/1.1 200 OK"
+                    INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs/web-1163
+                             fac3-beba-4d08-9931-236fe4185eab/de
+                             cision "HTTP/1.1 200 OK"
+ok
+test_web_skill_routing_can_be_explicitly_disabled (integration.test_web_app.VorenWebAppIntegrationTest.test_web_skill_routing_can_be_explicitly_disabled) ... [09/26/26 22:09:04] INFO     HTTP Request: POST                  _client.py:1085
+                             http://testserver/api/runs
+                             "HTTP/1.1 200 OK"
+ok
+test_cold_start_exact_effect_approval_and_restart_recovery (integration.test_web_http_process.VorenWebHTTPProcessTest.test_cold_start_exact_effect_approval_and_restart_recovery) ... ok
+test_initial_model_interruption_keeps_request_identity_and_checkpoint (integration.test_web_multi_action.WebMultiActionIntegrationTest.test_initial_model_interruption_keeps_request_identity_and_checkpoint) ... ok
+test_lost_next_proposal_response_does_not_reapply_old_approval (integration.test_web_multi_action.WebMultiActionIntegrationTest.test_lost_next_proposal_response_does_not_reapply_old_approval) ... ok
+test_parallel_old_decision_retries_cannot_approve_next_action (integration.test_web_multi_action.WebMultiActionIntegrationTest.test_parallel_old_decision_retries_cannot_approve_next_action) ... ok
+test_restart_cannot_move_old_approval_to_another_workspace_identity (integration.test_web_multi_action.WebMultiActionIntegrationTest.test_restart_cannot_move_old_approval_to_another_workspace_identity) ... ok
+test_resume_after_verified_receipt_does_not_send_again (integration.test_web_multi_action.WebMultiActionIntegrationTest.test_resume_after_verified_receipt_does_not_send_again) ... ok
+test_second_action_rejection_survives_restart_and_idempotent_retry (integration.test_web_multi_action.WebMultiActionIntegrationTest.test_second_action_rejection_survives_restart_and_idempotent_retry) ... ok
+test_terminal_text_recovers_without_model_or_workspace (integration.test_web_multi_action.WebMultiActionIntegrationTest.test_terminal_text_recovers_without_model_or_workspace) ... ok
+test_two_actions_resume_after_restart_with_independent_approvals (integration.test_web_multi_action.WebMultiActionIntegrationTest.test_two_actions_resume_after_restart_with_independent_approvals) ... ok
+test_approval_for_another_proposal_is_rejected (test_action_gateway.ActionGatewayTest.test_approval_for_another_proposal_is_rejected) ... ok
+test_authorized_commit_is_verified_from_world_state (test_action_gateway.ActionGatewayTest.test_authorized_commit_is_verified_from_world_state) ... ok
+test_conflicting_approval_cannot_replace_authorized_decision (test_action_gateway.ActionGatewayTest.test_conflicting_approval_cannot_replace_authorized_decision) ... ok
+test_crash_after_external_commit_is_reconciled_without_resend (test_action_gateway.ActionGatewayTest.test_crash_after_external_commit_is_reconciled_without_resend) ... ok
+test_delayed_observation_recovers_and_archives_original_failure (test_action_gateway.ActionGatewayTest.test_delayed_observation_recovers_and_archives_original_failure) ... ok
+test_duplicate_commit_returns_receipt_without_duplicate_effects (test_action_gateway.ActionGatewayTest.test_duplicate_commit_returns_receipt_without_duplicate_effects) ... ok
+test_durable_receipt_cannot_be_overwritten (test_action_gateway.ActionGatewayTest.test_durable_receipt_cannot_be_overwritten) ... ok
+test_email_recipient_classes_cannot_overlap (test_action_gateway.ActionGatewayTest.test_email_recipient_classes_cannot_overlap) ... ok
+test_email_send_is_exactly_approved_verified_and_deduplicated (test_action_gateway.ActionGatewayTest.test_email_send_is_exactly_approved_verified_and_deduplicated) ... ok
+test_email_timeout_after_commit_recovers_without_resend (test_action_gateway.ActionGatewayTest.test_email_timeout_after_commit_recovers_without_resend) ... ok
+test_inconclusive_reconciliation_stays_ambiguous_without_resend (test_action_gateway.ActionGatewayTest.test_inconclusive_reconciliation_stays_ambiguous_without_resend) ... ok
+test_known_failure_before_commit_records_no_external_effect (test_action_gateway.ActionGatewayTest.test_known_failure_before_commit_records_no_external_effect) ... ok
+test_later_exact_observation_replaces_ambiguous_receipt (test_action_gateway.ActionGatewayTest.test_later_exact_observation_replaces_ambiguous_receipt) ... ok
+test_ledger_rejects_replacing_legacy_ambiguous_violation (test_action_gateway.ActionGatewayTest.test_ledger_rejects_replacing_legacy_ambiguous_violation) ... ok
+test_legacy_ambiguous_violation_cannot_be_reconciled_after_restart (test_action_gateway.ActionGatewayTest.test_legacy_ambiguous_violation_cannot_be_reconciled_after_restart) ... ok
+test_nested_proposal_change_invalidates_digest (test_action_gateway.ActionGatewayTest.test_nested_proposal_change_invalidates_digest) ... ok
+test_prepare_materializes_calendar_and_email_effects (test_action_gateway.ActionGatewayTest.test_prepare_materializes_calendar_and_email_effects) ... ok
+test_stale_approval_cannot_authorize (test_action_gateway.ActionGatewayTest.test_stale_approval_cannot_authorize) ... ok
+test_timeout_after_commit_recovers_by_observing_state (test_action_gateway.ActionGatewayTest.test_timeout_after_commit_recovers_by_observing_state) ... ok
+test_timeout_violation_survives_clean_observation_and_restart (test_action_gateway.ActionGatewayTest.test_timeout_violation_survives_clean_observation_and_restart) ... ok
+test_two_connections_cannot_both_claim_one_authorized_operation (test_action_gateway.ActionGatewayTest.test_two_connections_cannot_both_claim_one_authorized_operation) ... ok
+test_unexpected_effect_fails_verification (test_action_gateway.ActionGatewayTest.test_unexpected_effect_fails_verification) ... ok
+test_unexpected_effect_is_not_erased_by_later_clean_observation (test_action_gateway.ActionGatewayTest.test_unexpected_effect_is_not_erased_by_later_clean_observation) ... ok
+test_unresolved_ambiguous_commit_is_not_retried (test_action_gateway.ActionGatewayTest.test_unresolved_ambiguous_commit_is_not_retried) ... ok
+test_verified_receipt_survives_ledger_reopen (test_action_gateway.ActionGatewayTest.test_verified_receipt_survives_ledger_reopen) ... ok
+test_violation_seen_during_reconciliation_remains_sticky (test_action_gateway.ActionGatewayTest.test_violation_seen_during_reconciliation_remains_sticky) ... ok
+test_cancellation_after_model_response_prevents_action_proposal (test_agent_loop.AgentLoopTest.test_cancellation_after_model_response_prevents_action_proposal) ... ok
+test_mixed_read_and_action_batch_is_rejected_before_any_tool_runs (test_agent_loop.AgentLoopTest.test_mixed_read_and_action_batch_is_rejected_before_any_tool_runs) ... ok
+test_model_step_budget_stops_after_last_allowed_read (test_agent_loop.AgentLoopTest.test_model_step_budget_stops_after_last_allowed_read) ... ok
+test_model_usage_accumulates_across_steps_and_events (test_agent_loop.AgentLoopTest.test_model_usage_accumulates_across_steps_and_events) ... ok
+test_oversized_observation_is_not_added_to_model_context (test_agent_loop.AgentLoopTest.test_oversized_observation_is_not_added_to_model_context) ... ok
+test_provider_confirmed_cancellation_is_audited (test_agent_loop.AgentLoopTest.test_provider_confirmed_cancellation_is_audited) ... ok
+test_read_only_final_answer_completes_run (test_agent_loop.AgentLoopTest.test_read_only_final_answer_completes_run) ... ok
+test_read_then_action_pauses_without_external_mutation (test_agent_loop.AgentLoopTest.test_read_then_action_pauses_without_external_mutation) ... ok
+test_repeated_identical_tool_call_hits_hard_limit (test_agent_loop.AgentLoopTest.test_repeated_identical_tool_call_hits_hard_limit) ... ok
+test_safe_provider_error_code_reaches_result_and_audit_event (test_agent_loop.AgentLoopTest.test_safe_provider_error_code_reaches_result_and_audit_event) ... ok
+test_total_tool_call_budget_applies_inside_one_model_batch (test_agent_loop.AgentLoopTest.test_total_tool_call_budget_applies_inside_one_model_batch) ... ok
+test_unknown_tool_fails_without_execution (test_agent_loop.AgentLoopTest.test_unknown_tool_fails_without_execution) ... ok
+test_ambiguous_resume_observes_without_new_approval_or_resend (test_cli_resume.GoogleCLIResumeTest.test_ambiguous_resume_observes_without_new_approval_or_resend) ... ok
+test_multi_action_local_key_can_reopen_a_completed_run (test_cli_resume.GoogleCLIResumeTest.test_multi_action_local_key_can_reopen_a_completed_run) ... ok
+test_rejecting_second_action_preserves_first_verified_action (test_cli_resume.GoogleCLIResumeTest.test_rejecting_second_action_preserves_first_verified_action) ... ok
+test_request_and_resume_are_mutually_exclusive (test_cli_resume.GoogleCLIResumeTest.test_request_and_resume_are_mutually_exclusive) ... usage: voren google [-h] [--request REQUEST_OPTION] [--resume RUN_ID]
+                    [--model MODEL] [--base-url BASE_URL]
+                    [--provider-profile {openai,deepseek}]
+                    [--database DATABASE] [--timeout-seconds TIMEOUT_SECONDS]
+                    [--max-output-tokens MAX_OUTPUT_TOKENS]
+                    [--max-model-steps MAX_MODEL_STEPS]
+                    [--max-tool-calls MAX_TOOL_CALLS] [--multi-action]
+                    [--profile-memory PROFILE_MEMORY]
+                    [--episode-memory EPISODE_MEMORY]
+                    [--skill SKILL | --no-skill] [--skill-store SKILL_STORE]
+                    [request]
+voren google: error: argument --resume: not allowed with argument request
+usage: voren google [-h] [--request REQUEST_OPTION] [--resume RUN_ID]
+                    [--model MODEL] [--base-url BASE_URL]
+                    [--provider-profile {openai,deepseek}]
+                    [--database DATABASE] [--timeout-seconds TIMEOUT_SECONDS]
+                    [--max-output-tokens MAX_OUTPUT_TOKENS]
+                    [--max-model-steps MAX_MODEL_STEPS]
+                    [--max-tool-calls MAX_TOOL_CALLS] [--multi-action]
+                    [--profile-memory PROFILE_MEMORY]
+                    [--episode-memory EPISODE_MEMORY]
+                    [--skill SKILL | --no-skill] [--skill-store SKILL_STORE]
+                    [request]
+voren google: error: argument --resume: not allowed with argument --request
+usage: voren [-h]
+             {agentdojo,google,export-google-smoke,eval-agentdojo,skill,memory,knowledge}
+             ...
+voren: error: unrecognized arguments: --resume run-1
+ok
+test_restart_resumes_original_proposal_and_replays_completed_result (test_cli_resume.GoogleCLIResumeTest.test_restart_resumes_original_proposal_and_replays_completed_result) ... ok
+test_resume_cannot_reset_the_cumulative_model_budget (test_cli_resume.GoogleCLIResumeTest.test_resume_cannot_reset_the_cumulative_model_budget) ... ok
+test_resume_never_renews_an_expired_durable_approval (test_cli_resume.GoogleCLIResumeTest.test_resume_never_renews_an_expired_durable_approval) ... ok
+test_resume_rejects_a_different_google_account_before_dispatch (test_cli_resume.GoogleCLIResumeTest.test_resume_rejects_a_different_google_account_before_dispatch) ... ok
+test_resume_rejects_the_legacy_single_action_mode (test_cli_resume.GoogleCLIResumeTest.test_resume_rejects_the_legacy_single_action_mode) ... ok
+test_resume_reuses_frozen_memory_and_skill_after_active_versions_change (test_cli_resume.GoogleCLIResumeTest.test_resume_reuses_frozen_memory_and_skill_after_active_versions_change) ... ok
+test_saved_approval_recovers_after_receipt_before_run_transition (test_cli_resume.GoogleCLIResumeTest.test_saved_approval_recovers_after_receipt_before_run_transition) ... ok
+test_two_actions_require_two_approvals_and_receive_exact_receipts (test_cli_resume.GoogleCLIResumeTest.test_two_actions_require_two_approvals_and_receive_exact_receipts) ... ok
+test_demo_runs_complete_lifecycle_without_credentials (test_demo_skill_learning.SkillLearningDemoTest.test_demo_runs_complete_lifecycle_without_credentials) ... ok
+test_artifact_rejects_trial_missing_from_frozen_selection (test_evaluation_artifacts.EvaluationArtifactTest.test_artifact_rejects_trial_missing_from_frozen_selection) ... ok
+test_artifact_round_trip_checks_integrity_digest (test_evaluation_artifacts.EvaluationArtifactTest.test_artifact_round_trip_checks_integrity_digest) ... ok
+test_case_requires_injection_task_and_vector_together (test_evaluation_artifacts.EvaluationArtifactTest.test_case_requires_injection_task_and_vector_together) ... ok
+test_legacy_v3_artifact_without_selection_still_validates (test_evaluation_artifacts.EvaluationArtifactTest.test_legacy_v3_artifact_without_selection_still_validates) ... ok
+test_legacy_v4_artifact_without_provider_provenance_still_validates (test_evaluation_artifacts.EvaluationArtifactTest.test_legacy_v4_artifact_without_provider_provenance_still_validates) ... ok
+test_summaries_never_mix_behavior_and_enforcement_metrics (test_evaluation_artifacts.EvaluationArtifactTest.test_summaries_never_mix_behavior_and_enforcement_metrics) ... ok
+test_v5_rejects_response_model_sequence_that_disagrees_with_events (test_evaluation_artifacts.EvaluationArtifactTest.test_v5_rejects_response_model_sequence_that_disagrees_with_events) ... ok
+test_action_must_be_grounded_in_the_matching_successful_read (test_google_smoke_artifact.GoogleSmokeArtifactTest.test_action_must_be_grounded_in_the_matching_successful_read) ... ok
+test_complete_suite_is_redacted_and_integrity_checked (test_google_smoke_artifact.GoogleSmokeArtifactTest.test_complete_suite_is_redacted_and_integrity_checked) ... ok
+test_event_payload_cannot_expand_the_redacted_effect_contract (test_google_smoke_artifact.GoogleSmokeArtifactTest.test_event_payload_cannot_expand_the_redacted_effect_contract) ... ok
+test_incomplete_suite_cannot_be_signed (test_google_smoke_artifact.GoogleSmokeArtifactTest.test_incomplete_suite_cannot_be_signed) ... ok
+test_injected_connector_run_cannot_be_exported_as_live (test_google_smoke_artifact.GoogleSmokeArtifactTest.test_injected_connector_run_cannot_be_exported_as_live) ... ok
+test_tampered_artifact_is_rejected (test_google_smoke_artifact.GoogleSmokeArtifactTest.test_tampered_artifact_is_rejected) ... ok
+test_google_draft_runs_through_loop_approval_and_receipt (test_google_workspace_cli.GoogleWorkspaceCLITest.test_google_draft_runs_through_loop_approval_and_receipt) ... ok
+test_parser_exposes_no_token_or_automatic_approval_argument (test_google_workspace_cli.GoogleWorkspaceCLITest.test_parser_exposes_no_token_or_automatic_approval_argument) ... ok
+test_rejected_google_action_never_dispatches_http_write (test_google_workspace_cli.GoogleWorkspaceCLITest.test_rejected_google_action_never_dispatches_http_write) ... ok
+test_calendar_action_uses_stable_id_and_verifies_exact_effect (test_google_workspace_connector.GoogleWorkspaceConnectorTest.test_calendar_action_uses_stable_id_and_verifies_exact_effect) ... ok
+test_config_repr_never_contains_access_token (test_google_workspace_connector.GoogleWorkspaceConnectorTest.test_config_repr_never_contains_access_token) ... ok
+test_definitive_authorization_failure_records_failed_receipt (test_google_workspace_connector.GoogleWorkspaceConnectorTest.test_definitive_authorization_failure_records_failed_receipt) ... ok
+test_delayed_draft_discovery_can_be_reconciled_after_restart (test_google_workspace_connector.GoogleWorkspaceConnectorTest.test_delayed_draft_discovery_can_be_reconciled_after_restart) ... ok
+test_draft_action_never_calls_send_and_verifies_content (test_google_workspace_connector.GoogleWorkspaceConnectorTest.test_draft_action_never_calls_send_and_verifies_content) ... ok
+test_email_and_calendar_reads_are_source_bound_untrusted_data (test_google_workspace_connector.GoogleWorkspaceConnectorTest.test_email_and_calendar_reads_are_source_bound_untrusted_data) ... ok
+test_lost_calendar_response_recovers_by_observation_without_resend (test_google_workspace_connector.GoogleWorkspaceConnectorTest.test_lost_calendar_response_recovers_by_observation_without_resend) ... ok
+test_adapter_marks_every_hit_as_non_authoritative_external_data (test_knowledge_retrieval.KnowledgeRetrievalTest.test_adapter_marks_every_hit_as_non_authoritative_external_data) ... ok
+test_adapter_rejects_invalid_arguments_without_querying (test_knowledge_retrieval.KnowledgeRetrievalTest.test_adapter_rejects_invalid_arguments_without_querying) ... ok
+test_chinese_query_uses_deterministic_character_and_bigram_terms (test_knowledge_retrieval.KnowledgeRetrievalTest.test_chinese_query_uses_deterministic_character_and_bigram_terms) ... ok
+test_cli_ingests_and_redacts_active_document_by_default (test_knowledge_retrieval.KnowledgeRetrievalTest.test_cli_ingests_and_redacts_active_document_by_default) ... ok
+test_composite_adapter_routes_unique_tools_and_rejects_duplicates (test_knowledge_retrieval.KnowledgeRetrievalTest.test_composite_adapter_routes_unique_tools_and_rejects_duplicates) ... ok
+test_new_version_does_not_enter_search_until_explicit_activation (test_knowledge_retrieval.KnowledgeRetrievalTest.test_new_version_does_not_enter_search_until_explicit_activation) ... ok
+test_search_returns_exact_active_source_version_and_digest (test_knowledge_retrieval.KnowledgeRetrievalTest.test_search_returns_exact_active_source_version_and_digest) ... ok
+test_tampered_persisted_content_fails_digest_validation (test_knowledge_retrieval.KnowledgeRetrievalTest.test_tampered_persisted_content_fails_digest_validation) ... ok
+test_unknown_or_unactivated_document_is_not_returned (test_knowledge_retrieval.KnowledgeRetrievalTest.test_unknown_or_unactivated_document_is_not_returned) ... ok
+test_demo_compares_direct_and_gated_policies_without_credentials (test_learning_ablation.LearningAblationTest.test_demo_compares_direct_and_gated_policies_without_credentials) ... ok
+test_tampered_ablation_artifact_fails_integrity_check (test_learning_ablation.LearningAblationTest.test_tampered_ablation_artifact_fails_integrity_check) ... ok
+test_completed_verified_run_becomes_durable_evidence (test_learning_evidence.LearningEvidenceTest.test_completed_verified_run_becomes_durable_evidence) ... ok
+test_fabricated_reference_is_rejected_by_persisted_evidence_gate (test_learning_evidence.LearningEvidenceTest.test_fabricated_reference_is_rejected_by_persisted_evidence_gate) ... ok
+test_non_completed_run_cannot_be_routed (test_learning_evidence.LearningEvidenceTest.test_non_completed_run_cannot_be_routed) ... ok
+test_operator_correction_is_durable_and_idempotent (test_learning_evidence.LearningEvidenceTest.test_operator_correction_is_durable_and_idempotent) ... ok
+test_untrusted_observation_cannot_authorize_learning (test_learning_evidence.LearningEvidenceTest.test_untrusted_observation_cannot_authorize_learning) ... ok
+test_unverified_action_receipt_cannot_be_routed (test_learning_evidence.LearningEvidenceTest.test_unverified_action_receipt_cannot_be_routed) ... ok
+test_agent_loop_binds_memory_snapshot_without_copying_content_to_audit (test_memory_context.MemoryContextTest.test_agent_loop_binds_memory_snapshot_without_copying_content_to_audit) ... ok
+test_episode_stays_non_authoritative_and_identity_is_immutable (test_memory_context.MemoryContextTest.test_episode_stays_non_authoritative_and_identity_is_immutable) ... ok
+test_memory_config_mismatch_stops_before_model_or_run (test_memory_context.MemoryContextTest.test_memory_config_mismatch_stops_before_model_or_run) ... ok
+test_profile_and_episode_require_different_persisted_evidence_types (test_memory_context.MemoryContextTest.test_profile_and_episode_require_different_persisted_evidence_types) ... ok
+test_profile_revisions_are_immutable_and_active_pointer_is_frozen (test_memory_context.MemoryContextTest.test_profile_revisions_are_immutable_and_active_pointer_is_frozen) ... ok
+test_public_cli_classifies_and_redacts_memory (test_memory_context.MemoryContextTest.test_public_cli_classifies_and_redacts_memory) ... ok
+test_tampered_memory_is_detected_when_context_is_rebuilt (test_memory_context.MemoryContextTest.test_tampered_memory_is_detected_when_context_is_rebuilt) ... ok
+test_partial_failure_or_rejection_cannot_become_verified_learning_evidence (test_multi_action_learning.MultiActionLearningTest.test_partial_failure_or_rejection_cannot_become_verified_learning_evidence) ... ok
+test_two_verified_actions_route_only_after_the_final_response (test_multi_action_learning.MultiActionLearningTest.test_two_verified_actions_route_only_after_the_final_response) ... ok
+test_receipt_checkpoint_survives_interrupted_acknowledgement (test_multi_action_provider.MultiActionProviderTest.test_receipt_checkpoint_survives_interrupted_acknowledgement) ... ok
+test_two_actions_replay_original_outputs_across_reconstruction (test_multi_action_provider.MultiActionProviderTest.test_two_actions_replay_original_outputs_across_reconstruction) ... ok
+test_ambiguous_action_blocks_continuation_until_verified (test_multi_action_runtime.MultiActionRuntimeTest.test_ambiguous_action_blocks_continuation_until_verified) ... ok
+test_budget_cannot_be_reset_or_increased_on_resume (test_multi_action_runtime.MultiActionRuntimeTest.test_budget_cannot_be_reset_or_increased_on_resume) ... ok
+test_checkpoint_cannot_substitute_a_different_pending_call (test_multi_action_runtime.MultiActionRuntimeTest.test_checkpoint_cannot_substitute_a_different_pending_call) ... ok
+test_interrupted_model_request_spends_its_reserved_attempt (test_multi_action_runtime.MultiActionRuntimeTest.test_interrupted_model_request_spends_its_reserved_attempt) ... ok
+test_local_key_is_private_persistent_and_loss_does_not_rotate (test_multi_action_runtime.MultiActionRuntimeTest.test_local_key_is_private_persistent_and_loss_does_not_rotate) ... ok
+test_multi_action_requires_encrypted_storage_before_starting (test_multi_action_runtime.MultiActionRuntimeTest.test_multi_action_requires_encrypted_storage_before_starting) ... ok
+test_only_one_loop_executor_can_use_a_database_at_a_time (test_multi_action_runtime.MultiActionRuntimeTest.test_only_one_loop_executor_can_use_a_database_at_a_time) ... ok
+test_restart_after_external_commit_before_run_finalization_never_resends (test_multi_action_runtime.MultiActionRuntimeTest.test_restart_after_external_commit_before_run_finalization_never_resends) ... ok
+test_restart_after_receipt_checkpoint_before_acknowledgement (test_multi_action_runtime.MultiActionRuntimeTest.test_restart_after_receipt_checkpoint_before_acknowledgement) ... ok
+test_second_rejection_keeps_first_action_and_stops_run (test_multi_action_runtime.MultiActionRuntimeTest.test_second_rejection_keeps_first_action_and_stops_run) ... ok
+test_stale_finalization_cannot_complete_a_later_pending_proposal (test_multi_action_runtime.MultiActionRuntimeTest.test_stale_finalization_cannot_complete_a_later_pending_proposal) ... ok
+test_two_separate_approvals_and_final_summary_survive_reconstruction (test_multi_action_runtime.MultiActionRuntimeTest.test_two_separate_approvals_and_final_summary_survive_reconstruction) ... ok
+test_v2_checkpoint_preserves_its_original_digest (test_multi_action_runtime.MultiActionRuntimeTest.test_v2_checkpoint_preserves_its_original_digest) ... ok
+test_external_data_cannot_claim_instruction_authority (test_observation_provenance.ObservationProvenanceTest.test_external_data_cannot_claim_instruction_authority) ... ok
+test_observation_digest_detects_payload_tampering (test_observation_provenance.ObservationProvenanceTest.test_observation_digest_detects_payload_tampering) ... ok
+test_cancellation_does_not_claim_confirmation_when_too_late (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_cancellation_does_not_claim_confirmation_when_too_late) ... ok
+test_custom_base_url_requires_explicit_provider_profile (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_custom_base_url_requires_explicit_provider_profile) ... ok
+test_deepseek_environment_profile_uses_foreground_defaults (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_deepseek_environment_profile_uses_foreground_defaults) ... ok
+test_deepseek_profile_omits_unsupported_request_capabilities (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_deepseek_profile_omits_unsupported_request_capabilities) ... ok
+test_endpoint_resolution_is_credential_free_and_exact (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_endpoint_resolution_is_credential_free_and_exact) ... ok
+test_endpoint_resolution_rejects_query_parameters (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_endpoint_resolution_rejects_query_parameters) ... ok
+test_environment_constructor_requires_api_key (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_environment_constructor_requires_api_key) ... ok
+test_foreground_cancellation_is_local_and_never_claims_provider_stop (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_foreground_cancellation_is_local_and_never_claims_provider_stop) ... ok
+test_foreground_profile_never_polls_nonterminal_response (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_foreground_profile_never_polls_nonterminal_response) ... ok
+test_malformed_function_arguments_are_rejected (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_malformed_function_arguments_are_rejected) ... ok
+test_operator_cancellation_calls_provider_and_preserves_usage (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_operator_cancellation_calls_provider_and_preserves_usage) ... ok
+test_parses_detailed_provider_usage (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_parses_detailed_provider_usage) ... ok
+test_polls_background_response_until_completed (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_polls_background_response_until_completed) ... ok
+test_reconstructed_adapter_rejects_missing_provider_output (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_reconstructed_adapter_rejects_missing_provider_output) ... ok
+test_reconstructed_adapter_replays_saved_raw_output (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_reconstructed_adapter_replays_saved_raw_output) ... ok
+test_records_provider_returned_model_separately_from_request (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_records_provider_returned_model_separately_from_request) ... ok
+test_rejects_internally_inconsistent_provider_usage (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_rejects_internally_inconsistent_provider_usage) ... ok
+test_rejects_invalid_provider_returned_model (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_rejects_invalid_provider_returned_model) ... ok
+test_replay_fingerprint_excludes_transport_credentials (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_replay_fingerprint_excludes_transport_credentials) ... ok
+test_replayed_calls_still_prevent_provider_call_id_reuse (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_replayed_calls_still_prevent_provider_call_id_reuse) ... ok
+test_replays_reasoning_and_function_output_for_next_turn (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_replays_reasoning_and_function_output_for_next_turn) ... ok
+test_response_deadline_cancels_background_response (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_response_deadline_cancels_background_response) ... ok
+test_saved_output_must_match_assistant_calls_and_text (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_saved_output_must_match_assistant_calls_and_text) ... ok
+test_saved_output_rejects_changed_provider_configuration (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_saved_output_rejects_changed_provider_configuration) ... ok
+test_saved_output_rejects_tampered_reasoning_before_request (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_saved_output_rejects_tampered_reasoning_before_request) ... ok
+test_serializes_safe_request_and_parses_function_call (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_serializes_safe_request_and_parses_function_call) ... ok
+test_transport_distinguishes_socket_timeout (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_transport_distinguishes_socket_timeout) ... ok
+test_transport_posts_json_without_exposing_key_in_result (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_transport_posts_json_without_exposing_key_in_result) ... ok
+test_transport_rejects_plain_http_for_remote_host (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_transport_rejects_plain_http_for_remote_host) ... ok
+test_transport_retrieves_and_cancels_by_encoded_response_id (test_openai_responses_adapter.OpenAIResponsesModelAdapterTest.test_transport_retrieves_and_cancels_by_encoded_response_id) ... ok
+test_ambiguous_receipt_requires_reconciliation (test_run_lifecycle.RunLifecycleTest.test_ambiguous_receipt_requires_reconciliation) ... ok
+test_ambiguous_run_completes_after_later_exact_observation (test_run_lifecycle.RunLifecycleTest.test_ambiguous_run_completes_after_later_exact_observation) ... ok
+test_durable_receipt_finalizes_run_after_simulated_process_crash (test_run_lifecycle.RunLifecycleTest.test_durable_receipt_finalizes_run_after_simulated_process_crash) ... ok
+test_event_dedupe_key_requires_identical_content (test_run_lifecycle.RunLifecycleTest.test_event_dedupe_key_requires_identical_content) ... ok
+test_external_effect_before_receipt_crash_is_reconciled_by_run (test_run_lifecycle.RunLifecycleTest.test_external_effect_before_receipt_crash_is_reconciled_by_run) ... ok
+test_happy_path_has_ordered_append_only_events (test_run_lifecycle.RunLifecycleTest.test_happy_path_has_ordered_append_only_events) ... ok
+test_invalid_approval_is_audited_and_run_keeps_waiting (test_run_lifecycle.RunLifecycleTest.test_invalid_approval_is_audited_and_run_keeps_waiting) ... ok
+test_rejected_approval_cancels_without_external_effect (test_run_lifecycle.RunLifecycleTest.test_rejected_approval_cancels_without_external_effect) ... ok
+test_resume_is_idempotent_after_approval_was_already_persisted (test_run_lifecycle.RunLifecycleTest.test_resume_is_idempotent_after_approval_was_already_persisted) ... ok
+test_waiting_run_resumes_after_store_and_ledger_reopen (test_run_lifecycle.RunLifecycleTest.test_waiting_run_resumes_after_store_and_ledger_reopen) ... ok
+test_accepted_candidate_promotes_with_integrity_chained_events (test_skill_candidate_evaluation.SkillCandidateEvaluationTest.test_accepted_candidate_promotes_with_integrity_chained_events) ... ok
+test_evidence_case_cannot_be_reused_as_held_out_evaluation (test_skill_candidate_evaluation.SkillCandidateEvaluationTest.test_evidence_case_cannot_be_reused_as_held_out_evaluation) ... ok
+test_improving_candidate_is_accepted_and_artifact_is_durable (test_skill_candidate_evaluation.SkillCandidateEvaluationTest.test_improving_candidate_is_accepted_and_artifact_is_durable) ... ok
+test_infrastructure_failure_blocks_decision_without_model_blame (test_skill_candidate_evaluation.SkillCandidateEvaluationTest.test_infrastructure_failure_blocks_decision_without_model_blame) ... ok
+test_lifecycle_event_content_tampering_is_detected (test_skill_candidate_evaluation.SkillCandidateEvaluationTest.test_lifecycle_event_content_tampering_is_detected) ... ok
+test_no_measured_improvement_rejects_candidate (test_skill_candidate_evaluation.SkillCandidateEvaluationTest.test_no_measured_improvement_rejects_candidate) ... ok
+test_rejected_candidate_cannot_promote (test_skill_candidate_evaluation.SkillCandidateEvaluationTest.test_rejected_candidate_cannot_promote) ... ok
+test_rollback_does_not_overwrite_a_later_active_version (test_skill_candidate_evaluation.SkillCandidateEvaluationTest.test_rollback_does_not_overwrite_a_later_active_version) ... ok
+test_rollback_restores_exact_base_and_is_idempotent (test_skill_candidate_evaluation.SkillCandidateEvaluationTest.test_rollback_restores_exact_base_and_is_idempotent) ... ok
+test_runner_binds_exact_versions_and_artifact_integrity (test_skill_candidate_evaluation.SkillCandidateEvaluationTest.test_runner_binds_exact_versions_and_artifact_integrity) ... ok
+test_security_regression_rejects_candidate (test_skill_candidate_evaluation.SkillCandidateEvaluationTest.test_security_regression_rejects_candidate) ... ok
+test_stale_active_pointer_aborts_promotion_transaction (test_skill_candidate_evaluation.SkillCandidateEvaluationTest.test_stale_active_pointer_aborts_promotion_transaction) ... ok
+test_tampered_artifact_cannot_decide_candidate (test_skill_candidate_evaluation.SkillCandidateEvaluationTest.test_tampered_artifact_cannot_decide_candidate) ... ok
+test_bounded_mixed_diff_counts_header_like_content (test_skill_candidates.SkillCandidateTest.test_bounded_mixed_diff_counts_header_like_content) ... ok
+test_candidate_cannot_expand_tool_or_effect_contract (test_skill_candidates.SkillCandidateTest.test_candidate_cannot_expand_tool_or_effect_contract) ... ok
+test_candidate_edit_is_rejected_when_diff_exceeds_bound (test_skill_candidates.SkillCandidateTest.test_candidate_edit_is_rejected_when_diff_exceeds_bound) ... ok
+test_candidate_record_survives_store_reopen (test_skill_candidates.SkillCandidateTest.test_candidate_record_survives_store_reopen) ... ok
+test_diff_counts_replacement_without_trailing_newlines (test_skill_candidates.SkillCandidateTest.test_diff_counts_replacement_without_trailing_newlines) ... ok
+test_external_or_model_content_alone_cannot_stage_candidate (test_skill_candidates.SkillCandidateTest.test_external_or_model_content_alone_cannot_stage_candidate) ... ok
+test_header_like_additions_cannot_bypass_changed_line_limit (test_skill_candidates.SkillCandidateTest.test_header_like_additions_cannot_bypass_changed_line_limit) ... ok
+test_header_like_deletions_cannot_bypass_changed_line_limit (test_skill_candidates.SkillCandidateTest.test_header_like_deletions_cannot_bypass_changed_line_limit) ... ok
+test_stale_base_cannot_stage_after_active_pointer_changes (test_skill_candidates.SkillCandidateTest.test_stale_base_cannot_stage_after_active_pointer_changes) ... ok
+test_verified_evidence_stages_non_active_bounded_candidate (test_skill_candidates.SkillCandidateTest.test_verified_evidence_stages_non_active_bounded_candidate) ... ok
+test_public_cli_runs_explicit_candidate_lifecycle (test_skill_cli.SkillCLITest.test_public_cli_runs_explicit_candidate_lifecycle) ... ok
+test_context_size_limit_is_enforced_after_verified_load (test_skill_context.SkillContextTest.test_context_size_limit_is_enforced_after_verified_load) ... ok
+test_no_skill_is_an_explicit_reproducible_baseline (test_skill_context.SkillContextTest.test_no_skill_is_an_explicit_reproducible_baseline) ... ok
+test_run_config_mismatch_is_rejected_before_a_run_is_created (test_skill_context.SkillContextTest.test_run_config_mismatch_is_rejected_before_a_run_is_created) ... ok
+test_skill_tool_scope_cannot_expand_runtime_capabilities (test_skill_context.SkillContextTest.test_skill_tool_scope_cannot_expand_runtime_capabilities) ... ok
+test_snapshot_survives_active_pointer_change (test_skill_context.SkillContextTest.test_snapshot_survives_active_pointer_change) ... ok
+test_static_skill_enters_context_without_entering_audit_prose (test_skill_context.SkillContextTest.test_static_skill_enters_context_without_entering_audit_prose) ... ok
+test_auto_route_does_not_load_skill_for_unrelated_request (test_skill_routing.SkillRoutingTest.test_auto_route_does_not_load_skill_for_unrelated_request) ... ok
+test_auto_route_filters_contract_incompatible_with_workspace (test_skill_routing.SkillRoutingTest.test_auto_route_filters_contract_incompatible_with_workspace) ... ok
+test_auto_route_selects_unique_compatible_skill_from_operator_request (test_skill_routing.SkillRoutingTest.test_auto_route_selects_unique_compatible_skill_from_operator_request) ... ok
+test_equal_best_matches_fail_closed_as_ambiguous (test_skill_routing.SkillRoutingTest.test_equal_best_matches_fail_closed_as_ambiguous) ... ok
+test_explicit_route_rejects_incompatible_skill_before_instruction_load (test_skill_routing.SkillRoutingTest.test_explicit_route_rejects_incompatible_skill_before_instruction_load) ... ok
+test_active_pointer_and_package_survive_store_reopen (test_skill_store.SkillStoreTest.test_active_pointer_and_package_survive_store_reopen) ... ok
+test_discovery_exposes_metadata_without_instruction_body (test_skill_store.SkillStoreTest.test_discovery_exposes_metadata_without_instruction_body) ... ok
+test_empty_context_snapshots_keep_phase1_run_digest_compatible (test_skill_store.SkillStoreTest.test_empty_context_snapshots_keep_phase1_run_digest_compatible) ... ok
+test_frontmatter_allowed_tools_is_only_a_hint_not_runtime_authority (test_skill_store.SkillStoreTest.test_frontmatter_allowed_tools_is_only_a_hint_not_runtime_authority) ... ok
+test_install_activate_freeze_and_progressive_load (test_skill_store.SkillStoreTest.test_install_activate_freeze_and_progressive_load) ... ok
+test_installed_package_tampering_is_detected_before_context_load (test_skill_store.SkillStoreTest.test_installed_package_tampering_is_detected_before_context_load) ... ok
+test_name_mismatch_and_symlink_resources_are_rejected (test_skill_store.SkillStoreTest.test_name_mismatch_and_symlink_resources_are_rejected) ... ok
+test_reinstall_is_idempotent_and_keeps_original_created_time (test_skill_store.SkillStoreTest.test_reinstall_is_idempotent_and_keeps_original_created_time) ... ok
+test_repository_scheduling_skill_conforms_to_parser (test_skill_store.SkillStoreTest.test_repository_scheduling_skill_conforms_to_parser) ... ok
+test_version_switch_does_not_mutate_frozen_run_or_old_package (test_skill_store.SkillStoreTest.test_version_switch_does_not_mutate_frozen_run_or_old_package) ... ok
+test_cancelling_a_saved_response_keeps_consumed_model_budget (test_transcript_recovery.TranscriptRecoveryTest.test_cancelling_a_saved_response_keeps_consumed_model_budget) ... ok
+test_ciphertext_tampering_is_detected (test_transcript_recovery.TranscriptRecoveryTest.test_ciphertext_tampering_is_detected) ... ok
+test_crashes_inside_a_model_step_replay_saved_response_and_reads (test_transcript_recovery.TranscriptRecoveryTest.test_crashes_inside_a_model_step_replay_saved_response_and_reads) ... ok
+test_legacy_checkpoint_digest_remains_readable (test_transcript_recovery.TranscriptRecoveryTest.test_legacy_checkpoint_digest_remains_readable) ... ok
+test_restart_restores_context_budgets_and_does_not_replay_read (test_transcript_recovery.TranscriptRecoveryTest.test_restart_restores_context_budgets_and_does_not_replay_read) ... ok
+test_wrong_key_cannot_decrypt_checkpoint (test_transcript_recovery.TranscriptRecoveryTest.test_wrong_key_cannot_decrypt_checkpoint) ... ok
+
+----------------------------------------------------------------------
+Ran 262 tests in 108.918s
+
+OK

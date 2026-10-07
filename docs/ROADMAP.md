@@ -2,6 +2,13 @@
 
 [简体中文](ROADMAP.zh-CN.md)
 
+The **0.2.0 slice (2026-09-26)** adds multiple separately approved actions per Run,
+continuation after verification, encrypted provider-output recovery, cumulative
+budgets, and Web/Google CLI entry points. See the
+[implementation and acceptance boundaries](implementation/V02_MULTI_ACTION.md).
+Phases 0–5 below retain their original scope; real Google account use and improved
+Skill utility still require separate evidence.
+
 ## 1. Delivery strategy
 
 Voren will be built as a sequence of executable vertical slices. A phase is

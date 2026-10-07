@@ -4,6 +4,11 @@
 
 [![CI](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml)
 
+**0.2.0：同一任务的多动作审批与恢复。** Web 默认在动作验证后继续原任务，
+逐次展示下一项待审批动作，最后保存总结与完整动作历史。CLI 使用 `--multi-action`，
+Google 任务可通过 `--resume RUN_ID` 恢复冻结的上下文和预算。
+详见 [0.2.0 实现、使用与验证边界](docs/implementation/V02_MULTI_ACTION.zh-CN.md)。
+
 带日期的[交付状态](docs/reviews/2026-09-14-DELIVERY-STATUS.zh-CN.md)区分了已经实现、
 已经验证和仍需 Credential 的内容。之前的
 [作品集审计](docs/reviews/2026-09-14-PORTFOLIO-AUDIT.zh-CN.md)作为历史缺陷基线保留；
@@ -43,13 +48,13 @@ Voren 是一个面向邮件与日程工作的单 Agent 助手。它的工程重�
 2. 检查日历空闲时间；
 3. 准备邮件回复和日程事件；
 4. 将用户审批绑定到精确的待执行副作用；
-5. 确保每个外部修改只执行一次；
+5. 在重试和恢复时抑制重复派发，对不确定结果只观察核对；
 6. 验证最终外部世界状态。
 
 多 Agent 编排、消息渠道 Gateway、主动定时执行、插件市场、GUI 自动化和
 多个生产环境连接器均不属于第一个版本。
 
-最新修复说明：[2026-09-16 执行恢复修复](docs/reviews/2026-09-16-RECOVERY-FIXES.zh-CN.md)。
+历史修复说明：[2026-09-16 执行恢复修复](docs/reviews/2026-09-16-RECOVERY-FIXES.zh-CN.md)。
 
 ## 设计文档
 
