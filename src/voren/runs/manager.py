@@ -1,7 +1,9 @@
-"""Durable single-action run orchestration around the Action Gateway."""
+"""Durable approval orchestration with optional continuation after each action."""
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
@@ -97,12 +99,15 @@ class RunManager:
         arguments: dict[str, Any],
         *,
         evidence_digests: tuple[str, ...] = (),
+        tool_call_id: str | None = None,
     ) -> ActionProposal:
         run = self._store.get_run(run_id)
         if run.status is not RunStatus.RUNNING:
             raise InvalidOperationStateError(
                 f"run {run_id!r} cannot propose an action from {run.status.value!r}"
             )
+        if run.pending_operation_id is not None:
+            raise InvalidOperationStateError("consume the previous action receipt first")
         if any(
             len(digest) != 64
             or any(character not in "0123456789abcdef" for character in digest)
@@ -113,6 +118,7 @@ class RunManager:
         self._store.transition(
             run_id,
             expected_status=RunStatus.RUNNING,
+            expected_version=run.version,
             new_status=RunStatus.WAITING_APPROVAL,
             pending_operation_id=proposal.operation_id,
             pending_proposal_digest=proposal.digest,
@@ -122,9 +128,13 @@ class RunManager:
                 self._event(
                     RunEventType.ACTION_PROPOSED,
                     dedupe_key=f"action.proposed:{proposal.operation_id}",
-                    payload=self._proposal_event_payload(
-                        proposal, evidence_digests=evidence_digests
-                    ),
+                    payload={
+                        **self._proposal_event_payload(proposal, evidence_digests=evidence_digests),
+                        **({
+                            "tool_call_id": tool_call_id,
+                            "arguments_digest": self._arguments_digest(arguments),
+                        } if tool_call_id is not None else {}),
+                    },
                 ),
                 self._event(
                     RunEventType.RUN_WAITING_APPROVAL,
@@ -180,15 +190,20 @@ class RunManager:
         )
 
     def complete_without_action(self, run_id: str, *, outcome_digest: str) -> RunRecord:
-        """Finish a read-only run without persisting the model's raw response."""
+        """Finish after the model's final response, without logging its raw text."""
+
+        run = self._store.get_run(run_id)
+        if run.pending_operation_id is not None:
+            raise InvalidOperationStateError("a pending receipt must be consumed before completion")
 
         return self._store.transition(
             run_id,
             expected_status=RunStatus.RUNNING,
+            expected_version=run.version,
             new_status=RunStatus.COMPLETED,
             pending_operation_id=None,
             pending_proposal_digest=None,
-            last_receipt_status=None,
+            last_receipt_status=run.last_receipt_status,
             updated_at=self._clock(),
             events=(
                 self._event(
@@ -277,6 +292,7 @@ class RunManager:
             self._store.transition(
                 run_id,
                 expected_status=RunStatus.WAITING_APPROVAL,
+                expected_version=run.version,
                 new_status=RunStatus.CANCELLED,
                 pending_operation_id=None,
                 pending_proposal_digest=None,
@@ -370,9 +386,10 @@ class RunManager:
         self._store.transition(
             run_id,
             expected_status=RunStatus.NEEDS_RECONCILIATION,
-            new_status=RunStatus.COMPLETED,
-            pending_operation_id=None,
-            pending_proposal_digest=None,
+            expected_version=run.version,
+            new_status=RunStatus.RUNNING if run.config.continue_after_action else RunStatus.COMPLETED,
+            pending_operation_id=receipt.operation_id if run.config.continue_after_action else None,
+            pending_proposal_digest=receipt.proposal_digest if run.config.continue_after_action else None,
             last_receipt_status=receipt.status.value,
             updated_at=self._clock(),
             events=(
@@ -382,8 +399,8 @@ class RunManager:
                     payload=self._receipt_event_payload(receipt),
                 ),
                 self._event(
-                    RunEventType.RUN_COMPLETED,
-                    dedupe_key="run.completed",
+                    RunEventType.RUN_CONTINUED if run.config.continue_after_action else RunEventType.RUN_COMPLETED,
+                    dedupe_key=f"run.continued:{receipt.operation_id}" if run.config.continue_after_action else "run.completed",
                     payload={
                         "operation_id": receipt.operation_id,
                         "receipt_status": receipt.status.value,
@@ -392,6 +409,75 @@ class RunManager:
             ),
         )
         return receipt
+
+    def pending_action(self, run_id: str) -> ActionProposal:
+        """Read the exact durable proposal, including a receipt awaiting consumption."""
+        run = self._store.get_run(run_id)
+        if run.pending_operation_id is None or run.pending_proposal_digest is None:
+            raise InvalidOperationStateError(f"run {run_id!r} has no pending action")
+        proposal = self._operation_ledger.get_proposal(run.pending_operation_id)
+        if proposal.digest != run.pending_proposal_digest:
+            raise InvalidOperationStateError("pending proposal differs from the operation ledger")
+        return proposal
+
+    def assert_pending_call(self, run_id: str, *, call_id: str, name: str, arguments: dict) -> None:
+        """Bind a replayed model call to the proposal already approved by the user."""
+        proposal = self.pending_action(run_id)
+        events = self._store.list_events(run_id)
+        matching = [event for event in events if (
+            event.event_type is RunEventType.ACTION_PROPOSED
+            and event.payload.get("operation_id") == proposal.operation_id
+        )]
+        if (
+            len(matching) != 1 or name != proposal.action_name
+            or matching[0].payload.get("tool_call_id") != call_id
+            or matching[0].payload.get("arguments_digest") != self._arguments_digest(arguments)
+        ):
+            raise InvalidOperationStateError("checkpoint call does not match the pending proposal")
+
+    @staticmethod
+    def _arguments_digest(arguments: dict) -> str:
+        return hashlib.sha256(json.dumps(
+            arguments, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8")).hexdigest()
+
+    def verified_pending_receipt(self, run_id: str) -> ActionReceipt:
+        run = self._store.get_run(run_id)
+        proposal = self.pending_action(run_id)
+        receipt = self._operation_ledger.get_receipt(proposal.operation_id)
+        approval = self._operation_ledger.get_approval(proposal.operation_id)
+        if (
+            run.status is not RunStatus.RUNNING
+            or not run.config.continue_after_action
+            or receipt is None or receipt.status is not ReceiptStatus.VERIFIED
+            or not receipt.verification.passed
+            or receipt.proposal_digest != proposal.digest
+            or approval is None or not approval.approved
+            or approval.proposal_digest != proposal.digest
+            or approval.approval_id != receipt.approval_id
+        ):
+            raise InvalidOperationStateError("continuation requires an exactly approved, verified receipt")
+        return receipt
+
+    def acknowledge_action_result(self, run_id: str, operation_id: str) -> RunRecord:
+        """Clear the pending pointer only after the loop durably saved its receipt."""
+        run = self._store.get_run(run_id)
+        if run.status is RunStatus.RUNNING and run.pending_operation_id is None:
+            return run
+        receipt = self.verified_pending_receipt(run_id)
+        if receipt.operation_id != operation_id:
+            raise InvalidOperationStateError("cannot acknowledge a different pending action")
+        return self._store.transition(
+            run_id, expected_status=RunStatus.RUNNING,
+            expected_version=run.version, new_status=RunStatus.RUNNING,
+            pending_operation_id=None, pending_proposal_digest=None,
+            last_receipt_status=receipt.status.value, updated_at=self._clock(),
+            events=(self._event(
+                RunEventType.ACTION_RESULT_CONSUMED,
+                dedupe_key=f"action.result_consumed:{operation_id}",
+                payload={"operation_id": operation_id, "proposal_digest": receipt.proposal_digest},
+            ),),
+        )
 
     def _load_pending(self, run_id: str) -> tuple[RunRecord, ActionProposal]:
         run = self._store.get_run(run_id)
@@ -427,16 +513,19 @@ class RunManager:
             ),
         }
         new_status, terminal_event_type = status_mapping[receipt.status]
-        keep_for_reconciliation = new_status is RunStatus.NEEDS_RECONCILIATION
+        if receipt.status is ReceiptStatus.VERIFIED and run.config.continue_after_action:
+            new_status, terminal_event_type = RunStatus.RUNNING, RunEventType.RUN_CONTINUED
+        keep_pending = new_status in {RunStatus.NEEDS_RECONCILIATION, RunStatus.RUNNING}
         self._store.transition(
             run.run_id,
             expected_status=RunStatus.WAITING_APPROVAL,
+            expected_version=run.version,
             new_status=new_status,
             pending_operation_id=(
-                receipt.operation_id if keep_for_reconciliation else None
+                receipt.operation_id if keep_pending else None
             ),
             pending_proposal_digest=(
-                receipt.proposal_digest if keep_for_reconciliation else None
+                receipt.proposal_digest if keep_pending else None
             ),
             last_receipt_status=receipt.status.value,
             updated_at=self._clock(),
@@ -448,7 +537,10 @@ class RunManager:
                 ),
                 self._event(
                     terminal_event_type,
-                    dedupe_key=f"run.{new_status.value}",
+                    dedupe_key=(
+                        f"run.{new_status.value}:{receipt.operation_id}"
+                        if keep_pending and run.config.continue_after_action else f"run.{new_status.value}"
+                    ),
                     payload={
                         "operation_id": receipt.operation_id,
                         "receipt_status": receipt.status.value,

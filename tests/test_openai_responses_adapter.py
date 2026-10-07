@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import socket
 import unittest
+from dataclasses import replace
 
 from voren.providers.openai_responses import (
     ModelConfigurationError,
@@ -34,10 +35,12 @@ class FakeTransport:
         *,
         retrieved: tuple[dict, ...] = (),
         cancelled: tuple[dict, ...] = (),
+        endpoint: str = "https://api.openai.com/v1/responses",
     ) -> None:
         self.responses = responses
         self.retrieved = retrieved
         self.cancelled = cancelled
+        self.endpoint = endpoint
         self.payloads: list[dict] = []
         self.retrieve_ids: list[str] = []
         self.cancel_ids: list[str] = []
@@ -436,6 +439,210 @@ class OpenAIResponsesModelAdapterTest(unittest.TestCase):
 
         with self.assertRaises(ModelTranscriptError):
             adapter.complete(messages=messages, tools=self.tools())
+
+    def test_reconstructed_adapter_replays_saved_raw_output(self) -> None:
+        combined = self.function_response()
+        combined["output"].extend(self.text_response()["output"])
+        for raw in (self.function_response(), self.text_response(), combined):
+            with self.subTest(output_types=[item["type"] for item in raw["output"]]):
+                original = OpenAIResponsesModelAdapter(
+                    config=OpenAIResponsesConfig(model="test-model"),
+                    transport=FakeTransport((raw,)),
+                )
+                response = original.complete(
+                    messages=self.initial_messages(), tools=self.tools()
+                )
+                assistant = ModelMessage(
+                    role=MessageRole.ASSISTANT,
+                    content=response.text,
+                    tool_calls=response.tool_calls,
+                    provider_state=response.provider_state,
+                )
+                restored = ModelMessage.model_validate_json(assistant.model_dump_json())
+                messages = [*self.initial_messages(), restored]
+                if response.tool_calls:
+                    messages.append(ModelMessage(
+                        role=MessageRole.TOOL,
+                        tool_call_id="call-1",
+                        content={"items": []},
+                    ))
+                transport = FakeTransport((self.text_response(),))
+                rebuilt = OpenAIResponsesModelAdapter(
+                    config=OpenAIResponsesConfig(model="test-model"),
+                    transport=transport,
+                )
+
+                result = rebuilt.complete(messages=tuple(messages), tools=self.tools())
+
+                self.assertEqual(result.text, "The hike starts at 08:00.")
+                self.assertEqual(
+                    transport.payloads[0]["input"][1:1 + len(raw["output"])],
+                    raw["output"],
+                )
+
+    def test_saved_output_must_match_assistant_calls_and_text(self) -> None:
+        raw = self.function_response()
+        raw["output"].extend(self.text_response()["output"])
+        original = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(model="test-model"),
+            transport=FakeTransport((raw,)),
+        )
+        response = original.complete(
+            messages=self.initial_messages(), tools=self.tools()
+        )
+        changed_call = ToolCall(
+            call_id="call-1", name="search_emails", arguments={"query": "different"}
+        )
+        for content, calls in (
+            ("Changed assistant text", response.tool_calls),
+            (response.text, (changed_call,)),
+            (response.text, ()),
+        ):
+            with self.subTest(content=content, calls=calls):
+                message = ModelMessage(
+                    role=MessageRole.ASSISTANT,
+                    content=content,
+                    tool_calls=calls,
+                    provider_state=response.provider_state,
+                )
+                transport = FakeTransport((self.text_response(),))
+                rebuilt = OpenAIResponsesModelAdapter(
+                    config=OpenAIResponsesConfig(model="test-model"),
+                    transport=transport,
+                )
+
+                with self.assertRaisesRegex(ModelTranscriptError, "disagrees"):
+                    rebuilt.complete(
+                        messages=(*self.initial_messages(), message), tools=self.tools()
+                    )
+
+                self.assertEqual(transport.payloads, [])
+
+    def test_saved_output_rejects_changed_provider_configuration(self) -> None:
+        config = OpenAIResponsesConfig(model="test-model")
+        original = OpenAIResponsesModelAdapter(
+            config=config, transport=FakeTransport((self.function_response(),))
+        )
+        response = original.complete(
+            messages=self.initial_messages(), tools=self.tools()
+        )
+        message = ModelMessage(
+            role=MessageRole.ASSISTANT,
+            tool_calls=response.tool_calls,
+            provider_state=response.provider_state,
+        )
+        endpoint = "https://api.openai.com/v1/responses"
+        alternatives = (
+            (replace(config, model="different-model"), endpoint),
+            (replace(config, max_output_tokens=1024), endpoint),
+            (replace(config, include_encrypted_reasoning=False), endpoint),
+            (replace(config, response_timeout_seconds=120), endpoint),
+            (replace(config, capabilities=ResponsesCapabilities.for_profile("deepseek")), endpoint),
+            (config, "https://another.example/v1/responses"),
+        )
+        for changed, changed_endpoint in alternatives:
+            with self.subTest(config=changed, endpoint=changed_endpoint):
+                transport = FakeTransport((self.text_response(),), endpoint=changed_endpoint)
+                rebuilt = OpenAIResponsesModelAdapter(config=changed, transport=transport)
+
+                with self.assertRaisesRegex(ModelTranscriptError, "configuration"):
+                    rebuilt.complete(
+                        messages=(*self.initial_messages(), message), tools=self.tools()
+                    )
+
+                self.assertEqual(transport.payloads, [])
+
+    def test_saved_output_rejects_tampered_reasoning_before_request(self) -> None:
+        adapter = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(model="test-model"),
+            transport=FakeTransport((self.function_response(),)),
+        )
+        response = adapter.complete(
+            messages=self.initial_messages(), tools=self.tools()
+        )
+        state = json.loads(json.dumps(response.provider_state))
+        state["output"][0]["encrypted_content"] = "changed-opaque-reasoning"
+        message = ModelMessage(
+            role=MessageRole.ASSISTANT,
+            tool_calls=response.tool_calls,
+            provider_state=state,
+        )
+        transport = FakeTransport((self.text_response(),))
+        rebuilt = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(model="test-model"), transport=transport
+        )
+
+        with self.assertRaisesRegex(ModelTranscriptError, "digest"):
+            rebuilt.complete(
+                messages=(*self.initial_messages(), message), tools=self.tools()
+            )
+
+        self.assertEqual(transport.payloads, [])
+
+    def test_replay_fingerprint_excludes_transport_credentials(self) -> None:
+        original = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(model="test-model"),
+            transport=UrllibResponsesTransport(
+                api_key="fake-original-credential",
+                opener=lambda *_args, **_kwargs: FakeHTTPResponse(self.function_response()),
+            ),
+        )
+        response = original.complete(
+            messages=self.initial_messages(), tools=self.tools()
+        )
+        serialized_state = json.dumps(response.provider_state)
+        self.assertNotIn("fake-original-credential", serialized_state)
+        self.assertNotIn("Authorization", serialized_state)
+        self.assertNotIn("Bearer", serialized_state)
+        rebuilt = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(model="test-model"),
+            transport=UrllibResponsesTransport(
+                api_key="fake-rotated-credential",
+                opener=lambda *_args, **_kwargs: FakeHTTPResponse(self.text_response()),
+            ),
+        )
+
+        result = rebuilt.complete(
+            messages=(
+                *self.initial_messages(),
+                ModelMessage(
+                    role=MessageRole.ASSISTANT,
+                    tool_calls=response.tool_calls,
+                    provider_state=response.provider_state,
+                ),
+                ModelMessage(
+                    role=MessageRole.TOOL, tool_call_id="call-1", content={"items": []}
+                ),
+            ),
+            tools=self.tools(),
+        )
+
+        self.assertEqual(result.text, "The hike starts at 08:00.")
+
+    def test_replayed_calls_still_prevent_provider_call_id_reuse(self) -> None:
+        original = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(model="test-model"),
+            transport=FakeTransport((self.function_response(),)),
+        )
+        response = original.complete(
+            messages=self.initial_messages(), tools=self.tools()
+        )
+        message = ModelMessage(
+            role=MessageRole.ASSISTANT,
+            tool_calls=response.tool_calls,
+            provider_state=response.provider_state,
+        )
+        rebuilt = OpenAIResponsesModelAdapter(
+            config=OpenAIResponsesConfig(model="test-model"),
+            transport=FakeTransport((self.function_response(),)),
+        )
+
+        with self.assertRaises(ModelProviderError) as raised:
+            rebuilt.complete(
+                messages=(*self.initial_messages(), message), tools=self.tools()
+            )
+
+        self.assertEqual(raised.exception.code, "duplicate_provider_call_id")
 
     def test_malformed_function_arguments_are_rejected(self) -> None:
         malformed = self.function_response()

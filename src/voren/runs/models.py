@@ -8,7 +8,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
 from voren.memory.models import MemoryRef
 from voren.skills.models import SkillVersionRef
@@ -45,6 +45,8 @@ class RunEventType(StrEnum):
     APPROVAL_INVALID = "approval.invalid"
     ACTION_RECEIPT = "action.receipt"
     ACTION_RECONCILED = "action.reconciled"
+    ACTION_RESULT_CONSUMED = "action.result_consumed"
+    RUN_CONTINUED = "run.continued"
     RUN_COMPLETED = "run.completed"
     RUN_FAILED = "run.failed"
     RUN_CANCELLED = "run.cancelled"
@@ -58,7 +60,15 @@ class RunConfig(FrozenModel):
     action_contract_versions: tuple[str, ...]
     memory_versions: tuple[MemoryRef, ...] = ()
     skill_versions: tuple[SkillVersionRef, ...] = ()
+    continue_after_action: bool = False
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_serializer(mode="wrap")
+    def _serialize_legacy_single_action_config(self, handler):
+        payload = handler(self)
+        if not self.continue_after_action:
+            payload.pop("continue_after_action", None)
+        return payload
 
     def calculated_digest(self) -> str:
         payload = self.model_dump(mode="json")

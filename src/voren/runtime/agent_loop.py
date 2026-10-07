@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import Counter
+from contextlib import nullcontext
 from dataclasses import dataclass
 
-from voren.actions.errors import ActionGatewayError
+from voren.actions.errors import ActionGatewayError, InvalidOperationStateError
 from voren.memory.context import MemoryContextSnapshot
 from voren.observations.models import ToolObservation
 from voren.observations.read_tools import ReadToolAdapter
@@ -150,12 +151,21 @@ class AgentLoop:
         config: RunConfig,
         cancellation: CancellationToken | None = None,
     ) -> RuntimeResult:
-        return self._execute(
-            user_request=user_request,
-            config=config,
-            cancellation=cancellation,
-            resume_checkpoint=None,
-        )
+        if config.continue_after_action:
+            if self._transcript_store is None:
+                raise ValueError("multi-action runs require an encrypted transcript store")
+            limits = self._limits.model_dump(mode="json")
+            if config.metadata.get("runtime_limits", limits) != limits:
+                raise ValueError("runtime limits differ from the frozen run configuration")
+            config = config.model_copy(update={"metadata": {**config.metadata, "runtime_limits": limits}})
+        guard = self._transcript_store.execution_lock() if self._transcript_store is not None else nullcontext()
+        with guard:
+            return self._execute(
+                user_request=user_request,
+                config=config,
+                cancellation=cancellation,
+                resume_checkpoint=None,
+            )
 
     def _execute(
         self,
@@ -166,6 +176,8 @@ class AgentLoop:
         resume_checkpoint: TranscriptCheckpoint | None,
     ) -> RuntimeResult:
         cancellation = cancellation or CancellationToken()
+        if config.continue_after_action and config.metadata.get("runtime_limits") != self._limits.model_dump(mode="json"):
+            raise ValueError("runtime limits differ from the frozen run configuration")
         if config.skill_versions != self._skill_context.skill_versions:
             raise ValueError(
                 "run config skill_versions do not match assembled skill context"
@@ -278,6 +290,17 @@ class AgentLoop:
                 response = pending.pending_response
             else:
                 usage.request_started()
+                if config.continue_after_action:
+                    # Reserve the attempt before network I/O. If the process dies
+                    # before persisting a response, resume spends a *new* step;
+                    # an unknown request must never silently refund its budget.
+                    self._save_checkpoint(
+                        run_id=run.run_id, config_digest=run.config_digest,
+                        next_model_step=step + 1, messages=messages,
+                        signature_counts=signature_counts, seen_call_ids=seen_call_ids,
+                        observation_digests=observation_digests,
+                        tool_call_count=tool_call_count, usage=usage.snapshot(),
+                    )
                 self._run_manager.record_runtime_event(
                     run.run_id,
                     RunEventType.MODEL_REQUESTED,
@@ -364,6 +387,7 @@ class AgentLoop:
                     role=MessageRole.ASSISTANT,
                     content=response.text,
                     tool_calls=response.tool_calls,
+                    provider_state=response.provider_state,
                 )
             )
             if not response.tool_calls:
@@ -379,7 +403,8 @@ class AgentLoop:
                 self._run_manager.complete_without_action(
                     run.run_id, outcome_digest=outcome_digest
                 )
-                self.discard_checkpoint(run.run_id)
+                if not config.continue_after_action:
+                    self.discard_checkpoint(run.run_id)
                 return RuntimeResult(
                     run_id=run.run_id,
                     status=RuntimeResultStatus.COMPLETED,
@@ -426,12 +451,38 @@ class AgentLoop:
                 self._record_tool_call(
                     run.run_id, tool_call_count, call, ToolKind.EXTERNAL_ACTION
                 )
+                current = self._run_manager.get_run(run.run_id)
+                if config.continue_after_action and current.pending_operation_id is not None:
+                    self._run_manager.assert_pending_call(
+                        run.run_id, call_id=call.call_id, name=call.name, arguments=call.arguments
+                    )
+                    receipt = self._run_manager.verified_pending_receipt(run.run_id)
+                    messages.append(ModelMessage(
+                        role=MessageRole.TOOL, tool_call_id=call.call_id,
+                        content={
+                            "type": "action_receipt",
+                            "instruction_authority": False,
+                            "receipt": receipt.model_dump(mode="json"),
+                        },
+                    ))
+                    # Save consumption first. If acknowledgement is interrupted,
+                    # resume finds this exact receipt and clears only its pointer.
+                    self._save_checkpoint(
+                        run_id=run.run_id, config_digest=run.config_digest,
+                        next_model_step=step + 1, messages=messages,
+                        signature_counts=signature_counts, seen_call_ids=seen_call_ids,
+                        observation_digests=observation_digests,
+                        tool_call_count=tool_call_count, usage=usage.snapshot(),
+                    )
+                    self._run_manager.acknowledge_action_result(run.run_id, receipt.operation_id)
+                    continue
                 try:
                     proposal = self._run_manager.propose_action(
                         run.run_id,
                         call.name,
                         call.arguments,
                         evidence_digests=tuple(observation_digests),
+                        tool_call_id=call.call_id if config.continue_after_action else None,
                     )
                 except (ActionGatewayError, ValueError) as error:
                     return self._fail(
@@ -585,12 +636,58 @@ class AgentLoop:
         *,
         cancellation: CancellationToken | None = None,
     ) -> RuntimeResult:
-        """Continue a running loop from its last encrypted safe checkpoint."""
+        """Restore a paused proposal, consume a verified receipt, or resume work."""
 
         if self._transcript_store is None:
             raise ValueError("resume requires an encrypted transcript store")
+        with self._transcript_store.execution_lock():
+            return self._resume(run_id, cancellation=cancellation)
+
+    def _resume(self, run_id: str, *, cancellation: CancellationToken | None) -> RuntimeResult:
         checkpoint = self._transcript_store.load(run_id)
         run = self._run_manager.get_run(run_id)
+        if run.config_digest != checkpoint.config_digest:
+            raise InvalidOperationStateError("checkpoint does not match the frozen run")
+        if run.config.continue_after_action:
+            if run.config.metadata.get("runtime_limits") != self._limits.model_dump(mode="json"):
+                raise ValueError("runtime limits differ from the frozen run configuration")
+            if run.config.memory_versions != self._memory_context.memory_versions or run.config.skill_versions != self._skill_context.skill_versions:
+                raise ValueError("resume context differs from frozen Memory or Skill versions")
+            if run.status is RunStatus.COMPLETED:
+                final = checkpoint.pending_response
+                if final is None or final.tool_calls or not final.text:
+                    raise InvalidOperationStateError("completed run has no recoverable final response")
+                return RuntimeResult(
+                    run_id=run_id, status=RuntimeResultStatus.COMPLETED,
+                    final_text=final.text, model_steps=checkpoint.usage.model_requests,
+                    tool_calls=checkpoint.tool_call_count, usage=checkpoint.usage,
+                )
+            if run.status is RunStatus.WAITING_APPROVAL:
+                response = checkpoint.pending_response
+                if response is None or len(response.tool_calls) != 1:
+                    raise InvalidOperationStateError("pending proposal has no recoverable model call")
+                call = response.tool_calls[0]
+                self._run_manager.assert_pending_call(
+                    run_id, call_id=call.call_id, name=call.name, arguments=call.arguments
+                )
+                return RuntimeResult(
+                    run_id=run_id, status=RuntimeResultStatus.WAITING_APPROVAL,
+                    pending_proposal=self._run_manager.pending_action(run_id),
+                    model_steps=checkpoint.usage.model_requests,
+                    tool_calls=checkpoint.tool_call_count + 1, usage=checkpoint.usage,
+                )
+            if run.status is RunStatus.RUNNING and run.pending_operation_id is not None:
+                receipt = self._run_manager.verified_pending_receipt(run_id)
+                consumed = any(
+                    message.role is MessageRole.TOOL
+                    and message.content.get("type") == "action_receipt"
+                    and message.content.get("receipt") == receipt.model_dump(mode="json")
+                    for message in checkpoint.messages
+                )
+                if consumed:
+                    self._run_manager.acknowledge_action_result(run_id, receipt.operation_id)
+                elif checkpoint.pending_response is None:
+                    raise InvalidOperationStateError("pending receipt does not match the checkpoint")
         return self._execute(
             user_request="",
             config=run.config,

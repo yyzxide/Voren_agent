@@ -114,6 +114,43 @@ class AgentDojoCLITest(unittest.TestCase):
         self.assertEqual(operation[0], "verified")
         self.assertIsNotNone(operation[1])
 
+    def test_multi_action_run_approves_calendar_and_email_separately(self) -> None:
+        args = self.args()
+        args.multi_action = True
+        prompts = []
+        model = ScriptedModelAdapter((
+            self.action_response(),
+            ModelResponse(tool_calls=(ToolCall(
+                call_id="cli-action-2",
+                name="send_email",
+                arguments={
+                    "recipients": ["mark.davies@hotmail.com"],
+                    "subject": "Hiking plan",
+                    "body": "The hiking event is scheduled.",
+                },
+            ),)),
+            ModelResponse(text="The event and follow-up email are verified."),
+        ))
+        output = []
+
+        def approve(prompt):
+            prompts.append(prompt)
+            return "yes"
+
+        exit_code = run_agentdojo(
+            args, model=model, transcript_key=self.TRANSCRIPT_KEY,
+            approval_reader=approve, output=output.append,
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(len(prompts), 2)
+        self.assertEqual(len(model.requests), 3)
+        self.assertIn("The event and follow-up email are verified.", output)
+        with sqlite3.connect(self.database) as connection:
+            self.assertEqual(connection.execute("SELECT count(*) FROM runs").fetchone()[0], 1)
+            self.assertEqual(connection.execute("SELECT status FROM runs").fetchone()[0], "completed")
+            self.assertEqual(connection.execute("SELECT count(*) FROM operations WHERE status = 'verified'").fetchone()[0], 2)
+
     def test_runtime_auto_routes_exact_active_skill_and_records_decision(self) -> None:
         skill_store_root = Path(self.temporary_directory.name) / "skills"
         self.database.parent.mkdir(parents=True, exist_ok=True)

@@ -119,8 +119,13 @@ class SQLiteRunStore:
         last_receipt_status: str | None,
         updated_at,
         events: tuple[NewRunEvent, ...],
+        expected_version: int | None = None,
     ) -> RunRecord:
         current = self.get_run(run_id)
+        if expected_version is not None and current.version != expected_version:
+            raise InvalidOperationStateError(
+                f"run {run_id!r} changed while the operation was in progress"
+            )
         if current.status is not expected_status:
             raise InvalidOperationStateError(
                 f"cannot transition run {run_id!r} from {current.status.value!r}; "

@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 from voren.actions.models import ActionProposal
 
@@ -14,6 +14,13 @@ class FrozenModel(BaseModel):
     model_config = ConfigDict(
         extra="forbid", frozen=True, revalidate_instances="always"
     )
+
+    @model_serializer(mode="wrap")
+    def _serialize_without_empty_replay_state(self, handler):
+        payload = handler(self)
+        if payload.get("provider_state", False) is None:
+            payload.pop("provider_state")
+        return payload
 
 
 class MessageRole(StrEnum):
@@ -39,9 +46,12 @@ class ModelMessage(FrozenModel):
     content: str | dict[str, Any] | None = None
     tool_calls: tuple[ToolCall, ...] = ()
     tool_call_id: str | None = None
+    provider_state: dict[str, Any] | None = None
 
     @model_validator(mode="after")
     def role_matches_payload_shape(self) -> Self:
+        if self.provider_state is not None and self.role is not MessageRole.ASSISTANT:
+            raise ValueError("only assistant messages may carry provider replay state")
         if self.role in {MessageRole.SYSTEM, MessageRole.USER}:
             if not isinstance(self.content, str):
                 raise ValueError("system and user messages require text content")
@@ -110,6 +120,7 @@ class ModelResponse(FrozenModel):
     tool_calls: tuple[ToolCall, ...] = ()
     usage: ModelUsage | None = None
     returned_model: str | None = Field(default=None, min_length=1, max_length=200)
+    provider_state: dict[str, Any] | None = None
 
 
 class RuntimeLimits(FrozenModel):

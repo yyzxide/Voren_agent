@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import os
 import socket
 import time
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
@@ -45,6 +46,9 @@ class ModelTranscriptError(RuntimeError):
 
 
 class ResponsesTransport(Protocol):
+    @property
+    def endpoint(self) -> str: ...
+
     def create_response(self, payload: dict[str, Any]) -> dict[str, Any]: ...
 
     def retrieve_response(self, response_id: str) -> dict[str, Any]: ...
@@ -311,9 +315,10 @@ class UrllibResponsesTransport:
 class OpenAIResponsesModelAdapter:
     """Translate Voren messages to stateless Responses API function calls.
 
-    Complete provider output is cached for calls made by this adapter instance.
-    Replaying it on the next request preserves reasoning items required by
-    reasoning models. The cache is intentionally not claimed to be durable.
+    Complete provider output accompanies normalized responses as opaque replay
+    state. Encrypted transcript checkpoints can preserve it across instances,
+    including reasoning items required by reasoning models. Legacy messages
+    without replay state still depend on this instance's in-memory cache.
     """
 
     def __init__(
@@ -571,6 +576,9 @@ class OpenAIResponsesModelAdapter:
                     }
                 )
                 continue
+            if message.provider_state is not None:
+                input_items.extend(self._restore_output(message))
+                continue
             if message.tool_calls:
                 key = tuple(call.call_id for call in message.tool_calls)
                 cached = self._cached_outputs.get(key)
@@ -591,6 +599,58 @@ class OpenAIResponsesModelAdapter:
                     {"role": "assistant", "content": message.content}
                 )
         return instructions, input_items
+
+    def _provider_config_digest(self) -> str:
+        endpoint = getattr(self._transport, "endpoint", None)
+        if not isinstance(endpoint, str) or not endpoint:
+            raise ModelConfigurationError(
+                "Responses transport must expose its credential-free endpoint"
+            )
+        config = {
+            **asdict(self._config),
+            "endpoint": _normalize_responses_base_url(endpoint),
+        }
+        return self._state_digest(config)
+
+    @staticmethod
+    def _state_digest(value: Any) -> str:
+        encoded = json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    def _restore_output(self, message: ModelMessage) -> list[dict[str, Any]]:
+        state = message.provider_state
+        if state is None or set(state) != {
+            "schema_version", "config_digest", "output", "output_digest"
+        }:
+            raise ModelTranscriptError("saved provider replay state is invalid")
+        if state["schema_version"] != "voren.responses.replay.v1":
+            raise ModelTranscriptError("unsupported provider replay state schema")
+        if state["config_digest"] != self._provider_config_digest():
+            raise ModelTranscriptError("saved provider configuration does not match")
+        output = state["output"]
+        try:
+            if state["output_digest"] != self._state_digest(output):
+                raise ModelTranscriptError("saved provider output digest does not match")
+            text, calls = self._parse_output(output)
+        except (ModelProviderError, TypeError, ValueError) as error:
+            raise ModelTranscriptError("saved provider output is invalid") from error
+        if calls != message.tool_calls or text != message.content:
+            raise ModelTranscriptError(
+                "saved provider output disagrees with the Voren transcript"
+            )
+        if calls:
+            key = tuple(call.call_id for call in calls)
+            cached = self._cached_outputs.get(key)
+            if cached is not None and cached != (calls, output):
+                raise ModelTranscriptError("saved provider output conflicts with cache")
+            self._cached_outputs[key] = (calls, copy.deepcopy(output))
+        return copy.deepcopy(output)
 
     @staticmethod
     def _serialize_tool(tool: ToolDefinition) -> dict[str, Any]:
@@ -623,30 +683,7 @@ class OpenAIResponsesModelAdapter:
         if status not in {None, "completed"}:
             raise ModelProviderError(f"response_{status}")
         output = response.get("output")
-        if not isinstance(output, list):
-            raise ModelProviderError("missing_response_output")
-
-        text_parts: list[str] = []
-        calls: list[ToolCall] = []
-        for item in output:
-            if not isinstance(item, dict):
-                raise ModelProviderError("invalid_output_item")
-            item_type = item.get("type")
-            if item_type == "function_call":
-                calls.append(self._parse_function_call(item))
-            elif item_type == "message":
-                self._collect_message_text(item, text_parts)
-
-        tool_calls = tuple(calls)
-        if tool_calls:
-            key = tuple(call.call_id for call in tool_calls)
-            if key in self._cached_outputs:
-                raise ModelProviderError("duplicate_provider_call_id")
-            self._cached_outputs[key] = (tool_calls, copy.deepcopy(output))
-
-        text = "\n".join(part for part in text_parts if part) or None
-        if text is None and not tool_calls:
-            raise ModelProviderError("empty_provider_output")
+        text, tool_calls = self._parse_output(output)
         returned_model = response.get("model")
         if returned_model is not None and (
             not isinstance(returned_model, str)
@@ -654,12 +691,45 @@ class OpenAIResponsesModelAdapter:
             or len(returned_model) > 200
         ):
             raise ModelProviderError("invalid_provider_model")
-        return ModelResponse(
+        result = ModelResponse(
             text=text,
             tool_calls=tool_calls,
             usage=self._parse_usage(response.get("usage")),
             returned_model=returned_model,
+            provider_state={
+                "schema_version": "voren.responses.replay.v1",
+                "config_digest": self._provider_config_digest(),
+                "output": copy.deepcopy(output),
+                "output_digest": self._state_digest(output),
+            },
         )
+        if tool_calls:
+            key = tuple(call.call_id for call in tool_calls)
+            if key in self._cached_outputs:
+                raise ModelProviderError("duplicate_provider_call_id")
+            self._cached_outputs[key] = (tool_calls, copy.deepcopy(output))
+        return result
+
+    @classmethod
+    def _parse_output(
+        cls, output: Any
+    ) -> tuple[str | None, tuple[ToolCall, ...]]:
+        if not isinstance(output, list):
+            raise ModelProviderError("missing_response_output")
+        text_parts: list[str] = []
+        calls: list[ToolCall] = []
+        for item in output:
+            if not isinstance(item, dict):
+                raise ModelProviderError("invalid_output_item")
+            item_type = item.get("type")
+            if item_type == "function_call":
+                calls.append(cls._parse_function_call(item))
+            elif item_type == "message":
+                cls._collect_message_text(item, text_parts)
+        text = "\n".join(part for part in text_parts if part) or None
+        if text is None and not calls:
+            raise ModelProviderError("empty_provider_output")
+        return text, tuple(calls)
 
     @classmethod
     def _parse_usage(cls, raw_usage: Any) -> ModelUsage | None:

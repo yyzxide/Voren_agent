@@ -11,10 +11,10 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from voren.actions.errors import ApprovalRejectedError
+from voren.actions.errors import ActionGatewayError, ApprovalRejectedError
 from voren.actions.gateway import ActionDefinition, ActionGateway
 from voren.actions.ledger import SQLiteOperationLedger
-from voren.actions.models import ApprovalDecision
+from voren.actions.models import ActionReceipt, ApprovalDecision, ReceiptStatus
 from voren.actions.ports import ActionAdapter
 from voren.adapters.agentdojo_reads import AgentDojoReadAdapter
 from voren.adapters.agentdojo_workspace import (
@@ -76,7 +76,7 @@ from voren.providers.openai_responses import (
     resolve_responses_endpoint,
 )
 from voren.runs.manager import RunManager
-from voren.runs.models import RunConfig
+from voren.runs.models import RunConfig, RunStatus
 from voren.runs.store import SQLiteRunStore
 from voren.runtime.agent_loop import AgentLoop
 from voren.runtime.cancellation import CancellationToken
@@ -140,6 +140,11 @@ def build_parser() -> argparse.ArgumentParser:
     agentdojo.add_argument("--max-model-steps", type=int, default=8)
     agentdojo.add_argument("--max-tool-calls", type=int, default=12)
     agentdojo.add_argument(
+        "--multi-action",
+        action="store_true",
+        help="Continue the same Run after each separately approved action.",
+    )
+    agentdojo.add_argument(
         "--profile-memory",
         action="append",
         default=[],
@@ -161,7 +166,21 @@ def build_parser() -> argparse.ArgumentParser:
             "Workspace account."
         ),
     )
-    google.add_argument("request", help="Operator request for Voren.")
+    google_request = google.add_mutually_exclusive_group(required=True)
+    google_request.add_argument(
+        "request", nargs="?", help="Operator request for Voren."
+    )
+    google_request.add_argument(
+        "--request", dest="request_option", help="Operator request for Voren."
+    )
+    google_request.add_argument(
+        "--resume",
+        metavar="RUN_ID",
+        help=(
+            "Resume a Google Run created with --multi-action, using its frozen "
+            "context and budgets."
+        ),
+    )
     google.add_argument(
         "--model",
         help="Responses API model ID; alternatively set VOREN_MODEL.",
@@ -193,6 +212,11 @@ def build_parser() -> argparse.ArgumentParser:
     google.add_argument("--max-output-tokens", type=int, default=2_048)
     google.add_argument("--max-model-steps", type=int, default=8)
     google.add_argument("--max-tool-calls", type=int, default=12)
+    google.add_argument(
+        "--multi-action",
+        action="store_true",
+        help="Continue the same Run after each separately approved action.",
+    )
     google.add_argument(
         "--profile-memory",
         action="append",
@@ -663,16 +687,64 @@ def run_google(
 ) -> int:
     """Run the same controlled loop against a real Google REST boundary."""
 
+    args = argparse.Namespace(**vars(args))
+    args.request = getattr(args, "request_option", None) or args.request
+    frozen_config = None
+    if getattr(args, "resume", None):
+        if not args.database.is_file():
+            raise ValueError("resume database does not exist")
+        previous_store = SQLiteRunStore(args.database)
+        try:
+            frozen_config = previous_store.get_run(args.resume).config
+        finally:
+            previous_store.close()
+        if (
+            frozen_config.workflow != "google_email_calendar"
+            or frozen_config.world_adapter != "google_workspace_rest_v1"
+        ):
+            raise ValueError("only a persisted Google workspace Run can be resumed here")
+        if not frozen_config.continue_after_action:
+            raise ValueError("--resume requires a Google Run created with --multi-action")
+        model_configuration = frozen_config.metadata.get("model_configuration")
+        if not isinstance(model_configuration, dict):
+            raise ValueError("this older Run has no frozen model configuration for resume")
+        for name in (
+            "model",
+            "base_url",
+            "provider_profile",
+            "timeout_seconds",
+            "max_output_tokens",
+        ):
+            if name not in model_configuration:
+                raise ValueError(f"frozen model configuration is missing {name}")
+            setattr(args, name, model_configuration[name])
+
     model_was_injected = model is not None
     connector_was_injected = connector is not None
     resolved_model, model_name, provider_name = _resolve_run_model(args, model)
     active_connector = connector or GoogleWorkspaceConnector(
         GoogleWorkspaceConfig.from_environment()
     )
-    resolved_endpoint = resolve_responses_endpoint(
+    endpoint = resolve_responses_endpoint(
         base_url=args.base_url,
         provider_profile=getattr(args, "provider_profile", None),
-    ).endpoint
+    )
+    resolved_endpoint = endpoint.endpoint
+    workspace_identity = {
+        "account_email": active_connector.config.account_email,
+        "calendar_id": active_connector.config.calendar_id,
+        "time_zone": active_connector.config.time_zone,
+    }
+    if frozen_config is not None:
+        if frozen_config.metadata.get("google_workspace") != workspace_identity:
+            raise ValueError(
+                "Google account, calendar, or time zone differs from the frozen Run"
+            )
+        expected_boundary = (
+            "injected_connector" if connector_was_injected else "environment_google_rest"
+        )
+        if frozen_config.metadata.get("google_connector_boundary") != expected_boundary:
+            raise ValueError("Google connector boundary differs from the frozen Run")
     source_revision = detect_source_revision(Path.cwd())
     draft_action, calendar_action = active_connector.action_definitions
     return _run_workspace_request(
@@ -699,6 +771,14 @@ def run_google(
         action_contract_versions=(GOOGLE_WORKSPACE_CONTRACT_VERSION,),
         execution_metadata={
             "provider_endpoint": resolved_endpoint,
+            "model_configuration": {
+                "model": model_name,
+                "base_url": endpoint.base_url,
+                "provider_profile": endpoint.profile.value,
+                "timeout_seconds": args.timeout_seconds,
+                "max_output_tokens": args.max_output_tokens,
+            },
+            "google_workspace": workspace_identity,
             "code_revision": source_revision.revision,
             "code_dirty": source_revision.dirty,
             "google_connector_boundary": (
@@ -764,19 +844,35 @@ def _run_workspace_request(
     args.database.parent.mkdir(parents=True, exist_ok=True)
     ledger = SQLiteOperationLedger(args.database)
     store = SQLiteRunStore(args.database)
+    resume_run = None
+    try:
+        if getattr(args, "resume", None):
+            resume_run = store.get_run(args.resume)
+    except Exception:
+        store.close()
+        ledger.close()
+        raise
     encoded_transcript_key = transcript_key or os.environ.get(
         "VOREN_TRANSCRIPT_KEY"
     )
-    if not encoded_transcript_key:
+    multi_action = (
+        resume_run.config.continue_after_action
+        if resume_run is not None
+        else getattr(args, "multi_action", False)
+    )
+    if not encoded_transcript_key and not multi_action:
         store.close()
         ledger.close()
         raise TranscriptKeyError(
             "set VOREN_TRANSCRIPT_KEY to a URL-safe base64-encoded 32-byte key"
         )
     try:
-        transcript_store = SQLiteTranscriptStore.from_base64_key(
-            args.database, encoded_key=encoded_transcript_key
-        )
+        if encoded_transcript_key:
+            transcript_store = SQLiteTranscriptStore.from_base64_key(
+                args.database, encoded_key=encoded_transcript_key
+            )
+        else:
+            transcript_store = SQLiteTranscriptStore.from_local_key(args.database)
     except Exception:
         store.close()
         ledger.close()
@@ -784,24 +880,67 @@ def _run_workspace_request(
     memory_store: SQLiteMemoryStore | None = None
     try:
         memory_store = SQLiteMemoryStore(args.database)
-        profile_ids = tuple(getattr(args, "profile_memory", ()))
-        episode_ids = tuple(getattr(args, "episode_memory", ()))
-        memory_context = (
-            MemoryContextAssembler(memory_store).current(
-                profile_ids=profile_ids,
-                episode_ids=episode_ids,
-            )
-            if profile_ids or episode_ids
-            else MemoryContextAssembler(memory_store).empty()
-        )
         available_tools = tuple(
             definition.name for definition in read_tools.definitions
         ) + tuple(definition.name for definition in action_definitions)
-        skill_context, skill_route = _select_runtime_skill_context(
-            args,
-            request=args.request,
-            available_tools=available_tools,
-        )
+        if resume_run is not None:
+            config = resume_run.config
+            if (
+                config.workflow != workflow
+                or config.world_adapter != world_adapter
+                or config.action_contract_versions != action_contract_versions
+            ):
+                raise ValueError("resume requires the frozen workspace and action contracts")
+            saved_limits = config.metadata.get("runtime_limits")
+            if not isinstance(saved_limits, dict):
+                raise ValueError("this older Run has no frozen runtime budget for resume")
+            limits = RuntimeLimits.model_validate(saved_limits)
+            memory_context = MemoryContextAssembler(memory_store).from_frozen(
+                config.memory_versions
+            )
+            skill_route = SkillRouteDecision.model_validate(
+                config.metadata["skill_routing"]
+            )
+            skill_context = _load_frozen_runtime_skill_context(args.database, config)
+        else:
+            profile_ids = tuple(getattr(args, "profile_memory", ()))
+            episode_ids = tuple(getattr(args, "episode_memory", ()))
+            memory_context = (
+                MemoryContextAssembler(memory_store).current(
+                    profile_ids=profile_ids,
+                    episode_ids=episode_ids,
+                )
+                if profile_ids or episode_ids
+                else MemoryContextAssembler(memory_store).empty()
+            )
+            skill_context, skill_route = _select_runtime_skill_context(
+                args,
+                request=args.request,
+                available_tools=available_tools,
+            )
+            limits = RuntimeLimits(
+                max_model_steps=args.max_model_steps,
+                max_tool_calls=args.max_tool_calls,
+            )
+            config = RunConfig(
+                workflow=workflow,
+                world_adapter=world_adapter,
+                policy_version="provenance-and-exact-effects-v1",
+                action_contract_versions=action_contract_versions,
+                memory_versions=memory_context.memory_versions,
+                skill_versions=skill_context.skill_versions,
+                continue_after_action=multi_action,
+                metadata={
+                    "model": model_name,
+                    "provider": provider_name,
+                    "skill_routing": skill_route.model_dump(mode="json"),
+                    "skill_store": str(
+                        Path(getattr(args, "skill_store", ".voren/skills")).resolve()
+                    ),
+                    "runtime_limits": limits.model_dump(mode="json"),
+                    **(execution_metadata or {}),
+                },
+            )
         _print_skill_route(skill_route, output)
         gateway = ActionGateway(
             definitions=action_definitions,
@@ -827,89 +966,134 @@ def _run_workspace_request(
             transcript_store=transcript_store,
             memory_context=memory_context,
             skill_context=skill_context,
-            limits=RuntimeLimits(
-                max_model_steps=args.max_model_steps,
-                max_tool_calls=args.max_tool_calls,
-            ),
+            limits=limits,
         )
-        result = loop.run(
-            user_request=args.request,
-            config=RunConfig(
-                workflow=workflow,
-                world_adapter=world_adapter,
-                policy_version="provenance-and-exact-effects-v1",
-                action_contract_versions=action_contract_versions,
-                memory_versions=memory_context.memory_versions,
-                skill_versions=skill_context.skill_versions,
-                metadata={
-                    "model": model_name,
-                    "provider": provider_name,
-                    "skill_routing": skill_route.model_dump(mode="json"),
-                    **(execution_metadata or {}),
-                },
-            ),
-            cancellation=cancellation,
-        )
-        _print_usage(result.usage, output)
-        output(f"run id: {result.run_id}")
-
-        if result.status is RuntimeResultStatus.COMPLETED:
-            output(result.final_text or "")
-            _print_trace(store, result.run_id, output)
-            return 0
-        if result.status is RuntimeResultStatus.CANCELLED:
-            confirmation = (
-                "not_applicable"
-                if result.cancellation_confirmed is None
-                else str(result.cancellation_confirmed).lower()
+        if resume_run is not None:
+            output(f"run id: {resume_run.run_id}")
+            if resume_run.status in {RunStatus.FAILED, RunStatus.CANCELLED}:
+                output(f"run is already {resume_run.status.value}")
+                return 2 if resume_run.status is RunStatus.CANCELLED else 1
+            if (
+                resume_run.status is RunStatus.COMPLETED
+                and not transcript_store.contains(resume_run.run_id)
+            ):
+                output("run already completed; no saved final response is available")
+                _print_trace(store, resume_run.run_id, output)
+                return 0
+            # Authenticate the checkpoint before resuming an approved operation.
+            checkpoint = transcript_store.load(resume_run.run_id)
+            if checkpoint.config_digest != resume_run.config_digest:
+                raise ValueError("resume checkpoint does not match the frozen Run")
+            if resume_run.status is RunStatus.NEEDS_RECONCILIATION:
+                receipt = manager.reconcile_pending_action(resume_run.run_id)
+                _print_receipt(receipt, output)
+                if receipt.status is not ReceiptStatus.VERIFIED:
+                    _print_trace(store, resume_run.run_id, output)
+                    return 1
+                if store.get_run(resume_run.run_id).status is RunStatus.COMPLETED:
+                    _print_trace(store, resume_run.run_id, output)
+                    return 0
+            result = loop.resume(resume_run.run_id, cancellation=cancellation)
+        else:
+            result = loop.run(
+                user_request=args.request,
+                config=config,
+                cancellation=cancellation,
             )
-            output(
-                f"run cancelled: {result.cancellation_reason.value}; "
-                f"provider_confirmed={confirmation}"
-            )
-            _print_trace(store, result.run_id, output)
-            return 130
-        if result.status is not RuntimeResultStatus.WAITING_APPROVAL:
-            detail = (
-                f"/{result.error_detail_code}" if result.error_detail_code else ""
-            )
-            output(f"run failed: {result.error_code}{detail}")
-            _print_trace(store, result.run_id, output)
-            return 1
+            output(f"run id: {result.run_id}")
 
-        proposal = result.pending_proposal
-        if proposal is None:
-            output("run failed: waiting state has no proposal")
-            return 1
-        _print_proposal(proposal, output)
-        answer = approval_reader("Approve these exact effects? [y/N] ")
-        approved = answer.strip().lower() in {"y", "yes"}
-        approval = ApprovalDecision.for_proposal(
-            proposal,
-            approval_id=f"cli-{proposal.operation_id}",
-            decided_by="operator:cli",
-            approved=approved,
-            decided_at=datetime.now(UTC),
-        )
-        try:
-            receipt = manager.resume_with_approval(result.run_id, approval)
-        except ApprovalRejectedError:
-            loop.discard_checkpoint(result.run_id)
-            output("action rejected; no external commit was attempted")
-            _print_trace(store, result.run_id, output)
-            return 2
+        while True:
+            _print_usage(result.usage, output)
+            if result.status is RuntimeResultStatus.COMPLETED:
+                output(result.final_text or "")
+                _print_trace(store, result.run_id, output)
+                return 0
+            if result.status is RuntimeResultStatus.CANCELLED:
+                confirmation = (
+                    "not_applicable"
+                    if result.cancellation_confirmed is None
+                    else str(result.cancellation_confirmed).lower()
+                )
+                output(
+                    f"run cancelled: {result.cancellation_reason.value}; "
+                    f"provider_confirmed={confirmation}"
+                )
+                _print_trace(store, result.run_id, output)
+                return 130
+            if result.status is not RuntimeResultStatus.WAITING_APPROVAL:
+                detail = (
+                    f"/{result.error_detail_code}" if result.error_detail_code else ""
+                )
+                output(f"run failed: {result.error_code}{detail}")
+                _print_trace(store, result.run_id, output)
+                return 1
 
-        loop.discard_checkpoint(result.run_id)
-        output(f"receipt: {receipt.status.value}")
-        output(f"verification passed: {receipt.verification.passed}")
-        _print_trace(store, result.run_id, output)
-        return 0 if receipt.verification.passed else 1
+            proposal = result.pending_proposal
+            if proposal is None:
+                output("run failed: waiting state has no proposal")
+                return 1
+            _print_proposal(proposal, output)
+            approval = ledger.get_approval(proposal.operation_id)
+            if approval is None:
+                answer = approval_reader("Approve these exact effects? [y/N] ")
+                approval = ApprovalDecision.for_proposal(
+                    proposal,
+                    approval_id=f"cli-{proposal.operation_id}",
+                    decided_by="operator:cli",
+                    approved=answer.strip().lower() in {"y", "yes"},
+                    decided_at=datetime.now(UTC),
+                )
+            try:
+                operation_status = ledger.get_status(proposal.operation_id)
+                if operation_status in {"prepared", "authorized"}:
+                    receipt = manager.resume_with_approval(result.run_id, approval)
+                else:
+                    receipt = manager.recover_pending_receipt(result.run_id)
+            except ApprovalRejectedError:
+                loop.discard_checkpoint(result.run_id)
+                output(
+                    "action rejected; no external commit was attempted for this action"
+                )
+                _print_trace(store, result.run_id, output)
+                return 2
+
+            _print_receipt(receipt, output)
+            if receipt.status is not ReceiptStatus.VERIFIED:
+                _print_trace(store, result.run_id, output)
+                return 1
+            if not config.continue_after_action:
+                loop.discard_checkpoint(result.run_id)
+                _print_trace(store, result.run_id, output)
+                return 0
+            result = loop.resume(result.run_id, cancellation=cancellation)
     finally:
         if memory_store is not None:
             memory_store.close()
         transcript_store.close()
         store.close()
         ledger.close()
+
+
+def _print_receipt(receipt: ActionReceipt, output: Output) -> None:
+    output(f"receipt: {receipt.status.value}")
+    output(f"verification passed: {receipt.verification.passed}")
+
+
+def _load_frozen_runtime_skill_context(
+    database: Path, config: RunConfig
+) -> SkillContextSnapshot:
+    if not config.skill_versions:
+        return SkillContextSnapshot.no_skill()
+    root = config.metadata.get("skill_store")
+    if not isinstance(root, str):
+        raise ValueError("this Run has no frozen Skill store location")
+    skill_store = SQLiteSkillStore(
+        database, root=Path(root), parser=AgentSkillParser()
+    )
+    try:
+        return SkillContextAssembler(skill_store).from_frozen(config.skill_versions)
+    finally:
+        skill_store.close()
 
 
 def run_google_smoke_export(
@@ -1747,6 +1931,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         return int(args.handler(args))
     except (
+        ActionGatewayError,
         ModelConfigurationError,
         AgentDojoDependencyError,
         CandidateStoreError,

@@ -11,5 +11,7 @@ htmlcov/
 build/
 dist/
 *.sqlite3
+*.transcript.key
+*.runtime.lock
 .voren/
 .private-career/

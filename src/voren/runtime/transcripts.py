@@ -7,7 +7,9 @@ import hashlib
 import json
 import os
 import sqlite3
+import stat
 from collections import Counter
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Self
 
@@ -20,7 +22,7 @@ from voren.runtime.models import ModelMessage, ModelResponse, RuntimeUsage
 from voren.observations.models import ToolObservation
 
 
-TRANSCRIPT_SCHEMA_VERSION = "voren.transcript.v2"
+TRANSCRIPT_SCHEMA_VERSION = "voren.transcript.v3"
 
 
 class TranscriptKeyError(ValueError):
@@ -51,10 +53,17 @@ class TranscriptCheckpoint(BaseModel):
 
     @model_validator(mode="after")
     def state_is_consistent(self) -> Self:
-        if self.schema_version not in {"voren.transcript.v1", TRANSCRIPT_SCHEMA_VERSION}:
+        if self.schema_version not in {
+            "voren.transcript.v1", "voren.transcript.v2", TRANSCRIPT_SCHEMA_VERSION
+        }:
             raise ValueError("unsupported transcript checkpoint schema")
         if self.schema_version == "voren.transcript.v1" and self.pending_response is not None:
             raise ValueError("legacy checkpoints cannot contain a pending response")
+        if self.schema_version != TRANSCRIPT_SCHEMA_VERSION and (
+            any(message.provider_state is not None for message in self.messages)
+            or (self.pending_response is not None and self.pending_response.provider_state is not None)
+        ):
+            raise ValueError("legacy checkpoints cannot contain provider replay state")
         expected_step = self.usage.model_requests + (self.pending_response is None)
         if self.next_model_step != expected_step:
             raise ValueError(
@@ -113,6 +122,7 @@ class SQLiteTranscriptStore:
             raise TranscriptKeyError("transcript key must decode to exactly 32 bytes")
         self._cipher = AESGCM(key)
         self._key_id = hashlib.sha256(key).hexdigest()[:16]
+        self._path = Path(path).resolve()
         self._connection = sqlite3.connect(str(path))
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA journal_mode=WAL")
@@ -145,6 +155,71 @@ class SQLiteTranscriptStore:
                 "VOREN_TRANSCRIPT_KEY must be URL-safe base64"
             ) from error
         return cls(path, key=key)
+
+    @classmethod
+    def from_local_key(
+        cls, path: str | Path, *, encoded_key: str | None = None
+    ) -> SQLiteTranscriptStore:
+        """Use an explicit key or a private local sidecar, never logging either.
+
+        A missing sidecar is created only for a database with no checkpoints;
+        losing an existing key must not silently replace it. This is local
+        single-operator key storage, not separation from a compromised host.
+        """
+        configured = encoded_key if encoded_key is not None else os.environ.get("VOREN_TRANSCRIPT_KEY")
+        if configured is not None:
+            return cls.from_base64_key(path, encoded_key=configured)
+        database = Path(path)
+        database.parent.mkdir(parents=True, exist_ok=True)
+        key_path = database.with_name(database.name + ".transcript.key")
+        has_checkpoints = False
+        if database.exists():
+            connection = sqlite3.connect(str(database))
+            try:
+                table = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='run_transcripts'"
+                ).fetchone()
+                has_checkpoints = bool(table and connection.execute("SELECT 1 FROM run_transcripts LIMIT 1").fetchone())
+                if has_checkpoints and not key_path.exists():
+                    raise TranscriptKeyError("the transcript key is missing; restore the original key")
+            finally:
+                connection.close()
+        flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(key_path, flags, 0o600)
+        try:
+            # Serialize first-use key creation, including different server processes.
+            import fcntl
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            info = os.fstat(descriptor)
+            if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
+                raise TranscriptKeyError("transcript key file must be private (mode 0600)")
+            if info.st_uid != os.getuid():
+                raise TranscriptKeyError("transcript key file must belong to the current operator")
+            content = os.read(descriptor, 128)
+            if not content:
+                if has_checkpoints:
+                    raise TranscriptKeyError("the transcript key is empty; restore the original key")
+                content = cls.generate_key().encode("ascii")
+                os.write(descriptor, content)
+                os.fsync(descriptor)
+            return cls.from_base64_key(path, encoded_key=content.decode("ascii").strip())
+        finally:
+            os.close(descriptor)
+
+    @contextmanager
+    def execution_lock(self):
+        """Allow one local loop executor per database; crashes release the OS lock."""
+        import fcntl
+        lock_path = self._path.with_name(self._path.name + ".runtime.lock")
+        descriptor = os.open(lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        try:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as error:
+                raise InvalidOperationStateError("another loop is executing against this database; retry later") from error
+            yield
+        finally:
+            os.close(descriptor)
 
     @staticmethod
     def generate_key() -> str:
