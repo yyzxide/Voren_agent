@@ -1,0 +1,22 @@
+TAP version 13
+# Subtest: RECHECK durable cancel raised during a tool batch waits until next checkpoint
+ok 1 - RECHECK durable cancel raised during a tool batch waits until next checkpoint
+  ---
+  duration_ms: 12.75912
+  type: 'test'
+  ...
+# Subtest: RECHECK no-review task is discovered but rejected by integration assertion
+ok 2 - RECHECK no-review task is discovered but rejected by integration assertion
+  ---
+  duration_ms: 3046.527147
+  type: 'test'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3218.882407

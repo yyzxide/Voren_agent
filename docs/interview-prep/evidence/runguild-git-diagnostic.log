@@ -1,0 +1,96 @@
+TAP version 13
+<ref *1> node:child_process:964
+    throw err;
+    ^
+
+Error: spawnSync git EPERM
+    at Object.spawnSync (node:internal/child_process:1143:20)
+    at spawnSync (node:child_process:911:24)
+    at execFileSync (node:child_process:954:15)
+    at [eval]:1:52
+    at runScriptInThisContext (node:internal/vm:219:10)
+    at node:internal/process/execution:451:12
+    at [eval]-wrapper:6:24
+    at runScriptInContext (node:internal/process/execution:449:60)
+    at evalFunction (node:internal/process/execution:283:30)
+    at evalTypeScript (node:internal/process/execution:295:3) {
+  errno: -1,
+  code: 'EPERM',
+  syscall: 'spawnSync git',
+  path: 'git',
+  spawnargs: [
+    '-C',
+    '/tmp/runguild-validation-EnWCCF/repository',
+    'commit',
+    '--allow-empty',
+    '-m',
+    'concurrent base advance'
+  ],
+  error: [Circular *1],
+  status: 0,
+  signal: null,
+  output: [
+    null,
+    Buffer(39) [Uint8Array] [
+      91, 109,  97, 105, 110,  32,  97,  51, 102,
+      99, 102,  52,  98,  93,  32,  99, 111, 110,
+      99, 117, 114, 114, 101, 110, 116,  32,  98,
+      97, 115, 101,  32,  97, 100, 118,  97, 110,
+      99, 101,  10
+    ],
+    Buffer(0) [Uint8Array] []
+  ],
+  pid: 83,
+  stdout: Buffer(39) [Uint8Array] [
+    91, 109,  97, 105, 110,  32,  97,  51, 102,
+    99, 102,  52,  98,  93,  32,  99, 111, 110,
+    99, 117, 114, 114, 101, 110, 116,  32,  98,
+    97, 115, 101,  32,  97, 100, 118,  97, 110,
+    99, 101,  10
+  ],
+  stderr: Buffer(0) [Uint8Array] []
+}
+
+Node.js v24.15.0
+# Subtest: Integration rejects advanced-base before publishing a candidate
+not ok 1 - Integration rejects advanced-base before publishing a candidate
+  ---
+  duration_ms: 306.789467
+  type: 'test'
+  location: '/tmp/runguild-source-recheck-_dbhaq7e/packages/workspace-tools/test/git-worktree-manager.test.mjs:437:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /base advanced during verification/. Input:
+    
+    `Error: Integration verification failed: {"passed":false,"results":[{"commandIndex":0,"argv":["/home/sid/.nvm/versions/node/v24.15.0/bin/node","-e","const {execFileSync}=require('node:child_process');execFileSync('git',['-C',\\"/tmp/runguild-validation-EnWCCF/repository\\",'commit','--allow-empty','-m','concurrent base advance'])"],"exitCode":1,"timedOut":false,"durationMs":42,"stdoutHash":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","stderrHash":"373d4f797602866495e58382f695b99d7a0274f32245010492a1633f37b71534"}],"failure":{"commandIndex":0,"code":"exit_nonzero","exitCode":1}}`
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+  error: `Integration verification failed: {"passed":false,"results":[{"commandIndex":0,"argv":["/home/sid/.nvm/versions/node/v24.15.0/bin/node","-e","const {execFileSync}=require('node:child_process');execFileSync('git',['-C',\\"/tmp/runguild-validation-EnWCCF/repository\\",'commit','--allow-empty','-m','concurrent base advance'])"],"exitCode":1,"timedOut":false,"durationMs":42,"stdoutHash":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","stderrHash":"373d4f797602866495e58382f695b99d7a0274f32245010492a1633f37b71534"}],"failure":{"commandIndex":0,"code":"exit_nonzero","exitCode":1}}`
+  stack: |-
+    GitWorktreeManager.validateAndPublishIntegration (file:///tmp/runguild-source-recheck-_dbhaq7e/packages/workspace-tools/dist/git-worktree-manager.js:315:23)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async GitWorktreeManager.integrate (file:///tmp/runguild-source-recheck-_dbhaq7e/packages/workspace-tools/dist/git-worktree-manager.js:204:44)
+    async waitForActual (node:assert:646:5)
+    async strict.rejects (node:assert:769:25)
+    async TestContext.<anonymous> (file:///tmp/runguild-source-recheck-_dbhaq7e/packages/workspace-tools/test/git-worktree-manager.test.mjs:474:7)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3)
+  operator: 'rejects'
+  stack: |-
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async TestContext.<anonymous> (file:///tmp/runguild-source-recheck-_dbhaq7e/packages/workspace-tools/test/git-worktree-manager.test.mjs:474:7)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 334.158412

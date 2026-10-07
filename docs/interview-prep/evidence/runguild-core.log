@@ -1,0 +1,238 @@
+TAP version 13
+# Subtest: Agent inbox claims a dispatch, executes its durable Run, and releases the lease
+ok 1 - Agent inbox claims a dispatch, executes its durable Run, and releases the lease
+  ---
+  duration_ms: 5.511723
+  type: 'test'
+  ...
+# Subtest: terminal failed Run immediately returns its Task to durable scheduling
+ok 2 - terminal failed Run immediately returns its Task to durable scheduling
+  ---
+  duration_ms: 1.115748
+  type: 'test'
+  ...
+# Subtest: control inbox messages reacquire a lease for a waiting Run before polling
+ok 3 - control inbox messages reacquire a lease for a waiting Run before polling
+  ---
+  duration_ms: 0.503886
+  type: 'test'
+  ...
+# Subtest: Worker ownership loss aborts the active Agent Runtime
+ok 4 - Worker ownership loss aborts the active Agent Runtime
+  ---
+  duration_ms: 1.260462
+  type: 'test'
+  ...
+# Subtest: execution prompt includes mission scope and evidence requirements
+ok 5 - execution prompt includes mission scope and evidence requirements
+  ---
+  duration_ms: 0.371565
+  type: 'test'
+  ...
+# Subtest: execution prompt does not require file.patch without required file_diff evidence
+ok 6 - execution prompt does not require file.patch without required file_diff evidence
+  ---
+  duration_ms: 0.208085
+  type: 'test'
+  ...
+# Subtest: execution prompt explains durable Integration conflict recovery and fresh Review
+ok 7 - execution prompt explains durable Integration conflict recovery and fresh Review
+  ---
+  duration_ms: 0.422422
+  type: 'test'
+  ...
+# Subtest: execution prompt injects the exact frozen Skill Version below the runtime contract
+ok 8 - execution prompt injects the exact frozen Skill Version below the runtime contract
+  ---
+  duration_ms: 0.40541
+  type: 'test'
+  ...
+# Subtest: Reviewer inbox advances after a not-ready Review is durably deferred for recovery
+ok 9 - Reviewer inbox advances after a not-ready Review is durably deferred for recovery
+  ---
+  duration_ms: 0.620698
+  type: 'test'
+  ...
+# Subtest: model silence is nudged and only explicit verified completion succeeds
+ok 10 - model silence is nudged and only explicit verified completion succeeds
+  ---
+  duration_ms: 12.944822
+  type: 'test'
+  ...
+# Subtest: completion gate rejection returns evidence feedback to the next model hop
+ok 11 - completion gate rejection returns evidence feedback to the next model hop
+  ---
+  duration_ms: 1.045665
+  type: 'test'
+  ...
+# Subtest: pending approved tool call survives a runtime pause without another model guess
+ok 12 - pending approved tool call survives a runtime pause without another model guess
+  ---
+  duration_ms: 3.469039
+  type: 'test'
+  ...
+# Subtest: durable cancellation wins before a model call
+ok 13 - durable cancellation wins before a model call
+  ---
+  duration_ms: 0.33733
+  type: 'test'
+  ...
+# Subtest: hop budget times out repeated non-terminal model responses
+ok 14 - hop budget times out repeated non-terminal model responses
+  ---
+  duration_ms: 0.927591
+  type: 'test'
+  ...
+# Subtest: output-limit truncation without a tool call fails once instead of burning the remaining hops
+ok 15 - output-limit truncation without a tool call fails once instead of burning the remaining hops
+  ---
+  duration_ms: 0.782345
+  type: 'test'
+  ...
+# Subtest: model protocol errors receive a durable bounded correction without executing tools
+ok 16 - model protocol errors receive a durable bounded correction without executing tools
+  ---
+  duration_ms: 0.761966
+  type: 'test'
+  ...
+# Subtest: an incomplete malformed tool call fails once instead of entering protocol repair
+ok 17 - an incomplete malformed tool call fails once instead of entering protocol repair
+  ---
+  duration_ms: 0.379781
+  type: 'test'
+  ...
+# Subtest: model protocol repair budget survives repeated invalid responses and fails visibly
+ok 18 - model protocol repair budget survives repeated invalid responses and fails visibly
+  ---
+  duration_ms: 1.038051
+  type: 'test'
+  ...
+# Subtest: hop budget gate preserves final calls and rejects stale blocked actions without side effects
+ok 19 - hop budget gate preserves final calls and rejects stale blocked actions without side effects
+  ---
+  duration_ms: 1.93835
+  type: 'test'
+  ...
+# Subtest: implementation gate repeatedly bounds discovery between durable file.patch results
+ok 20 - implementation gate repeatedly bounds discovery between durable file.patch results
+  ---
+  duration_ms: 2.474857
+  type: 'test'
+  ...
+# Subtest: an oversized pinned context fails visibly without calling the model or retrying forever
+ok 21 - an oversized pinned context fails visibly without calling the model or retrying forever
+  ---
+  duration_ms: 0.464101
+  type: 'test'
+  ...
+# Subtest: durable evidence is deduplicated and gates Task completion and dependency unlock
+ok 22 - durable evidence is deduplicated and gates Task completion and dependency unlock
+  ---
+  duration_ms: 2900.67298
+  type: 'test'
+  ...
+# Subtest: review-required Task enters reviewing only after its producing Run submits an Artifact Version
+ok 23 - review-required Task enters reviewing only after its producing Run submits an Artifact Version
+  ---
+  duration_ms: 2194.90724
+  type: 'test'
+  ...
+# Subtest: a durable Run control request also creates exactly one Agent wake
+ok 24 - a durable Run control request also creates exactly one Agent wake
+  ---
+  duration_ms: 2033.239013
+  type: 'test'
+  ...
+# Subtest: previous attempts cannot satisfy a failed current attempt or unlock dependents
+ok 25 - previous attempts cannot satisfy a failed current attempt or unlock dependents
+  ---
+  duration_ms: 1898.88774
+  type: 'test'
+  ...
+# Subtest: runtime can submit an Artifact Version while the submission tool owns the Run
+ok 26 - runtime can submit an Artifact Version while the submission tool owns the Run
+  ---
+  duration_ms: 2003.898738
+  type: 'test'
+  ...
+# Subtest: project-bound Reviewer assignment recovers a submitted Evaluation Mission without a conversation
+ok 27 - project-bound Reviewer assignment recovers a submitted Evaluation Mission without a conversation
+  ---
+  duration_ms: 1950.690488
+  type: 'test'
+  ...
+# Subtest: scheduler redelivers an acknowledged Review only after its Task becomes reviewable
+ok 28 - scheduler redelivers an acknowledged Review only after its Task becomes reviewable
+  ---
+  duration_ms: 1934.513058
+  type: 'test'
+  ...
+# Subtest: human approval of exact-version evidence completes the review-gated Task
+ok 29 - human approval of exact-version evidence completes the review-gated Task
+  ---
+  duration_ms: 1946.222036
+  type: 'test'
+  ...
+# Subtest: independent reviewer Agent can request changes, while builders and foreign users cannot review
+ok 30 - independent reviewer Agent can request changes, while builders and foreign users cannot review
+  ---
+  duration_ms: 1827.890235
+  type: 'test'
+  ...
+# Subtest: approved code review cannot complete its Task before the exact reviewed commit is integrated
+ok 31 - approved code review cannot complete its Task before the exact reviewed commit is integrated
+  ---
+  duration_ms: 1922.437695
+  type: 'test'
+  ...
+# Subtest: evidence-only retry freezes exact commit and clean tested-HEAD evidence from earlier Task Runs
+ok 32 - evidence-only retry freezes exact commit and clean tested-HEAD evidence from earlier Task Runs
+  ---
+  duration_ms: 2399.083559
+  type: 'test'
+  ...
+# Subtest: human retry requeues only an exhausted Reviewer execution and preserves its frozen snapshot
+ok 33 - human retry requeues only an exhausted Reviewer execution and preserves its frozen snapshot
+  ---
+  duration_ms: 2078.616062
+  type: 'test'
+  ...
+# Subtest: Mission-room Reviewer receives durable work after Task review and resumes a stored model decision
+ok 34 - Mission-room Reviewer receives durable work after Task review and resumes a stored model decision
+  ---
+  duration_ms: 1909.157616
+  type: 'test'
+  ...
+# Subtest: Review completion checks final code evidence: old-head
+ok 35 - Review completion checks final code evidence: old-head
+  ---
+  duration_ms: 1769.101106
+  type: 'test'
+  ...
+# Subtest: Review completion checks final code evidence: dirty
+ok 36 - Review completion checks final code evidence: dirty
+  ---
+  duration_ms: 1804.6428
+  type: 'test'
+  ...
+# Subtest: Review completion checks final code evidence: newer-failure
+ok 37 - Review completion checks final code evidence: newer-failure
+  ---
+  duration_ms: 1829.777532
+  type: 'test'
+  ...
+# Subtest: Review completion checks final code evidence: exact-pass
+ok 38 - Review completion checks final code evidence: exact-pass
+  ---
+  duration_ms: 1909.090952
+  type: 'test'
+  ...
+1..38
+# tests 38
+# suites 0
+# pass 38
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 34532.804575

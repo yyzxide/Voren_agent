@@ -1,0 +1,2 @@
+{"probe": "ambiguous_receipt_with_violation", "initial": "ambiguous", "unexpected": ["unexpected_audit"], "later": "verified", "commit_attempts": 1, "old_receipt_archived": true}
+{"probe": "diff_line_counter", "actual_added_lines": 101, "reported_added_lines": 1, "diff_bytes": 1267}

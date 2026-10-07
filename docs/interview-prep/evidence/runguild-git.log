@@ -1,0 +1,97 @@
+TAP version 13
+# Subtest: Git Worktree manager provisions, reconciles a post-create crash, and verifies replay
+ok 1 - Git Worktree manager provisions, reconciles a post-create crash, and verifies replay
+  ---
+  duration_ms: 145.164656
+  type: 'test'
+  ...
+# Subtest: Git Worktree manager rejects a Worktree root nested inside the source repository
+ok 2 - Git Worktree manager rejects a Worktree root nested inside the source repository
+  ---
+  duration_ms: 34.944845
+  type: 'test'
+  ...
+# Subtest: Git integration retains the reviewed HEAD across a conflict-free merge and database crash
+ok 3 - Git integration retains the reviewed HEAD across a conflict-free merge and database crash
+  ---
+  duration_ms: 384.429442
+  type: 'test'
+  ...
+# Subtest: Git integration rejects conflicts without changing the current base branch
+ok 4 - Git integration rejects conflicts without changing the current base branch
+  ---
+  duration_ms: 196.151468
+  type: 'test'
+  ...
+# Subtest: Evaluation Trials advance isolated refs without mutating the checked-out project branch
+ok 5 - Evaluation Trials advance isolated refs without mutating the checked-out project branch
+  ---
+  duration_ms: 416.58039
+  type: 'test'
+  ...
+# Subtest: Integration rejects combined-regression before publishing a candidate
+ok 6 - Integration rejects combined-regression before publishing a candidate
+  ---
+  duration_ms: 260.203915
+  type: 'test'
+  ...
+# Subtest: Integration rejects dirty-candidate before publishing a candidate
+ok 7 - Integration rejects dirty-candidate before publishing a candidate
+  ---
+  duration_ms: 223.589629
+  type: 'test'
+  ...
+# Subtest: Integration rejects advanced-base before publishing a candidate
+not ok 8 - Integration rejects advanced-base before publishing a candidate
+  ---
+  duration_ms: 222.287846
+  type: 'test'
+  location: '/tmp/runguild-source-recheck-_dbhaq7e/packages/workspace-tools/test/git-worktree-manager.test.mjs:437:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /base advanced during verification/. Input:
+    
+    `Error: Integration verification failed: {"passed":false,"results":[{"commandIndex":0,"argv":["/home/sid/.nvm/versions/node/v24.15.0/bin/node","-e","const {execFileSync}=require('node:child_process');execFileSync('git',['-C',\\"/tmp/runguild-validation-TZr4Tg/repository\\",'commit','--allow-empty','-m','concurrent base advance'])"],"exitCode":1,"timedOut":false,"durationMs":35,"stdoutHash":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","stderrHash":"007045aa771fcffb77e115c33517a01d8e64503837a34e327060a39aab0b76fa"}],"failure":{"commandIndex":0,"code":"exit_nonzero","exitCode":1}}`
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+  error: `Integration verification failed: {"passed":false,"results":[{"commandIndex":0,"argv":["/home/sid/.nvm/versions/node/v24.15.0/bin/node","-e","const {execFileSync}=require('node:child_process');execFileSync('git',['-C',\\"/tmp/runguild-validation-TZr4Tg/repository\\",'commit','--allow-empty','-m','concurrent base advance'])"],"exitCode":1,"timedOut":false,"durationMs":35,"stdoutHash":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","stderrHash":"007045aa771fcffb77e115c33517a01d8e64503837a34e327060a39aab0b76fa"}],"failure":{"commandIndex":0,"code":"exit_nonzero","exitCode":1}}`
+  stack: |-
+    GitWorktreeManager.validateAndPublishIntegration (file:///tmp/runguild-source-recheck-_dbhaq7e/packages/workspace-tools/dist/git-worktree-manager.js:315:23)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async GitWorktreeManager.integrate (file:///tmp/runguild-source-recheck-_dbhaq7e/packages/workspace-tools/dist/git-worktree-manager.js:204:44)
+    async waitForActual (node:assert:646:5)
+    async strict.rejects (node:assert:769:25)
+    async TestContext.<anonymous> (file:///tmp/runguild-source-recheck-_dbhaq7e/packages/workspace-tools/test/git-worktree-manager.test.mjs:474:7)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  operator: 'rejects'
+  stack: |-
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async TestContext.<anonymous> (file:///tmp/runguild-source-recheck-_dbhaq7e/packages/workspace-tools/test/git-worktree-manager.test.mjs:474:7)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: Integration rejects lost-lease before publishing a candidate
+ok 9 - Integration rejects lost-lease before publishing a candidate
+  ---
+  duration_ms: 225.031954
+  type: 'test'
+  ...
+# Subtest: Integration rejects missing-verifier before publishing a candidate
+ok 10 - Integration rejects missing-verifier before publishing a candidate
+  ---
+  duration_ms: 165.275359
+  type: 'test'
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 9
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2295.438027
