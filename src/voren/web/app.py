@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import AsyncIterable
+from collections.abc import AsyncIterable, Callable
 from pathlib import Path
 
 import uvicorn
@@ -23,6 +23,7 @@ from voren.providers.openai_responses import (
     OpenAIResponsesModelAdapter,
 )
 from voren.runtime.models import RuntimeResultStatus
+from voren.runtime.ports import ModelAdapter
 from voren.runtime.transcripts import TranscriptKeyError
 from voren.skills.routing import SkillRoutingMode
 from voren.web.demo_model import DemoWorkspaceModel
@@ -31,6 +32,7 @@ from voren.web.index import (
     WebRequestInProgressError,
     WebRunNotFoundError,
 )
+from voren.web.knowledge import create_knowledge_router
 from voren.web.models import (
     CreateRunRequest,
     DecideRunRequest,
@@ -62,6 +64,7 @@ def create_app(
     mode: str | None = None,
     workspace: str | None = None,
     database: Path | None = None,
+    knowledge_model_factory: Callable[[], ModelAdapter] | None = None,
 ) -> FastAPI:
     selected_mode = (mode or os.environ.get("VOREN_WEB_MODE") or "demo").strip()
     if selected_mode not in {"demo", "live"}:
@@ -125,6 +128,9 @@ def create_app(
         ),
     )
     app.state.voren_service = active_service
+    app.include_router(create_knowledge_router(
+        database=active_service.knowledge_database, model_factory=knowledge_model_factory,
+    ))
     app.mount("/static", StaticFiles(directory=static_root), name="static")
 
     @app.get("/", include_in_schema=False)

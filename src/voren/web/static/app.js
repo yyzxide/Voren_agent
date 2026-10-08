@@ -6,6 +6,8 @@ const state = {
   submission: null,
   decision: null,
   renderedMessages: new Set(),
+  knowledgeSearch: null,
+  knowledgeBusy: false,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -19,7 +21,8 @@ async function api(path, options = {}) {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
   });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.detail || `HTTP ${response.status}`);
+  if (!response.ok) throw new Error(typeof body.detail === "string"
+    ? body.detail : (response.status === 422 ? "请求参数不符合约束" : `HTTP ${response.status}`));
   return body;
 }
 
@@ -59,6 +62,7 @@ function renderRun(run) {
   saveSession();
   renderMemoryContext(run.memory_versions || []);
   renderSkillRoute(run.skill_routing);
+  renderKnowledgeContext(run.knowledge_corpus, run.recovery_reason);
   if (run.final_text) appendOnce("agent", run.final_text);
   if (run.error_code) {
     appendOnce("system", `运行停止：${run.error_code}${run.error_detail_code ? ` / ${run.error_detail_code}` : ""}`);
@@ -138,14 +142,34 @@ function renderSkillRoute(route) {
   label.textContent = `Skill：no_skill · ${route.mode}${suffix}`;
 }
 
+function renderKnowledgeContext(corpus, recoveryReason = null) {
+  const label = $("knowledge-context");
+  if (!corpus) {
+    label.textContent = recoveryReason === "knowledge_evidence_unavailable"
+      ? "知识版本：原任务的资料快照无法确认，请恢复冻结证据"
+      : "知识版本：旧运行未保存快照，沿用活动资料检索";
+  } else if (!corpus.refs.length) {
+    label.textContent = "知识版本：已冻结空资料集，后续新增资料不进入此任务";
+  } else {
+    label.textContent = `知识版本：${corpus.refs.map((ref) => `${ref.document_id}@${ref.version_id}`).join(", ")}`;
+  }
+}
+
 function renderApproval(run) {
   const card = $("approval-card");
   const reconciling = run.status === "needs_reconciliation";
-  const knowledgeBlocked = knowledgeConfigurationBlocked(run);
+  const knowledgeBlocked = continuationConfigurationBlocked(run);
   if (knowledgeBlocked) {
-    appendOnce("system", reconciling
-      ? "知识检索配置已改变，请恢复原配置后核对已执行动作的结果；系统不会重发该动作。"
-      : "知识检索配置已改变，请恢复原配置后继续。你仍可拒绝尚未执行的提议。");
+    const reasons = {
+      knowledge_configuration_changed: "知识检索配置与任务原配置不一致，请恢复原检索模式和模型配置。",
+      knowledge_evidence_unavailable: "原任务的知识版本或向量索引不可用，请恢复冻结的资料和索引。",
+      model_configuration_changed: "生成模型配置与任务原配置不一致，请恢复原模型及 Provider 配置。",
+      transcript_unavailable: "原任务的加密模型检查点无法读取，请恢复原密钥与检查点。",
+      workspace_contract_changed: "工作区适配器或动作契约与任务原版本不一致，请恢复原适配器和动作契约。",
+    };
+    appendOnce("system", `${reasons[run.recovery_reason]}${reconciling
+      ? "恢复后可核对已执行动作，系统不会重发该动作。"
+      : "恢复前任务暂停；尚未执行的提议仍可拒绝。"}`);
   }
   const mismatch = reconciling && (
     run.receipt?.verification.unexpected_effect_ids.length
@@ -166,7 +190,7 @@ function renderApproval(run) {
     return;
   }
   card.classList.remove("hidden");
-  $("approval-label").textContent = knowledgeBlocked ? "请恢复知识检索配置" : (reconciling ? "等待结果核对" : "等待你的决定");
+  $("approval-label").textContent = knowledgeBlocked ? "请恢复原任务配置或证据" : (reconciling ? "等待结果核对" : "等待你的决定");
   $("approve-button").textContent = reconciling ? "重新核对结果" : "批准这些副作用";
   $("approve-button").disabled = knowledgeBlocked;
   $("reject-button").disabled = false;
@@ -273,7 +297,7 @@ async function submitRequest(event) {
 
 async function decide(approved) {
   if (!state.run?.proposal) return;
-  if (approved && knowledgeConfigurationBlocked(state.run)) return;
+  if (approved && continuationConfigurationBlocked(state.run)) return;
   setDecisionBusy(true);
   if (
     !state.decision
@@ -326,12 +350,128 @@ function setBusy(busy) {
 }
 
 function setDecisionBusy(busy) {
-  $("approve-button").disabled = busy || knowledgeConfigurationBlocked(state.run);
+  $("approve-button").disabled = busy || continuationConfigurationBlocked(state.run);
   $("reject-button").disabled = busy;
 }
 
-function knowledgeConfigurationBlocked(run) {
-  return Boolean(run?.recovery_required && run.recovery_reason === "knowledge_configuration_changed");
+function continuationConfigurationBlocked(run) {
+  return Boolean(run?.recovery_required && [
+    "knowledge_configuration_changed", "knowledge_evidence_unavailable",
+    "model_configuration_changed", "transcript_unavailable",
+    "workspace_contract_changed",
+  ].includes(run.recovery_reason));
+}
+
+function knowledgeNode(tag, text, className = "") {
+  const node = document.createElement(tag);
+  node.textContent = text;
+  if (className) node.className = className;
+  return node;
+}
+
+function knowledgeSource(source, quote, start, end, hitId) {
+  const item = knowledgeNode("article", "", "knowledge-source");
+  item.append(
+    knowledgeNode("strong", source.title),
+    knowledgeNode("p", `来源：${source.source_uri}`, "context-state"),
+    knowledgeNode("code", `${source.ref.document_id}@${source.ref.version_id}`),
+    knowledgeNode("p", `字符位置：[${start}, ${end})`, "context-state"),
+    knowledgeNode("blockquote", quote),
+  );
+  if (hitId) item.append(knowledgeNode("code", `hit_id: ${hitId}`));
+  return item;
+}
+
+function updateKnowledgeButton() {
+  const online = $("knowledge-online").checked;
+  const searched = state.knowledgeSearch;
+  const current = $("knowledge-question").value.trim();
+  $("knowledge-draft").disabled = online || state.knowledgeBusy;
+  $("knowledge-search-button").disabled = state.knowledgeBusy;
+  $("knowledge-online").disabled = state.knowledgeBusy;
+  $("knowledge-answer-button").textContent = online ? "发送一次在线问答请求" : "验证本地提案";
+  $("knowledge-answer-button").disabled = state.knowledgeBusy || !searched
+    || searched.question !== current || (!online && !$("knowledge-draft").value.trim());
+}
+
+async function searchKnowledge(event) {
+  event.preventDefault();
+  const question = $("knowledge-question").value.trim();
+  if (!question || state.knowledgeBusy) return;
+  state.knowledgeBusy = true;
+  state.knowledgeSearch = null;
+  $("knowledge-answer").replaceChildren();
+  $("knowledge-sources").replaceChildren();
+  $("knowledge-search-status").textContent = "正在检索原文…";
+  updateKnowledgeButton();
+  try {
+    const result = await api("/api/knowledge/search", {
+      method: "POST", body: JSON.stringify({ question, limit: 5 }),
+    });
+    state.knowledgeSearch = result;
+    $("knowledge-search-status").textContent = result.hits.length
+      ? `检索到 ${result.hits.length} 个片段，问答将使用这份资料快照。排序不代表答案充分。`
+      : "本次资料快照没有匹配片段；问答会拒答，不调用模型。";
+    for (const hit of result.hits) {
+      $("knowledge-sources").append(knowledgeSource(hit, hit.snippet, hit.chunk_start, hit.chunk_end, hit.chunk_id));
+    }
+  } catch (error) {
+    $("knowledge-search-status").textContent = `检索失败：${error.message}`;
+  } finally {
+    state.knowledgeBusy = false;
+    updateKnowledgeButton();
+  }
+}
+
+function renderKnowledgeAnswer(result) {
+  const target = $("knowledge-answer");
+  target.replaceChildren();
+  const statuses = {
+    answered: "回答提案通过引用校验", abstained: "拒答：未输出回答声明",
+    rejected: "提案被拒绝：格式或引用不合法", failed: "问答失败：不能解释为资料中没有答案",
+    cancelled: "问答已取消",
+  };
+  target.append(
+    knowledgeNode("h3", statuses[result.status] || result.status),
+    knowledgeNode("p", result.proposal_mode === "operator_draft"
+      ? "结果来自你输入的本地提案，没有请求在线模型。"
+      : (result.usage.requests_attempted ? "已尝试一次在线模型请求。" : "未请求在线模型。")),
+    knowledgeNode("p", "语义支持尚未验证（semantic_support=unverified）；真实引用仍可能不能支撑声明。", "knowledge-boundary"),
+  );
+  if (result.reason) target.append(knowledgeNode("p", `原因：${result.reason}`));
+  if (result.error_code) target.append(knowledgeNode("p", `错误状态：${result.error_code}`));
+  for (const claim of result.claims) {
+    target.append(knowledgeNode("p", claim.text, "knowledge-claim"));
+    for (const citation of claim.citations) {
+      target.append(knowledgeSource(citation, citation.quote, citation.start, citation.end));
+    }
+  }
+}
+
+async function askKnowledge(event) {
+  event.preventDefault();
+  const searched = state.knowledgeSearch;
+  if (state.knowledgeBusy || !searched || searched.question !== $("knowledge-question").value.trim()) return;
+  const online = $("knowledge-online").checked;
+  const draft = $("knowledge-draft").value;
+  if (!online && !draft.trim()) return;
+  state.knowledgeBusy = true;
+  updateKnowledgeButton();
+  $("knowledge-answer").replaceChildren(knowledgeNode("p", online ? "正在请求模型并校验引用…" : "正在校验本地提案…"));
+  try {
+    const result = await api("/api/knowledge/ask", {
+      method: "POST", body: JSON.stringify({
+        question: searched.question, limit: 5, corpus: searched.corpus,
+        draft: online ? null : draft, allow_model_api: online,
+      }),
+    });
+    renderKnowledgeAnswer(result);
+  } catch (error) {
+    $("knowledge-answer").replaceChildren(knowledgeNode("p", `问答请求未完成：${error.message}。这不是资料无答案的结论。`));
+  } finally {
+    state.knowledgeBusy = false;
+    updateKnowledgeButton();
+  }
 }
 
 async function loadHealth() {
@@ -377,5 +517,10 @@ $("example-button").addEventListener("click", () => {
 $("approve-button").addEventListener("click", () => decide(true));
 $("reject-button").addEventListener("click", () => decide(false));
 $("resume-button").addEventListener("click", resumeRun);
+$("knowledge-search-form").addEventListener("submit", searchKnowledge);
+$("knowledge-answer-form").addEventListener("submit", askKnowledge);
+$("knowledge-question").addEventListener("input", updateKnowledgeButton);
+$("knowledge-draft").addEventListener("input", updateKnowledgeButton);
+$("knowledge-online").addEventListener("change", updateKnowledgeButton);
 loadHealth();
 restoreSession();

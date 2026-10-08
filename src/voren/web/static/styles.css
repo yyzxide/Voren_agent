@@ -175,6 +175,24 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(23, 107, 
 .event-list .placeholder::before { background: #aeb8c2; }
 .hidden { display: none; }
 
+.knowledge-panel { margin-bottom: 28px; }
+.knowledge-body { padding: 24px 26px; }
+.knowledge-search-form label, .knowledge-answer-form > label { display: block; margin: 0 0 8px; font-weight: 750; }
+.knowledge-search-form textarea { min-height: 78px; }
+.knowledge-search-form button { margin-top: 12px; }
+.knowledge-answer-form { padding-top: 20px; margin-top: 22px; border-top: 1px solid var(--line); }
+.knowledge-answer-form textarea { font: 13px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.knowledge-answer-form .checkbox-label { display: flex; align-items: baseline; gap: 9px; margin: 15px 0 8px; }
+.small-copy { font-size: 13px; }
+.knowledge-sources { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr)); gap: 12px; margin-top: 16px; }
+.knowledge-source { padding: 15px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafb; overflow-wrap: anywhere; }
+.knowledge-source code { display: block; font-size: 12px; overflow-wrap: anywhere; }
+.knowledge-source blockquote { margin: 12px 0; padding-left: 12px; border-left: 3px solid var(--teal); white-space: pre-wrap; }
+.knowledge-answer:not(:empty) { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+.knowledge-answer > .knowledge-source { margin: 12px 0 20px; }
+.knowledge-boundary { padding: 11px 14px; color: #795017; background: var(--amber-soft); border-radius: 8px; }
+.knowledge-claim { font-weight: 700; }
+
 @media (max-width: 930px) {
   .workspace { grid-template-columns: 1fr; }
   .side-column { grid-template-columns: 1fr; }
@@ -186,7 +204,7 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(23, 107, 
   h1 { font-size: 39px; }
   .hero-copy { font-size: 16px; }
   .panel { border-radius: 17px; }
-  .panel-heading, .composer, .approval-card { padding-left: 18px; padding-right: 18px; }
+  .panel-heading, .composer, .approval-card, .knowledge-body { padding-left: 18px; padding-right: 18px; }
   .composer-footer { align-items: stretch; flex-direction: column; }
   .decision-buttons { grid-template-columns: 1fr; }
 }

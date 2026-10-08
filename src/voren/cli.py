@@ -768,6 +768,10 @@ def run_google(
 
     model_was_injected = model is not None
     connector_was_injected = connector is not None
+    if frozen_config is not None:
+        expected_model_boundary = "injected_model" if model_was_injected else "environment_responses_api"
+        if frozen_config.metadata.get("model_adapter_boundary") != expected_model_boundary:
+            raise ValueError("model adapter boundary differs from the frozen Run")
     resolved_model, model_name, provider_name = _resolve_run_model(args, model)
     active_connector = connector or GoogleWorkspaceConnector(
         GoogleWorkspaceConfig.from_environment()

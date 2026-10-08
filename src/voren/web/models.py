@@ -8,6 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from voren.actions.models import ActionProposal, ActionReceipt
+from voren.knowledge.models import KnowledgeCorpusSnapshot
 from voren.memory.models import MemoryRef
 from voren.runtime.models import RuntimeUsage
 from voren.skills.routing import SkillRouteDecision
@@ -53,8 +54,13 @@ class RunView(WebModel):
     error_detail_code: str | None = None
     memory_versions: tuple[MemoryRef, ...] = ()
     skill_routing: SkillRouteDecision | None = None
+    knowledge_corpus: KnowledgeCorpusSnapshot | None = None
     recovery_required: bool = False
-    recovery_reason: Literal["knowledge_configuration_changed"] | None = None
+    recovery_reason: Literal[
+        "knowledge_configuration_changed", "knowledge_evidence_unavailable",
+        "model_configuration_changed", "transcript_unavailable",
+        "workspace_contract_changed",
+    ] | None = None
     created_at: datetime
     updated_at: datetime
 

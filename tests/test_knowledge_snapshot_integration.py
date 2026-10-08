@@ -193,7 +193,7 @@ class KnowledgeSnapshotIntegrationTest(unittest.TestCase):
         restarted = self.service()
         view = restarted.get(pending.run_id)
         self.assertTrue(view.recovery_required)
-        self.assertEqual(view.recovery_reason, "knowledge_configuration_changed")
+        self.assertEqual(view.recovery_reason, "knowledge_evidence_unavailable")
         calls = len(self.conversations)
         with self.assertRaisesRegex(WebApprovalRecoveryRequiredError, "knowledge evidence"):
             restarted.decide(pending.run_id, self.decision(pending))
@@ -280,7 +280,7 @@ class KnowledgeSnapshotIntegrationTest(unittest.TestCase):
         embedding_calls = len(provider.calls)
         view = restarted.get(pending.run_id)
         self.assertTrue(view.recovery_required)
-        self.assertEqual(view.recovery_reason, "knowledge_configuration_changed")
+        self.assertEqual(view.recovery_reason, "knowledge_evidence_unavailable")
         with self.assertRaisesRegex(WebApprovalRecoveryRequiredError, "knowledge evidence"):
             restarted.decide(pending.run_id, self.decision(pending))
         self.assertEqual(self.writes(), 0)

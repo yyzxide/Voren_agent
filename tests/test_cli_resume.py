@@ -324,6 +324,19 @@ class GoogleCLIResumeTest(unittest.TestCase):
         self.assertEqual(model.requests, [])
         self.assertIn("Nothing to change.", lines)
 
+    def test_resume_cannot_switch_injected_model_to_environment_provider(self) -> None:
+        run_id = self.pause_before_approval()
+        with patch("voren.cli._resolve_run_model", side_effect=AssertionError("must block before provider construction")):
+            with self.assertRaisesRegex(ValueError, "model adapter boundary"):
+                run_google(
+                    self.args(resume=run_id), connector=self.connector(),
+                    transcript_key=self.TRANSCRIPT_KEY,
+                    approval_reader=lambda _: self.fail("must block before asking for approval"),
+                    output=lambda _: None,
+                )
+        self.assertEqual(self.stored_run()[1], "waiting_approval")
+        self.assertFalse(any(call[0] == "POST" for call in self.transport.calls))
+
 
 if __name__ == "__main__":
     unittest.main()

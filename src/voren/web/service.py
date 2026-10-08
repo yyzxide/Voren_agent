@@ -49,10 +49,10 @@ from voren.runs.manager import RunManager
 from voren.runs.models import RunConfig, RunEvent
 from voren.runs.store import SQLiteRunStore
 from voren.runtime.agent_loop import AgentLoop
-from voren.runtime.models import RuntimeLimits, RuntimeResultStatus
+from voren.runtime.models import MessageRole, RuntimeLimits, RuntimeResultStatus
 from voren.runtime.ports import ModelAdapter
 from voren.runtime.tools import external_action_tool
-from voren.runtime.transcripts import SQLiteTranscriptStore
+from voren.runtime.transcripts import SQLiteTranscriptStore, TranscriptCheckpoint
 from voren.skills.context import SkillContextAssembler, SkillContextSnapshot
 from voren.skills.parser import AgentSkillParser
 from voren.skills.routing import (
@@ -66,6 +66,7 @@ from voren.web.index import (
     WebRequestInProgressError,
 )
 from voren.web.models import ActionHistoryView, CreateRunRequest, DecideRunRequest, RunView
+from voren.web.model_context import model_context
 
 
 ModelFactory = Callable[[], ModelAdapter]
@@ -159,7 +160,9 @@ class WebDecisionConflictError(RuntimeError):
 
 
 class WebApprovalRecoveryRequiredError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, reason: str | None = None) -> None:
+        super().__init__(message)
+        self.reason = reason
 
 
 class VorenWebService:
@@ -249,6 +252,7 @@ class VorenWebService:
         try:
             retrieval_mode, embedder = self._knowledge_settings()
             model = self._model_factory()
+            frozen_model = model_context(model, mode=self.mode)
             workspace = self._create_workspace()
         except Exception:
             self._index.abandon(
@@ -319,6 +323,7 @@ class VorenWebService:
                 status="running",
                 memory_versions=memory_context.memory_versions,
                 skill_routing=skill_route,
+                knowledge_corpus=knowledge_corpus,
                 created_at=now,
                 updated_at=now,
             ))
@@ -337,6 +342,7 @@ class VorenWebService:
                     metadata={
                         "surface": "web",
                         "mode": self.mode,
+                        "model_context": frozen_model,
                         "workspace": workspace.name,
                         "workspace_identity": dict(workspace.identity or {}),
                         "profile_memory_mode": self.profile_memory_mode.value,
@@ -361,6 +367,7 @@ class VorenWebService:
                 error_detail_code=result.error_detail_code,
                 memory_versions=memory_context.memory_versions,
                 skill_routing=skill_route,
+                knowledge_corpus=knowledge_corpus,
                 created_at=now,
                 updated_at=timestamp,
             )
@@ -433,6 +440,10 @@ class VorenWebService:
                 current, config=run.config, check_retrieval=request.approved,
             )
             manager = self._manager(workspace, run_store, ledger)
+            continuation_model = None
+            if request.approved:
+                self._checkpoint_for_resume(current, run_store, manager)
+                continuation_model = self._model_for_run(run.config)
             approval = existing_approval or ApprovalDecision.for_proposal(
                 proposal, approval_id=request.decision_id,
                 decided_by="operator:web-local", approved=request.approved,
@@ -455,7 +466,9 @@ class VorenWebService:
             current = self._durable_view(current, run_store, ledger)
             self._index.save(current)
             if current.status == "running":
-                return self._resume_loop(current, workspace, run_store, ledger)
+                return self._resume_loop(
+                    current, workspace, run_store, ledger, model=continuation_model,
+                )
             self._retain_workspace(current, workspace)
             return current
         finally:
@@ -537,13 +550,25 @@ class VorenWebService:
                     "no action was dispatched; the original external world cannot be resumed"
                 )
             workspace = self._create_workspace()
-        self._assert_workspace_identity(workspace, config)
+        self._assert_workspace_identity(workspace, config, check_contracts=check_retrieval)
         if current.run_id not in self._pending_workspaces:
             self._pending_workspaces[current.run_id] = workspace
         return workspace
 
     @staticmethod
-    def _assert_workspace_identity(workspace: WebWorkspaceRuntime, config: RunConfig) -> None:
+    def _assert_workspace_identity(
+        workspace: WebWorkspaceRuntime, config: RunConfig, *, check_contracts: bool = True,
+    ) -> None:
+        if check_contracts and (
+            config.world_adapter != workspace.world_adapter
+            or config.action_contract_versions != workspace.contract_versions
+        ):
+            raise WebApprovalRecoveryRequiredError(
+                "workspace adapter or action contracts differ from the original run; "
+                "restore the frozen workspace and action contracts before continuing; "
+                "no action was dispatched",
+                reason="workspace_contract_changed",
+            )
         if workspace.recoverable_after_restart and (
             config.metadata.get("workspace_identity") != dict(workspace.identity or {})
         ):
@@ -552,15 +577,90 @@ class VorenWebService:
                 "no action was dispatched. Legacy runs without a frozen identity cannot resume writes."
             )
 
-    def _resume_loop(self, current, workspace, run_store, ledger) -> RunView:
-        knowledge_store = SQLiteKnowledgeStore(self.knowledge_database)
-        transcript_store = SQLiteTranscriptStore.from_local_key(self.database)
-        memory_store = SQLiteMemoryStore(self.memory_database)
-        skill_store = SQLiteSkillStore(
-            self.skill_database, root=self.skill_store_root, parser=AgentSkillParser()
-        )
+    def _checkpoint_for_resume(
+        self, current: RunView, run_store: SQLiteRunStore, manager: RunManager,
+    ) -> TranscriptCheckpoint | None:
+        run = run_store.get_run(current.run_id)
+        if not run.config.continue_after_action:
+            # Legacy single-action Runs did not promise recoverable transcripts.
+            return None
+        store = None
         try:
-            run = run_store.get_run(current.run_id)
+            store = SQLiteTranscriptStore.from_local_key(self.database)
+            checkpoint = store.load(current.run_id)
+            if checkpoint.config_digest != run.config_digest:
+                raise InvalidOperationStateError("checkpoint differs from the frozen Run")
+            if run.pending_operation_id is not None:
+                proposed = [event for event in run_store.list_events(current.run_id) if (
+                    event.event_type.value == "action.proposed"
+                    and event.payload.get("operation_id") == run.pending_operation_id
+                )]
+                if len(proposed) != 1:
+                    raise InvalidOperationStateError("pending proposal has no unique source call")
+                call_id = proposed[0].payload.get("tool_call_id")
+                calls = [
+                    call for message in checkpoint.messages
+                    if message.role is MessageRole.ASSISTANT
+                    for call in message.tool_calls if call.call_id == call_id
+                ]
+                if checkpoint.pending_response is not None:
+                    calls.extend(call for call in checkpoint.pending_response.tool_calls
+                                 if call.call_id == call_id)
+                if len(calls) != 1:
+                    raise InvalidOperationStateError("pending proposal has no recoverable source call")
+                call = calls[0]
+                manager.assert_pending_call(
+                    current.run_id, call_id=call.call_id,
+                    name=call.name, arguments=call.arguments,
+                )
+                if run.status.value in {"waiting_approval", "needs_reconciliation"}:
+                    response = checkpoint.pending_response
+                    if (response is None or len(response.tool_calls) != 1
+                            or response.tool_calls[0] != call):
+                        raise InvalidOperationStateError("pending proposal has no recoverable response")
+            return checkpoint
+        except (InvalidOperationStateError, ValueError, OSError, sqlite3.DatabaseError):
+            raise WebApprovalRecoveryRequiredError(
+                "the saved transcript is unavailable or does not match the original run "
+                "and pending proposal; restore its checkpoint and original key before "
+                "continuing; no action was dispatched",
+                reason="transcript_unavailable",
+            ) from None
+        finally:
+            if store is not None:
+                store.close()
+
+    def _model_for_run(self, config: RunConfig) -> ModelAdapter:
+        try:
+            if config.metadata.get("mode", self.mode) != self.mode:
+                raise ValueError("Web mode changed")
+            model = self._model_factory()
+            frozen = config.metadata.get("model_context")
+            if frozen is not None and model_context(model, mode=self.mode) != frozen:
+                raise ValueError("model context changed")
+            # Older Runs keep their historical factory behavior: no model
+            # identity was recorded, so one cannot be reconstructed now.
+            return model
+        except Exception:
+            raise WebApprovalRecoveryRequiredError(
+                "model configuration is unavailable or differs from the original run "
+                "(model, endpoint, provider profile, adapter, or Web mode); restore it "
+                "before continuing; no action was dispatched",
+                reason="model_configuration_changed",
+            ) from None
+
+    def _resume_loop(self, current, workspace, run_store, ledger, *, model=None) -> RunView:
+        run = run_store.get_run(current.run_id)
+        self._checkpoint_for_resume(current, run_store, self._manager(workspace, run_store, ledger))
+        model = model if model is not None else self._model_for_run(run.config)
+        knowledge_store = transcript_store = memory_store = skill_store = None
+        try:
+            knowledge_store = SQLiteKnowledgeStore(self.knowledge_database)
+            transcript_store = SQLiteTranscriptStore.from_local_key(self.database)
+            memory_store = SQLiteMemoryStore(self.memory_database)
+            skill_store = SQLiteSkillStore(
+                self.skill_database, root=self.skill_store_root, parser=AgentSkillParser()
+            )
             retrieval_mode, embedder = self._knowledge_retrieval_for_run(run.config)
             knowledge_corpus = self._knowledge_corpus_for_run(
                 run.config, knowledge_store, retrieval=(retrieval_mode, embedder),
@@ -571,7 +671,7 @@ class VorenWebService:
                 if run.config.skill_versions else SkillContextSnapshot.no_skill()
             )
             loop = AgentLoop(
-                model=self._model_factory(),
+                model=model,
                 read_tools=CompositeReadToolAdapter(
                     workspace.read_tools,
                     MCPKnowledgeReadAdapter(
@@ -603,10 +703,9 @@ class VorenWebService:
             self._retain_workspace(updated, workspace)
             return updated
         finally:
-            skill_store.close()
-            memory_store.close()
-            transcript_store.close()
-            knowledge_store.close()
+            for store in (skill_store, memory_store, transcript_store, knowledge_store):
+                if store is not None:
+                    store.close()
 
     def _retain_workspace(self, view: RunView, workspace: WebWorkspaceRuntime) -> None:
         if view.status in {"running", "waiting_approval", "needs_reconciliation"}:
@@ -633,6 +732,14 @@ class VorenWebService:
         status = run.status.value
         if status == "failed" and current.status == "limit_exceeded":
             status = current.status
+        corpus = None
+        if "knowledge_corpus" in run.config.metadata:
+            try:
+                corpus = KnowledgeCorpusSnapshot.model_validate(run.config.metadata["knowledge_corpus"])
+            except ValueError:
+                # Recovery checks report the corrupt snapshot without turning
+                # a public Run read into a server error or inventing a new one.
+                pass
         return current.model_copy(update={
             "status": status,
             "proposal": pending.proposal if pending else None,
@@ -640,6 +747,7 @@ class VorenWebService:
             "decision_id": latest.decision_id if latest else None,
             "decision_approved": latest.decision_approved if latest else None,
             "recovery_required": False, "recovery_reason": None, "updated_at": run.updated_at,
+            "knowledge_corpus": corpus,
         })
 
     @staticmethod
@@ -690,45 +798,33 @@ class VorenWebService:
         view = view.model_copy(update={"recovery_reason": None})
         if view.status not in {"running", RuntimeResultStatus.WAITING_APPROVAL.value, "needs_reconciliation"}:
             return view
-        retrieval_problem = False
         store = SQLiteRunStore(self.database)
+        ledger = SQLiteOperationLedger(self.database)
         try:
             config = store.get_run(view.run_id).config
+            with self._lock:
+                workspace = self._pending_workspaces.get(view.run_id)
+            if workspace is None:
+                if not self.workspace_recoverable or view.workspace != self.workspace_name:
+                    return view.model_copy(update={"recovery_required": True})
+                try:
+                    workspace = self._create_workspace()
+                except Exception:
+                    return view.model_copy(update={"recovery_required": True})
             try:
+                self._assert_workspace_identity(workspace, config)
                 retrieval = self._knowledge_retrieval_for_run(config)
                 self._knowledge_corpus_for_run(config, retrieval=retrieval)
-            except WebApprovalRecoveryRequiredError:
-                retrieval_problem = True
+                self._checkpoint_for_resume(view, store, self._manager(workspace, store, ledger))
+                self._model_for_run(config)
+            except WebApprovalRecoveryRequiredError as error:
+                return view.model_copy(update={
+                    "recovery_required": True, "recovery_reason": error.reason,
+                })
+            return view.model_copy(update={"recovery_required": False})
         finally:
+            ledger.close()
             store.close()
-        with self._lock:
-            workspace = self._pending_workspaces.get(view.run_id)
-        recoverable = False
-        if workspace is not None:
-            try:
-                self._assert_workspace_identity(workspace, config)
-            except WebApprovalRecoveryRequiredError:
-                pass
-            else:
-                recoverable = True
-        if (
-            not recoverable
-            and self.workspace_recoverable
-            and view.workspace == self.workspace_name
-        ):
-            try:
-                workspace = self._create_workspace()
-                self._assert_workspace_identity(workspace, config)
-            except Exception:
-                pass
-            else:
-                recoverable = True
-        return view.model_copy(update={
-            "recovery_required": not recoverable or retrieval_problem,
-            "recovery_reason": (
-                "knowledge_configuration_changed" if recoverable and retrieval_problem else None
-            ),
-        })
 
     def _knowledge_settings(self) -> tuple[str, EmbeddingProvider | None]:
         mode = self._knowledge_retrieval_mode or retrieval_mode_from_env()
@@ -760,12 +856,14 @@ class VorenWebService:
         except (EmbeddingError, ValueError):
             raise WebApprovalRecoveryRequiredError(
                 "knowledge retrieval configuration is unavailable; restore the "
-                "original mode and embedding configuration before continuing"
+                "original mode and embedding configuration before continuing",
+                reason="knowledge_configuration_changed",
             ) from None
         if frozen != current:
             raise WebApprovalRecoveryRequiredError(
                 "knowledge retrieval configuration differs from the original run "
-                "(mode or embedding fingerprint); restore it before continuing"
+                "(mode or embedding fingerprint); restore it before continuing",
+                reason="knowledge_configuration_changed",
             )
         return mode, embedder
 
@@ -794,7 +892,8 @@ class VorenWebService:
             raise WebApprovalRecoveryRequiredError(
                 "knowledge evidence is unavailable or does not match the original run; "
                 "restore its frozen source versions and retrieval index before continuing; "
-                "no action was dispatched"
+                "no action was dispatched",
+                reason="knowledge_evidence_unavailable",
             ) from None
         finally:
             if owned_store is not None:
