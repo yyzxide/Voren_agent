@@ -121,9 +121,16 @@ CLI Agent Runs or the Google CLI in this slice.
 ## Verification boundaries
 
 All **378 tests passed** locally (107.100 seconds, no skips), including local
-HTTP/MCP tests. `pip check`, JavaScript syntax, Python compilation and 147 local
+HTTP/MCP tests; see the [full log](../evidence/2026-10-08-v04-tests.log).
+`pip check`, JavaScript syntax, Python compilation and 151 local
 links across this slice's six documents passed. Installed and source versions
 are both 0.4.0.
+
+The [raw protocol demo artifact](../evidence/2026-10-08-v04-answers.json) binds clean
+source commit `d212e24e825472c5467fb57c992d4f9f56b9c92d` (`code_dirty=false`). All ten
+cases match their authored protocol statuses: three invalid citations are rejected,
+and one semantic counterexample is accepted with support unverified. The artifact
+digest and every result model have been checked again.
 
 Ten authored demo scenarios cover valid answers, intentional abstention, empty
 retrieval, unknown hits, forged quotations, wrong offsets, uncited claims,

@@ -1,0 +1,814 @@
+{
+  "schema_version": "voren-answer-protocol-demo/v1",
+  "created_at": "2026-10-08T06:50:11.560911+00:00",
+  "code_revision": "d212e24e825472c5467fb57c992d4f9f56b9c92d",
+  "code_dirty": false,
+  "scenario_count": 10,
+  "passed_count": 10,
+  "invalid_citation_cases": 3,
+  "invalid_citation_rejected": 3,
+  "semantic_boundary_cases": 1,
+  "semantic_boundary_accepted_unverified": 1,
+  "model_mode": "explicit-scripted-proposals",
+  "external_calls": false,
+  "limitations": [
+    "Controlled proposals are authored with the feature; this is protocol evidence, not real-model answer accuracy.",
+    "Valid source quotations do not prove that a claim follows from them or answers the question.",
+    "The previous retrieval no-answer false positives remain a separate measurement; this demo does not replace 3/6 with a new rate.",
+    "No automatic action, external account or online model is used."
+  ],
+  "cases": [
+    {
+      "case_id": "supported-answer",
+      "category": "valid_citation",
+      "question": "Atlas checklist owner",
+      "expected_status": "answered",
+      "passed": true,
+      "note": "",
+      "model_proposal": {
+        "status": "answer",
+        "claims": [
+          {
+            "text": "Mira owns the checklist.",
+            "citations": [
+              {
+                "hit_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+                "quote": "Mira owns the Atlas deployment checklist.",
+                "start": 0,
+                "end": 41
+              }
+            ]
+          }
+        ]
+      },
+      "result": {
+        "status": "answered",
+        "question": "Atlas checklist owner",
+        "corpus": {
+          "refs": [
+            {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            }
+          ],
+          "digest": "d441af89e237c7315816f20047b029a97feadeaa39ddfae3d0290296d4612ec4"
+        },
+        "hits": [
+          {
+            "ref": {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            },
+            "title": "Atlas release review",
+            "source_uri": "fixture://answers/atlas",
+            "source_kind": "meeting_note",
+            "content_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f",
+            "snippet": "Mira owns the Atlas deployment checklist. The Atlas release review is on Friday at 09:30. No emergency pager number is recorded in these meeting notes.",
+            "score": 739754,
+            "retrieval_method": "bm25",
+            "ranking_score": 0.7397539005902938,
+            "chunk_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+            "chunk_start": 0,
+            "chunk_end": 151,
+            "chunk_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f"
+          }
+        ],
+        "claims": [
+          {
+            "text": "Mira owns the checklist.",
+            "citations": [
+              {
+                "hit_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+                "quote": "Mira owns the Atlas deployment checklist.",
+                "start": 0,
+                "end": 41,
+                "ref": {
+                  "document_id": "meeting:atlas",
+                  "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+                },
+                "title": "Atlas release review",
+                "source_uri": "fixture://answers/atlas",
+                "source_kind": "meeting_note",
+                "content_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f",
+                "quote_digest": "2db4c50266e390b5c03c4e6f3528337004ddca1b2470af8ba53ce03655e4a670"
+              }
+            ]
+          }
+        ],
+        "reason": null,
+        "error_code": null,
+        "rendered_text": "Mira owns the checklist.\n[meeting:atlas@69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d characters 0:41] Atlas release review\nMira owns the Atlas deployment checklist.",
+        "usage": {
+          "input_tokens": 0,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 0,
+          "reasoning_output_tokens": 0,
+          "total_tokens": 0,
+          "requests_attempted": 1,
+          "reported_model_requests": 0
+        },
+        "embedding_usage": {
+          "requests_attempted": 0,
+          "prompt_tokens": 0,
+          "usage_complete": true
+        },
+        "citation_integrity": "verified",
+        "semantic_support": "unverified"
+      }
+    },
+    {
+      "case_id": "explicit-abstention",
+      "category": "abstention",
+      "question": "Atlas emergency pager number",
+      "expected_status": "abstained",
+      "passed": true,
+      "note": "The proposal itself decides to abstain; this does not test real-model detection.",
+      "model_proposal": {
+        "status": "abstain",
+        "claims": [],
+        "reason": "The retrieved notes do not contain the requested number."
+      },
+      "result": {
+        "status": "abstained",
+        "question": "Atlas emergency pager number",
+        "corpus": {
+          "refs": [
+            {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            }
+          ],
+          "digest": "d441af89e237c7315816f20047b029a97feadeaa39ddfae3d0290296d4612ec4"
+        },
+        "hits": [
+          {
+            "ref": {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            },
+            "title": "Atlas release review",
+            "source_uri": "fixture://answers/atlas",
+            "source_kind": "meeting_note",
+            "content_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f",
+            "snippet": "Mira owns the Atlas deployment checklist. The Atlas release review is on Friday at 09:30. No emergency pager number is recorded in these meeting notes.",
+            "score": 1315118,
+            "retrieval_method": "bm25",
+            "ranking_score": 1.3151180454938554,
+            "chunk_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+            "chunk_start": 0,
+            "chunk_end": 151,
+            "chunk_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f"
+          }
+        ],
+        "claims": [],
+        "reason": "The retrieved notes do not contain the requested number.",
+        "error_code": null,
+        "rendered_text": null,
+        "usage": {
+          "input_tokens": 0,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 0,
+          "reasoning_output_tokens": 0,
+          "total_tokens": 0,
+          "requests_attempted": 1,
+          "reported_model_requests": 0
+        },
+        "embedding_usage": {
+          "requests_attempted": 0,
+          "prompt_tokens": 0,
+          "usage_complete": true
+        },
+        "citation_integrity": "not_applicable",
+        "semantic_support": "unverified"
+      }
+    },
+    {
+      "case_id": "empty-window",
+      "category": "empty_retrieval",
+      "question": "quasarneutrino991",
+      "expected_status": "abstained",
+      "passed": true,
+      "note": "No model call is needed; this says only that this retrieval window is empty.",
+      "model_proposal": {
+        "status": "answer",
+        "claims": [
+          {
+            "text": "Mira owns the checklist.",
+            "citations": [
+              {
+                "hit_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+                "quote": "Mira owns the Atlas deployment checklist.",
+                "start": 0,
+                "end": 41
+              }
+            ]
+          }
+        ]
+      },
+      "result": {
+        "status": "abstained",
+        "question": "quasarneutrino991",
+        "corpus": {
+          "refs": [
+            {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            }
+          ],
+          "digest": "d441af89e237c7315816f20047b029a97feadeaa39ddfae3d0290296d4612ec4"
+        },
+        "hits": [],
+        "claims": [],
+        "reason": "no_retrieved_evidence",
+        "error_code": null,
+        "rendered_text": null,
+        "usage": {
+          "input_tokens": 0,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 0,
+          "reasoning_output_tokens": 0,
+          "total_tokens": 0,
+          "requests_attempted": 0,
+          "reported_model_requests": 0
+        },
+        "embedding_usage": {
+          "requests_attempted": 0,
+          "prompt_tokens": 0,
+          "usage_complete": true
+        },
+        "citation_integrity": "not_applicable",
+        "semantic_support": "unverified"
+      }
+    },
+    {
+      "case_id": "unknown-hit",
+      "category": "invalid_citation",
+      "question": "Atlas checklist owner",
+      "expected_status": "rejected",
+      "passed": true,
+      "note": "",
+      "model_proposal": {
+        "status": "answer",
+        "claims": [
+          {
+            "text": "Mira owns the checklist.",
+            "citations": [
+              {
+                "hit_id": "0000000000000000000000000000000000000000000000000000000000000000",
+                "quote": "Mira owns the Atlas deployment checklist.",
+                "start": 0,
+                "end": 41
+              }
+            ]
+          }
+        ]
+      },
+      "result": {
+        "status": "rejected",
+        "question": "Atlas checklist owner",
+        "corpus": {
+          "refs": [
+            {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            }
+          ],
+          "digest": "d441af89e237c7315816f20047b029a97feadeaa39ddfae3d0290296d4612ec4"
+        },
+        "hits": [
+          {
+            "ref": {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            },
+            "title": "Atlas release review",
+            "source_uri": "fixture://answers/atlas",
+            "source_kind": "meeting_note",
+            "content_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f",
+            "snippet": "Mira owns the Atlas deployment checklist. The Atlas release review is on Friday at 09:30. No emergency pager number is recorded in these meeting notes.",
+            "score": 739754,
+            "retrieval_method": "bm25",
+            "ranking_score": 0.7397539005902938,
+            "chunk_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+            "chunk_start": 0,
+            "chunk_end": 151,
+            "chunk_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f"
+          }
+        ],
+        "claims": [],
+        "reason": null,
+        "error_code": "citation_outside_retrieval",
+        "rendered_text": null,
+        "usage": {
+          "input_tokens": 0,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 0,
+          "reasoning_output_tokens": 0,
+          "total_tokens": 0,
+          "requests_attempted": 1,
+          "reported_model_requests": 0
+        },
+        "embedding_usage": {
+          "requests_attempted": 0,
+          "prompt_tokens": 0,
+          "usage_complete": true
+        },
+        "citation_integrity": "not_applicable",
+        "semantic_support": "unverified"
+      }
+    },
+    {
+      "case_id": "forged-quote",
+      "category": "invalid_citation",
+      "question": "Atlas checklist owner",
+      "expected_status": "rejected",
+      "passed": true,
+      "note": "",
+      "model_proposal": {
+        "status": "answer",
+        "claims": [
+          {
+            "text": "Mira owns the checklist.",
+            "citations": [
+              {
+                "hit_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+                "quote": "Nora owns the Atlas deployment checklist.",
+                "start": 0,
+                "end": 41
+              }
+            ]
+          }
+        ]
+      },
+      "result": {
+        "status": "rejected",
+        "question": "Atlas checklist owner",
+        "corpus": {
+          "refs": [
+            {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            }
+          ],
+          "digest": "d441af89e237c7315816f20047b029a97feadeaa39ddfae3d0290296d4612ec4"
+        },
+        "hits": [
+          {
+            "ref": {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            },
+            "title": "Atlas release review",
+            "source_uri": "fixture://answers/atlas",
+            "source_kind": "meeting_note",
+            "content_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f",
+            "snippet": "Mira owns the Atlas deployment checklist. The Atlas release review is on Friday at 09:30. No emergency pager number is recorded in these meeting notes.",
+            "score": 739754,
+            "retrieval_method": "bm25",
+            "ranking_score": 0.7397539005902938,
+            "chunk_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+            "chunk_start": 0,
+            "chunk_end": 151,
+            "chunk_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f"
+          }
+        ],
+        "claims": [],
+        "reason": null,
+        "error_code": "citation_quote_mismatch",
+        "rendered_text": null,
+        "usage": {
+          "input_tokens": 0,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 0,
+          "reasoning_output_tokens": 0,
+          "total_tokens": 0,
+          "requests_attempted": 1,
+          "reported_model_requests": 0
+        },
+        "embedding_usage": {
+          "requests_attempted": 0,
+          "prompt_tokens": 0,
+          "usage_complete": true
+        },
+        "citation_integrity": "not_applicable",
+        "semantic_support": "unverified"
+      }
+    },
+    {
+      "case_id": "wrong-span",
+      "category": "invalid_citation",
+      "question": "Atlas checklist owner",
+      "expected_status": "rejected",
+      "passed": true,
+      "note": "",
+      "model_proposal": {
+        "status": "answer",
+        "claims": [
+          {
+            "text": "Mira owns the checklist.",
+            "citations": [
+              {
+                "hit_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+                "quote": "Mira owns the Atlas deployment checklist.",
+                "start": 1,
+                "end": 42
+              }
+            ]
+          }
+        ]
+      },
+      "result": {
+        "status": "rejected",
+        "question": "Atlas checklist owner",
+        "corpus": {
+          "refs": [
+            {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            }
+          ],
+          "digest": "d441af89e237c7315816f20047b029a97feadeaa39ddfae3d0290296d4612ec4"
+        },
+        "hits": [
+          {
+            "ref": {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            },
+            "title": "Atlas release review",
+            "source_uri": "fixture://answers/atlas",
+            "source_kind": "meeting_note",
+            "content_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f",
+            "snippet": "Mira owns the Atlas deployment checklist. The Atlas release review is on Friday at 09:30. No emergency pager number is recorded in these meeting notes.",
+            "score": 739754,
+            "retrieval_method": "bm25",
+            "ranking_score": 0.7397539005902938,
+            "chunk_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+            "chunk_start": 0,
+            "chunk_end": 151,
+            "chunk_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f"
+          }
+        ],
+        "claims": [],
+        "reason": null,
+        "error_code": "citation_quote_mismatch",
+        "rendered_text": null,
+        "usage": {
+          "input_tokens": 0,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 0,
+          "reasoning_output_tokens": 0,
+          "total_tokens": 0,
+          "requests_attempted": 1,
+          "reported_model_requests": 0
+        },
+        "embedding_usage": {
+          "requests_attempted": 0,
+          "prompt_tokens": 0,
+          "usage_complete": true
+        },
+        "citation_integrity": "not_applicable",
+        "semantic_support": "unverified"
+      }
+    },
+    {
+      "case_id": "uncited-claim",
+      "category": "invalid_proposal",
+      "question": "Atlas checklist owner",
+      "expected_status": "rejected",
+      "passed": true,
+      "note": "",
+      "model_proposal": {
+        "status": "answer",
+        "claims": [
+          {
+            "text": "Mira owns the checklist.",
+            "citations": []
+          }
+        ]
+      },
+      "result": {
+        "status": "rejected",
+        "question": "Atlas checklist owner",
+        "corpus": {
+          "refs": [
+            {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            }
+          ],
+          "digest": "d441af89e237c7315816f20047b029a97feadeaa39ddfae3d0290296d4612ec4"
+        },
+        "hits": [
+          {
+            "ref": {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            },
+            "title": "Atlas release review",
+            "source_uri": "fixture://answers/atlas",
+            "source_kind": "meeting_note",
+            "content_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f",
+            "snippet": "Mira owns the Atlas deployment checklist. The Atlas release review is on Friday at 09:30. No emergency pager number is recorded in these meeting notes.",
+            "score": 739754,
+            "retrieval_method": "bm25",
+            "ranking_score": 0.7397539005902938,
+            "chunk_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+            "chunk_start": 0,
+            "chunk_end": 151,
+            "chunk_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f"
+          }
+        ],
+        "claims": [],
+        "reason": null,
+        "error_code": "invalid_answer_proposal",
+        "rendered_text": null,
+        "usage": {
+          "input_tokens": 0,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 0,
+          "reasoning_output_tokens": 0,
+          "total_tokens": 0,
+          "requests_attempted": 1,
+          "reported_model_requests": 0
+        },
+        "embedding_usage": {
+          "requests_attempted": 0,
+          "prompt_tokens": 0,
+          "usage_complete": true
+        },
+        "citation_integrity": "not_applicable",
+        "semantic_support": "unverified"
+      }
+    },
+    {
+      "case_id": "unexpected-tool-call",
+      "category": "invalid_proposal",
+      "question": "Atlas checklist owner",
+      "expected_status": "rejected",
+      "passed": true,
+      "note": "",
+      "model_proposal": null,
+      "result": {
+        "status": "rejected",
+        "question": "Atlas checklist owner",
+        "corpus": {
+          "refs": [
+            {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            }
+          ],
+          "digest": "d441af89e237c7315816f20047b029a97feadeaa39ddfae3d0290296d4612ec4"
+        },
+        "hits": [
+          {
+            "ref": {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            },
+            "title": "Atlas release review",
+            "source_uri": "fixture://answers/atlas",
+            "source_kind": "meeting_note",
+            "content_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f",
+            "snippet": "Mira owns the Atlas deployment checklist. The Atlas release review is on Friday at 09:30. No emergency pager number is recorded in these meeting notes.",
+            "score": 739754,
+            "retrieval_method": "bm25",
+            "ranking_score": 0.7397539005902938,
+            "chunk_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+            "chunk_start": 0,
+            "chunk_end": 151,
+            "chunk_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f"
+          }
+        ],
+        "claims": [],
+        "reason": null,
+        "error_code": "unexpected_model_tool_calls",
+        "rendered_text": null,
+        "usage": {
+          "input_tokens": 0,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 0,
+          "reasoning_output_tokens": 0,
+          "total_tokens": 0,
+          "requests_attempted": 1,
+          "reported_model_requests": 0
+        },
+        "embedding_usage": {
+          "requests_attempted": 0,
+          "prompt_tokens": 0,
+          "usage_complete": true
+        },
+        "citation_integrity": "not_applicable",
+        "semantic_support": "unverified"
+      }
+    },
+    {
+      "case_id": "real-quote-unrelated-claim",
+      "category": "semantic_boundary",
+      "question": "Atlas emergency pager number",
+      "expected_status": "answered",
+      "passed": true,
+      "note": "Deliberately unsupported claim with a genuine quotation: citation checking cannot prove semantic support.",
+      "model_proposal": {
+        "status": "answer",
+        "claims": [
+          {
+            "text": "The emergency pager number is 555-0199.",
+            "citations": [
+              {
+                "hit_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+                "quote": "Mira owns the Atlas deployment checklist.",
+                "start": 0,
+                "end": 41
+              }
+            ]
+          }
+        ]
+      },
+      "result": {
+        "status": "answered",
+        "question": "Atlas emergency pager number",
+        "corpus": {
+          "refs": [
+            {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            }
+          ],
+          "digest": "d441af89e237c7315816f20047b029a97feadeaa39ddfae3d0290296d4612ec4"
+        },
+        "hits": [
+          {
+            "ref": {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            },
+            "title": "Atlas release review",
+            "source_uri": "fixture://answers/atlas",
+            "source_kind": "meeting_note",
+            "content_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f",
+            "snippet": "Mira owns the Atlas deployment checklist. The Atlas release review is on Friday at 09:30. No emergency pager number is recorded in these meeting notes.",
+            "score": 1315118,
+            "retrieval_method": "bm25",
+            "ranking_score": 1.3151180454938554,
+            "chunk_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+            "chunk_start": 0,
+            "chunk_end": 151,
+            "chunk_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f"
+          }
+        ],
+        "claims": [
+          {
+            "text": "The emergency pager number is 555-0199.",
+            "citations": [
+              {
+                "hit_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+                "quote": "Mira owns the Atlas deployment checklist.",
+                "start": 0,
+                "end": 41,
+                "ref": {
+                  "document_id": "meeting:atlas",
+                  "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+                },
+                "title": "Atlas release review",
+                "source_uri": "fixture://answers/atlas",
+                "source_kind": "meeting_note",
+                "content_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f",
+                "quote_digest": "2db4c50266e390b5c03c4e6f3528337004ddca1b2470af8ba53ce03655e4a670"
+              }
+            ]
+          }
+        ],
+        "reason": null,
+        "error_code": null,
+        "rendered_text": "The emergency pager number is 555-0199.\n[meeting:atlas@69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d characters 0:41] Atlas release review\nMira owns the Atlas deployment checklist.",
+        "usage": {
+          "input_tokens": 0,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 0,
+          "reasoning_output_tokens": 0,
+          "total_tokens": 0,
+          "requests_attempted": 1,
+          "reported_model_requests": 0
+        },
+        "embedding_usage": {
+          "requests_attempted": 0,
+          "prompt_tokens": 0,
+          "usage_complete": true
+        },
+        "citation_integrity": "verified",
+        "semantic_support": "unverified"
+      }
+    },
+    {
+      "case_id": "frozen-source-version",
+      "category": "source_snapshot",
+      "question": "Atlas checklist owner",
+      "expected_status": "answered",
+      "passed": true,
+      "note": "The original snapshot retains Mira; a new request would see the explicitly activated Nora version.",
+      "model_proposal": {
+        "status": "answer",
+        "claims": [
+          {
+            "text": "Mira owns the checklist.",
+            "citations": [
+              {
+                "hit_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+                "quote": "Mira owns the Atlas deployment checklist.",
+                "start": 0,
+                "end": 41
+              }
+            ]
+          }
+        ]
+      },
+      "result": {
+        "status": "answered",
+        "question": "Atlas checklist owner",
+        "corpus": {
+          "refs": [
+            {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            }
+          ],
+          "digest": "d441af89e237c7315816f20047b029a97feadeaa39ddfae3d0290296d4612ec4"
+        },
+        "hits": [
+          {
+            "ref": {
+              "document_id": "meeting:atlas",
+              "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+            },
+            "title": "Atlas release review",
+            "source_uri": "fixture://answers/atlas",
+            "source_kind": "meeting_note",
+            "content_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f",
+            "snippet": "Mira owns the Atlas deployment checklist. The Atlas release review is on Friday at 09:30. No emergency pager number is recorded in these meeting notes.",
+            "score": 739754,
+            "retrieval_method": "bm25",
+            "ranking_score": 0.7397539005902938,
+            "chunk_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+            "chunk_start": 0,
+            "chunk_end": 151,
+            "chunk_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f"
+          }
+        ],
+        "claims": [
+          {
+            "text": "Mira owns the checklist.",
+            "citations": [
+              {
+                "hit_id": "491cf932d86e2644f05cb7d36e0afca886eb6abb5e53df5fb104f0f429ad7064",
+                "quote": "Mira owns the Atlas deployment checklist.",
+                "start": 0,
+                "end": 41,
+                "ref": {
+                  "document_id": "meeting:atlas",
+                  "version_id": "69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d"
+                },
+                "title": "Atlas release review",
+                "source_uri": "fixture://answers/atlas",
+                "source_kind": "meeting_note",
+                "content_digest": "c4062de421eb0f75f77b913a5795fe7e10c161ad2be453734d768e079d00260f",
+                "quote_digest": "2db4c50266e390b5c03c4e6f3528337004ddca1b2470af8ba53ce03655e4a670"
+              }
+            ]
+          }
+        ],
+        "reason": null,
+        "error_code": null,
+        "rendered_text": "Mira owns the checklist.\n[meeting:atlas@69fa8f7a613c1c67a46866d3d111969cd58cb0394ea657bd6c8187d0b60aad1d characters 0:41] Atlas release review\nMira owns the Atlas deployment checklist.",
+        "usage": {
+          "input_tokens": 0,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 0,
+          "reasoning_output_tokens": 0,
+          "total_tokens": 0,
+          "requests_attempted": 1,
+          "reported_model_requests": 0
+        },
+        "embedding_usage": {
+          "requests_attempted": 0,
+          "prompt_tokens": 0,
+          "usage_complete": true
+        },
+        "citation_integrity": "verified",
+        "semantic_support": "unverified"
+      }
+    }
+  ],
+  "artifact_digest": "4f1e8801ab6c137de148bc94e5882171de6f07ed22224f645be823c926503f3e"
+}
