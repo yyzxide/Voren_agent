@@ -1,0 +1,22 @@
+{
+  "schema_version": "voren-answer-dataset/v1",
+  "dataset_id": "controlled-answer-replay",
+  "description": "Small authored protocol fixture. Labels and future proposals are controlled inputs, not independent model quality evidence.",
+  "synthetic": true,
+  "documents": [
+    {
+      "document_id": "meeting:atlas",
+      "title": "Atlas release notes",
+      "source_uri": "fixture://answer-evaluation/atlas",
+      "source_kind": "meeting_note",
+      "content": "Mira owns the Atlas deployment checklist. The Atlas release review is on Friday at 09:30. The emergency pager number is not recorded in these notes."
+    }
+  ],
+  "cases": [
+    {"case_id": "owner", "question": "Atlas checklist owner", "answerable": true},
+    {"case_id": "pager", "question": "Atlas emergency pager number", "answerable": false},
+    {"case_id": "irrelevant-quote", "question": "Atlas emergency pager number", "answerable": false},
+    {"case_id": "invalid-proposal", "question": "Atlas emergency pager number", "answerable": false},
+    {"case_id": "empty-window", "question": "quasarneutrino991", "answerable": false}
+  ]
+}
