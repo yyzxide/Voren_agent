@@ -7,7 +7,8 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from voren.knowledge.store import SQLiteKnowledgeStore
+from voren.knowledge.embeddings import EmbeddingProvider
+from voren.knowledge.store import KnowledgeStoreError, SQLiteKnowledgeStore
 from voren.observations.models import (
     ObservationItem,
     Provenance,
@@ -40,9 +41,15 @@ class KnowledgeReadAdapter:
         self,
         store: SQLiteKnowledgeStore,
         *,
+        mode: str = "bm25",
+        embedder: EmbeddingProvider | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
+        if mode not in {"lexical", "bm25", "dense", "hybrid"}:
+            raise ValueError("unknown knowledge retrieval mode")
         self._store = store
+        self._mode = mode
+        self._embedder = embedder
         self._clock = clock or (lambda: datetime.now(UTC))
 
     @property
@@ -72,7 +79,20 @@ class KnowledgeReadAdapter:
                 error_code="invalid_arguments",
                 error_message=str(error),
             )
-        hits = self._store.search(request.query, limit=request.limit)
+        try:
+            hits = self._store.search(
+                request.query,
+                limit=request.limit,
+                mode=self._mode,
+                embedder=self._embedder,
+            )
+        except (KnowledgeStoreError, ValueError) as error:
+            return ToolObservation.failed(
+                tool_call_id=tool_call_id,
+                tool_name=tool_name,
+                error_code="knowledge_read_failed",
+                error_message=f"Knowledge retrieval failed ({type(error).__name__})",
+            )
         retrieved_at = self._clock()
         return ToolObservation.succeeded(
             tool_call_id=tool_call_id,
@@ -86,7 +106,7 @@ class KnowledgeReadAdapter:
                         source_ref=(
                             f"{hit.ref.document_id}@{hit.ref.version_id}"
                         ),
-                        retrieved_by="local-knowledge:lexical-v1",
+                        retrieved_by=f"local-knowledge:{hit.retrieval_method}-v1",
                         retrieved_at=retrieved_at,
                         instruction_authority=False,
                     ),

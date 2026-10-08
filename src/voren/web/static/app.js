@@ -141,6 +141,12 @@ function renderSkillRoute(route) {
 function renderApproval(run) {
   const card = $("approval-card");
   const reconciling = run.status === "needs_reconciliation";
+  const knowledgeBlocked = knowledgeConfigurationBlocked(run);
+  if (knowledgeBlocked) {
+    appendOnce("system", reconciling
+      ? "知识检索配置已改变，请恢复原配置后核对已执行动作的结果；系统不会重发该动作。"
+      : "知识检索配置已改变，请恢复原配置后继续。你仍可拒绝尚未执行的提议。");
+  }
   const mismatch = reconciling && (
     run.receipt?.verification.unexpected_effect_ids.length
     || run.receipt?.verification.mismatched_effect_ids.length
@@ -150,9 +156,9 @@ function renderApproval(run) {
     appendOnce("system", "结果与批准内容不符，需要人工核对；系统不会重发该动作。");
     return;
   }
-  if ((!reconciling && run.status !== "waiting_approval") || !run.proposal || run.recovery_required) {
+  if ((!reconciling && run.status !== "waiting_approval") || !run.proposal || (run.recovery_required && !knowledgeBlocked)) {
     card.classList.add("hidden");
-    if (run.recovery_required) {
+    if (run.recovery_required && !knowledgeBlocked) {
       appendOnce("system", run.workspace === "google"
         ? "当前 Google 连接无法恢复此任务，请检查原账号、日历、时区和连接配置。已完成动作仍保留在回执中。"
         : "当前任务的原工作区无法恢复，任务已暂停。请先核对已完成的动作；不要重复执行。AgentDojo 演示的外部状态仅保存在原进程中。");
@@ -160,9 +166,11 @@ function renderApproval(run) {
     return;
   }
   card.classList.remove("hidden");
-  $("approval-label").textContent = reconciling ? "等待结果核对" : "等待你的决定";
+  $("approval-label").textContent = knowledgeBlocked ? "请恢复知识检索配置" : (reconciling ? "等待结果核对" : "等待你的决定");
   $("approve-button").textContent = reconciling ? "重新核对结果" : "批准这些副作用";
-  $("reject-button").classList.toggle("hidden", reconciling);
+  $("approve-button").disabled = knowledgeBlocked;
+  $("reject-button").disabled = false;
+  $("reject-button").classList.toggle("hidden", reconciling || (knowledgeBlocked && run.decision_approved === true));
   $("proposal-digest").textContent = run.proposal.digest;
   const effects = $("effects");
   effects.replaceChildren();
@@ -265,6 +273,7 @@ async function submitRequest(event) {
 
 async function decide(approved) {
   if (!state.run?.proposal) return;
+  if (approved && knowledgeConfigurationBlocked(state.run)) return;
   setDecisionBusy(true);
   if (
     !state.decision
@@ -317,8 +326,12 @@ function setBusy(busy) {
 }
 
 function setDecisionBusy(busy) {
-  $("approve-button").disabled = busy;
+  $("approve-button").disabled = busy || knowledgeConfigurationBlocked(state.run);
   $("reject-button").disabled = busy;
+}
+
+function knowledgeConfigurationBlocked(run) {
+  return Boolean(run?.recovery_required && run.recovery_reason === "knowledge_configuration_changed");
 }
 
 async function loadHealth() {

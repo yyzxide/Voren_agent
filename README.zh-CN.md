@@ -4,6 +4,11 @@
 
 [![CI](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml)
 
+**0.3.0：带精确片段引用的知识检索与对照评测。** 默认检索升级为分块 BM25，
+保留原关键词基线，并提供显式启用的向量检索和 RRF 融合。MCP 与本地 Web
+使用同一检索契约；固定样例分别检查文档召回、证据片段和无答案误召回。
+详见 [0.3.0 使用与验收边界](docs/implementation/V03_KNOWLEDGE_RETRIEVAL.zh-CN.md)。
+
 **0.2.0：同一任务的多动作审批与恢复。** Web 默认在动作验证后继续原任务，
 逐次展示下一项待审批动作，最后保存总结与完整动作历史。CLI 使用 `--multi-action`，
 Google 任务可通过 `--resume RUN_ID` 恢复冻结的上下文和预算。

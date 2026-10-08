@@ -2,6 +2,11 @@
 
 [简体中文](ROADMAP.zh-CN.md)
 
+The **0.3.0 slice**, dated 2026-10-08, adds chunked BM25, explicit embedding
+indexing, RRF hybrid retrieval, exact chunk citations, and a fixed-corpus evaluation.
+See [usage and verification boundaries](implementation/V03_KNOWLEDGE_RETRIEVAL.md).
+It does not alter the historical non-embedding Phase 2 scope or supply live-model/Google evidence.
+
 The **0.2.0 slice (2026-09-26)** adds multiple separately approved actions per Run,
 continuation after verification, encrypted provider-output recovery, cumulative
 budgets, and Web/Google CLI entry points. See the

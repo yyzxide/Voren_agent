@@ -28,6 +28,12 @@ from voren.adapters.workspace_contracts import (
     create_calendar_event_definition,
     send_email_definition,
 )
+from voren.knowledge.embeddings import (
+    EmbeddingError,
+    EmbeddingProvider,
+    embedding_provider_from_env,
+    retrieval_mode_from_env,
+)
 from voren.knowledge.store import SQLiteKnowledgeStore
 from voren.memory.context import MemoryContextAssembler, MemoryContextSnapshot
 from voren.memory.store import SQLiteMemoryStore
@@ -167,6 +173,8 @@ class VorenWebService:
         workspace_name: str = "agentdojo",
         workspace_recoverable: bool = False,
         knowledge_database: Path | None = None,
+        knowledge_retrieval_mode: str | None = None,
+        knowledge_embedder: EmbeddingProvider | None = None,
         memory_database: Path | None = None,
         profile_memory_mode: WebProfileMemoryMode = WebProfileMemoryMode.ACTIVE,
         skill_database: Path | None = None,
@@ -181,6 +189,12 @@ class VorenWebService:
         self.workspace_recoverable = workspace_recoverable
         self.knowledge_database = knowledge_database or database
         self.knowledge_database.parent.mkdir(parents=True, exist_ok=True)
+        if knowledge_retrieval_mode is not None and knowledge_retrieval_mode not in {
+            "lexical", "bm25", "dense", "hybrid",
+        }:
+            raise ValueError("unknown knowledge retrieval mode")
+        self._knowledge_retrieval_mode = knowledge_retrieval_mode
+        self._knowledge_embedder = knowledge_embedder
         self.memory_database = memory_database or database
         self.memory_database.parent.mkdir(parents=True, exist_ok=True)
         if profile_memory_mode not in {
@@ -231,6 +245,7 @@ class VorenWebService:
             )
 
         try:
+            retrieval_mode, embedder = self._knowledge_settings()
             model = self._model_factory()
             workspace = self._create_workspace()
         except Exception:
@@ -259,7 +274,9 @@ class VorenWebService:
                 run_id_factory=lambda: run_id,
                 clock=self._clock,
             )
-            knowledge_server = create_knowledge_mcp_server(knowledge_store)
+            knowledge_server = create_knowledge_mcp_server(
+                knowledge_store, mode=retrieval_mode, embedder=embedder,
+            )
             runtime_read_tools = CompositeReadToolAdapter(
                 workspace.read_tools,
                 MCPKnowledgeReadAdapter(
@@ -320,6 +337,9 @@ class VorenWebService:
                         "workspace_identity": dict(workspace.identity or {}),
                         "profile_memory_mode": self.profile_memory_mode.value,
                         "skill_routing": skill_route.model_dump(mode="json"),
+                        "knowledge_retrieval": self._knowledge_metadata(
+                            retrieval_mode, embedder,
+                        ),
                     },
                 ),
             )
@@ -404,7 +424,9 @@ class VorenWebService:
             run = run_store.get_run(run_id)
             if run.status.value not in {"waiting_approval", "needs_reconciliation", "running"}:
                 raise WebDecisionConflictError("run is no longer awaiting this decision")
-            workspace = self._workspace_for_resume(current, config=run.config)
+            workspace = self._workspace_for_resume(
+                current, config=run.config, check_retrieval=request.approved,
+            )
             manager = self._manager(workspace, run_store, ledger)
             approval = existing_approval or ApprovalDecision.for_proposal(
                 proposal, approval_id=request.decision_id,
@@ -497,8 +519,10 @@ class VorenWebService:
         )
 
     def _workspace_for_resume(
-        self, current: RunView, *, config: RunConfig
+        self, current: RunView, *, config: RunConfig, check_retrieval: bool = True,
     ) -> WebWorkspaceRuntime:
+        if check_retrieval:
+            self._knowledge_retrieval_for_run(config)
         workspace = self._pending_workspaces.get(current.run_id)
         if workspace is None:
             if not self.workspace_recoverable or current.workspace != self.workspace_name:
@@ -531,6 +555,7 @@ class VorenWebService:
         )
         try:
             run = run_store.get_run(current.run_id)
+            retrieval_mode, embedder = self._knowledge_retrieval_for_run(run.config)
             memory_context = MemoryContextAssembler(memory_store).from_frozen(run.config.memory_versions)
             skill_context = (
                 SkillContextAssembler(skill_store).from_frozen(run.config.skill_versions)
@@ -541,7 +566,9 @@ class VorenWebService:
                 read_tools=CompositeReadToolAdapter(
                     workspace.read_tools,
                     MCPKnowledgeReadAdapter(
-                        create_knowledge_mcp_server(knowledge_store), source_id="local-knowledge",
+                        create_knowledge_mcp_server(
+                            knowledge_store, mode=retrieval_mode, embedder=embedder,
+                        ), source_id="local-knowledge",
                     ),
                 ),
                 action_tools=tuple(
@@ -602,7 +629,7 @@ class VorenWebService:
             "receipt": receipt, "action_history": history,
             "decision_id": latest.decision_id if latest else None,
             "decision_approved": latest.decision_approved if latest else None,
-            "recovery_required": False, "updated_at": run.updated_at,
+            "recovery_required": False, "recovery_reason": None, "updated_at": run.updated_at,
         })
 
     @staticmethod
@@ -650,10 +677,29 @@ class VorenWebService:
             store.close()
 
     def _with_recovery_state(self, view: RunView) -> RunView:
+        view = view.model_copy(update={"recovery_reason": None})
         if view.status not in {"running", RuntimeResultStatus.WAITING_APPROVAL.value, "needs_reconciliation"}:
             return view
+        retrieval_problem = False
+        store = SQLiteRunStore(self.database)
+        try:
+            config = store.get_run(view.run_id).config
+            try:
+                self._knowledge_retrieval_for_run(config)
+            except WebApprovalRecoveryRequiredError:
+                retrieval_problem = True
+        finally:
+            store.close()
         with self._lock:
-            recoverable = view.run_id in self._pending_workspaces
+            workspace = self._pending_workspaces.get(view.run_id)
+        recoverable = False
+        if workspace is not None:
+            try:
+                self._assert_workspace_identity(workspace, config)
+            except WebApprovalRecoveryRequiredError:
+                pass
+            else:
+                recoverable = True
         if (
             not recoverable
             and self.workspace_recoverable
@@ -661,16 +707,56 @@ class VorenWebService:
         ):
             try:
                 workspace = self._create_workspace()
-                store = SQLiteRunStore(self.database)
-                try:
-                    self._assert_workspace_identity(workspace, store.get_run(view.run_id).config)
-                finally:
-                    store.close()
+                self._assert_workspace_identity(workspace, config)
             except Exception:
                 pass
             else:
                 recoverable = True
-        return view.model_copy(update={"recovery_required": not recoverable})
+        return view.model_copy(update={
+            "recovery_required": not recoverable or retrieval_problem,
+            "recovery_reason": (
+                "knowledge_configuration_changed" if recoverable and retrieval_problem else None
+            ),
+        })
+
+    def _knowledge_settings(self) -> tuple[str, EmbeddingProvider | None]:
+        mode = self._knowledge_retrieval_mode or retrieval_mode_from_env()
+        embedder = None
+        if mode in {"dense", "hybrid"}:
+            embedder = self._knowledge_embedder or embedding_provider_from_env()
+        return mode, embedder
+
+    @staticmethod
+    def _knowledge_metadata(mode: str, embedder: EmbeddingProvider | None) -> dict:
+        metadata = {"mode": mode}
+        if mode in {"dense", "hybrid"}:
+            if embedder is None:
+                raise ValueError("dense/hybrid retrieval requires an embedding provider")
+            metadata["embedding_fingerprint"] = embedder.fingerprint
+        return metadata
+
+    def _knowledge_retrieval_for_run(
+        self, config: RunConfig,
+    ) -> tuple[str, EmbeddingProvider | None]:
+        frozen = config.metadata.get("knowledge_retrieval")
+        if frozen is None:
+            # Pre-0.3 Runs used lexical retrieval. A new process default must
+            # not change their behavior or silently enable external queries.
+            return "lexical", None
+        try:
+            mode, embedder = self._knowledge_settings()
+            current = self._knowledge_metadata(mode, embedder)
+        except (EmbeddingError, ValueError):
+            raise WebApprovalRecoveryRequiredError(
+                "knowledge retrieval configuration is unavailable; restore the "
+                "original mode and embedding configuration before continuing"
+            ) from None
+        if frozen != current:
+            raise WebApprovalRecoveryRequiredError(
+                "knowledge retrieval configuration differs from the original run "
+                "(mode or embedding fingerprint); restore it before continuing"
+            )
+        return mode, embedder
 
     def _create_workspace(self) -> WebWorkspaceRuntime:
         workspace = self._workspace_factory()

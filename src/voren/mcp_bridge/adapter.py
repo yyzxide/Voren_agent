@@ -101,7 +101,7 @@ class MCPKnowledgeReadAdapter:
                         retrieved_by=(
                             f"mcp:{self._source_id}:reported={server_name}:"
                             f"{protocol_version}:"
-                            "search_meeting_knowledge"
+                            f"search_meeting_knowledge:{hit.retrieval_method}"
                         ),
                         retrieved_at=retrieved_at,
                         instruction_authority=False,

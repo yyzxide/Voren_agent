@@ -6,7 +6,7 @@ import hashlib
 import json
 from datetime import datetime
 from enum import StrEnum
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -122,3 +122,38 @@ class KnowledgeSearchHit(FrozenModel):
     content_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     snippet: str = Field(min_length=1)
     score: int = Field(gt=0)
+    retrieval_method: Literal["lexical", "bm25", "dense", "hybrid"] = "lexical"
+    ranking_score: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    chunk_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    chunk_start: int | None = Field(default=None, ge=0)
+    chunk_end: int | None = Field(default=None, gt=0)
+    chunk_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def chunk_metadata_is_complete(self) -> Self:
+        metadata = (self.chunk_id, self.chunk_start, self.chunk_end, self.chunk_digest)
+        if any(value is not None for value in metadata):
+            if any(value is None for value in metadata):
+                raise ValueError("knowledge chunk metadata must be complete")
+            assert self.chunk_start is not None and self.chunk_end is not None
+            if self.chunk_end <= self.chunk_start:
+                raise ValueError("knowledge chunk end must follow its start")
+            if len(self.snippet) != self.chunk_end - self.chunk_start:
+                raise ValueError("knowledge chunk offsets must match snippet length")
+            if hashlib.sha256(self.snippet.encode("utf-8")).hexdigest() != self.chunk_digest:
+                raise ValueError("knowledge chunk digest does not match snippet")
+            identity = json.dumps(
+                {
+                    "version_id": self.ref.version_id,
+                    "start": self.chunk_start,
+                    "end": self.chunk_end,
+                    "content_digest": self.chunk_digest,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            if hashlib.sha256(identity.encode("utf-8")).hexdigest() != self.chunk_id:
+                raise ValueError("knowledge chunk ID does not match source version and offsets")
+        elif self.retrieval_method != "lexical":
+            raise ValueError("chunk retrieval requires exact chunk metadata")
+        return self

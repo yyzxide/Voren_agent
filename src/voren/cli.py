@@ -63,6 +63,7 @@ from voren.learning.runner import PairedEvaluationRunner
 from voren.learning.report import render_candidate_report, write_candidate_report
 from voren.learning.service import SkillCandidateService
 from voren.learning.store import CandidateStoreError, SQLiteCandidateStore
+from voren.knowledge.embeddings import EmbeddingError, embedding_provider_from_env
 from voren.knowledge.models import KnowledgeDocument, KnowledgeSourceKind
 from voren.knowledge.store import KnowledgeStoreError, SQLiteKnowledgeStore
 from voren.memory.context import MemoryContextAssembler
@@ -563,8 +564,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     knowledge_search.add_argument("query")
     knowledge_search.add_argument("--limit", type=int, default=5)
+    knowledge_search.add_argument(
+        "--mode", choices=("lexical", "bm25", "dense", "hybrid"), default="bm25",
+        help="Retrieval method. Dense and hybrid send the query to an embedding API.",
+    )
+    knowledge_search.add_argument(
+        "--allow-embedding-api", action="store_true",
+        help="Allow this search to send query text to the configured embedding endpoint.",
+    )
     _add_knowledge_storage_argument(knowledge_search)
     knowledge_search.set_defaults(handler=run_knowledge_search)
+
+    knowledge_index = knowledge_commands.add_parser(
+        "index", help="Explicitly embed active knowledge chunks; search never builds this index.",
+    )
+    knowledge_index.add_argument(
+        "--allow-embedding-api", action="store_true",
+        help="Allow sending active knowledge text to the configured embedding endpoint.",
+    )
+    _add_knowledge_storage_argument(knowledge_index)
+    knowledge_index.set_defaults(handler=run_knowledge_index)
 
     knowledge_inspect = knowledge_commands.add_parser(
         "inspect", help="Inspect one active version; content is redacted by default."
@@ -1824,13 +1843,20 @@ def run_knowledge_search(
     *,
     output: Output = print,
 ) -> int:
+    mode = getattr(args, "mode", "bm25")
+    embedder = None
+    if mode in {"dense", "hybrid"}:
+        if not getattr(args, "allow_embedding_api", False):
+            raise ValueError("dense/hybrid search requires --allow-embedding-api")
+        embedder = embedding_provider_from_env()
     store = SQLiteKnowledgeStore(args.database)
     try:
-        hits = store.search(args.query, limit=args.limit)
+        hits = store.search(args.query, limit=args.limit, mode=mode, embedder=embedder)
         output(
             json.dumps(
                 {
                     "query": args.query,
+                    "retrieval_method": mode,
                     "results": [hit.model_dump(mode="json") for hit in hits],
                     "instruction_authority": False,
                 },
@@ -1839,6 +1865,27 @@ def run_knowledge_search(
                 sort_keys=True,
             )
         )
+        return 0
+    finally:
+        store.close()
+
+
+def run_knowledge_index(
+    args: argparse.Namespace,
+    *,
+    output: Output = print,
+) -> int:
+    if not args.allow_embedding_api:
+        raise ValueError("knowledge index requires --allow-embedding-api")
+    embedder = embedding_provider_from_env()
+    store = SQLiteKnowledgeStore(args.database)
+    try:
+        indexed = store.index_embeddings(embedder)
+        output(json.dumps({
+            "indexed_chunks": indexed,
+            "embedding_fingerprint": embedder.fingerprint,
+            "instruction_authority": False,
+        }, sort_keys=True))
         return 0
     finally:
         store.close()
@@ -1936,6 +1983,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         AgentDojoDependencyError,
         CandidateStoreError,
         GoogleWorkspaceConfigurationError,
+        EmbeddingError,
         KnowledgeStoreError,
         MemoryStoreError,
         SkillFormatError,

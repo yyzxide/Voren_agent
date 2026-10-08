@@ -2,6 +2,10 @@
 
 [English](ROADMAP.md)
 
+2026-10-08 的 **0.3.0 切片**增加分块 BM25、显式向量索引、RRF 混合检索、
+精确片段引用和固定语料对照评测，见 [使用与验收边界](implementation/V03_KNOWLEDGE_RETRIEVAL.zh-CN.md)。
+它不改变下文 Phase 2 的历史非 Embedding 验收范围，也不补造真实模型或 Google 账号证据。
+
 2026-09-26 的 **0.2.0 切片**在已有基础上增加同一 Run 的多动作审批、验证后续跑、
 加密 Provider 原始响应恢复、跨动作预算与 Web/Google CLI 入口，见
 [实现与验收边界](implementation/V02_MULTI_ACTION.zh-CN.md)。下文 Phase 0—5 保留其

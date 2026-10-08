@@ -1,0 +1,497 @@
+{
+  "schema_version": "voren-retrieval-dataset/v1",
+  "dataset_id": "controlled-bilingual-v1",
+  "description": "Small authored synthetic corpus for local retrieval/citation contracts. It deliberately includes exact terms, CJK queries, long tails, repeated-term distractors, reviewed corrections and no-answer queries. Cases are not held-out external evaluation, semantic-quality evidence or production workload.",
+  "synthetic": true,
+  "documents": [
+    {
+      "document_id": "meeting:atlas",
+      "title": "Atlas release readiness",
+      "content": "The Atlas release review is scheduled for Friday at 09:30. Mira owns the deployment checklist. The rollback trigger is a failed health probe for five minutes.\nThe release coordinator must obtain exact approval before creating a private calendar hold.",
+      "active": true
+    },
+    {
+      "document_id": "meeting:finance",
+      "title": "Finance reconciliation",
+      "content": "The finance reconciliation closes on Tuesday at 16:00. Expense receipts must include the invoice number. The approval committee reviews the budget, not calendar holds.",
+      "active": true
+    },
+    {
+      "document_id": "meeting:training",
+      "title": "Training room booking",
+      "content": "The team training workshop is on Friday at 15:00. The training coordinator books Room Cedar. Deployment and health probes are outside this workshop.",
+      "active": true
+    },
+    {
+      "document_id": "meeting:cn-approval",
+      "title": "审批回执设计评审",
+      "content": "审批提案绑定参数摘要，参数变化必须重新审批。外部提交响应丢失时进入待核对状态，恢复过程先观察外部结果。精确回执验证通过后才继续下一动作。",
+      "active": true
+    },
+    {
+      "document_id": "meeting:cn-office",
+      "title": "行政会议安排",
+      "content": "周五行政会议讨论会议室审批、报销回执和员工培训。行政会议不会修改 Agent 的外部动作参数，也不负责提交恢复。",
+      "active": true
+    },
+    {
+      "document_id": "policy:drafts",
+      "title": "Draft-only mailbox policy",
+      "content": "Mailbox access permits creating an email draft for operator review. The connector must never send the email. Draft verification compares recipient, subject and body against the approved effect.",
+      "active": true
+    },
+    {
+      "document_id": "policy:calendar",
+      "title": "Private calendar policy",
+      "content": "Private calendar holds must have no attendees. The connector never sends invitations. The approved title, start time, end time and time zone must match the observed event.",
+      "active": true
+    },
+    {
+      "document_id": "meeting:cn-calendar",
+      "title": "私人日程接口",
+      "content": "私人日程不添加参与者，不发送邀请。日程观察结果必须核对标题、开始时间、结束时间与时区。创建前需操作者批准。",
+      "active": true
+    },
+    {
+      "document_id": "meeting:lease",
+      "title": "Worker lease incidents",
+      "content": "A task lease expires when its heartbeat stops. The next worker receives a new lease epoch. A stale worker cannot publish artifacts after the epoch changes.",
+      "active": true
+    },
+    {
+      "document_id": "meeting:worktree",
+      "title": "Task branch isolation",
+      "content": "Each task writes to its own Git worktree. Independent submission review reads the changed files and runs integration tests. A worktree is a repository checkout, not an operating-system sandbox.",
+      "active": true
+    },
+    {
+      "document_id": "meeting:storage",
+      "title": "Knowledge version activation",
+      "content": "Knowledge documents are immutable versions identified by a content digest. Only the reviewed active version participates in retrieval. Installing a corrected version does not activate it automatically.",
+      "active": true
+    },
+    {
+      "document_id": "meeting:privacy",
+      "title": "Transcript privacy",
+      "content": "Model transcripts are encrypted with a local key. Missing keys fail closed for an existing encrypted database. Exported evaluation artifacts omit private email bodies, account identities and OAuth tokens.",
+      "active": true
+    },
+    {
+      "document_id": "meeting:latency",
+      "title": "Retrieval timing notebook",
+      "content": "The latency notebook records local retrieval wall-clock time. Fixture results do not prove production throughput. Search timing excludes corpus installation and document embedding indexing.",
+      "active": true
+    },
+    {
+      "document_id": "meeting:retry-noise",
+      "title": "General retry workshop",
+      "content": "retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. retry approval meeting status general workshop notes. \nThis workshop concerns classroom exercises; it provides no database backoff setting.",
+      "active": true
+    },
+    {
+      "document_id": "meeting:retry-config",
+      "title": "Database incident decision",
+      "content": "The database retry setting is exponential backoff with a maximum of four retries. Retry jitter is enabled. The incident owner checks the write-ahead log before repeating a transaction.",
+      "active": true
+    },
+    {
+      "document_id": "meeting:long-en",
+      "title": "Long infrastructure meeting",
+      "content": "Routine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\nRoutine status: teammates discussed the project board, lunch plans, meeting rooms and presentation formatting. No release decision appears in this section.\n\nLate decision: the Zephyr maintenance window starts Sunday at 02:15 UTC. The Zephyr recovery owner is Rowan.\nThe exact maintenance window belongs in a private calendar hold after operator approval.",
+      "active": true
+    },
+    {
+      "document_id": "meeting:long-cn",
+      "title": "长篇设施会议纪要",
+      "content": "例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n例行事项：本节讨论工位、午餐、会议室、周报格式以及办公室用品。这里没有作出系统切换的决定。\n\n最终决定：青岚系统切换定于周二凌晨三点，切换负责人是林舟。审批前必须核对该系统的切换时间。",
+      "active": true
+    },
+    {
+      "document_id": "meeting:neptune",
+      "title": "Neptune project archive",
+      "content": "The historical Neptune launch date was Wednesday at 11:00. The obsolete access code was cobaltlaunch77.",
+      "active": false
+    },
+    {
+      "document_id": "meeting:neptune",
+      "title": "Neptune reviewed update",
+      "content": "The corrected Neptune launch date is Thursday at 14:30. The obsolete access code has been removed. This reviewed update replaces the historical project archive.",
+      "active": true
+    },
+    {
+      "document_id": "meeting:inactive",
+      "title": "Unreviewed attachment",
+      "content": "The unreviewed attachment contains the unique launch token unreviewedjade88.",
+      "active": false
+    },
+    {
+      "document_id": "meeting:limits",
+      "title": "Runtime budget settings",
+      "content": "Model request attempts are reserved before the provider call. Crashes do not refund a reserved attempt. Recovery keeps the original runtime budget and provider configuration.",
+      "active": true
+    },
+    {
+      "document_id": "meeting:cn-version",
+      "title": "知识更正审核",
+      "content": "知识文档按精确版本保存。新版本先安装，再由操作者明确激活。检索只读取当前激活版本，引用保留文档版本和内容摘要。",
+      "active": true
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "en-release-time",
+      "category": "exact-term",
+      "query": "Atlas release review Friday 09:30",
+      "expected_document_ids": [
+        "meeting:atlas"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:atlas",
+          "text": "Friday at 09:30"
+        }
+      ]
+    },
+    {
+      "case_id": "en-release-owner",
+      "category": "exact-term",
+      "query": "Atlas deployment checklist Mira",
+      "expected_document_ids": [
+        "meeting:atlas"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:atlas",
+          "text": "Mira owns the deployment checklist"
+        }
+      ]
+    },
+    {
+      "case_id": "en-rollback",
+      "category": "distractors",
+      "query": "rollback health probe five minutes",
+      "expected_document_ids": [
+        "meeting:atlas"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:atlas",
+          "text": "failed health probe for five minutes"
+        }
+      ]
+    },
+    {
+      "case_id": "en-finance",
+      "category": "distractors",
+      "query": "finance reconciliation Tuesday 16:00",
+      "expected_document_ids": [
+        "meeting:finance"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:finance",
+          "text": "Tuesday at 16:00"
+        }
+      ]
+    },
+    {
+      "case_id": "en-training",
+      "category": "distractors",
+      "query": "training workshop Room Cedar",
+      "expected_document_ids": [
+        "meeting:training"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:training",
+          "text": "The training coordinator books Room Cedar"
+        }
+      ]
+    },
+    {
+      "case_id": "cn-parameter",
+      "category": "chinese",
+      "query": "参数变化重新审批",
+      "expected_document_ids": [
+        "meeting:cn-approval"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:cn-approval",
+          "text": "参数变化必须重新审批"
+        }
+      ]
+    },
+    {
+      "case_id": "cn-ambiguous",
+      "category": "chinese",
+      "query": "提交响应丢失恢复观察外部结果",
+      "expected_document_ids": [
+        "meeting:cn-approval"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:cn-approval",
+          "text": "恢复过程先观察外部结果"
+        }
+      ]
+    },
+    {
+      "case_id": "cn-admin",
+      "category": "chinese-distractors",
+      "query": "行政会议报销回执",
+      "expected_document_ids": [
+        "meeting:cn-office"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:cn-office",
+          "text": "报销回执和员工培训"
+        }
+      ]
+    },
+    {
+      "case_id": "en-draft",
+      "category": "exact-term",
+      "query": "email draft never send",
+      "expected_document_ids": [
+        "policy:drafts"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "policy:drafts",
+          "text": "The connector must never send the email"
+        }
+      ]
+    },
+    {
+      "case_id": "en-attendees",
+      "category": "exact-term",
+      "query": "Private calendar holds no attendees",
+      "expected_document_ids": [
+        "policy:calendar"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "policy:calendar",
+          "text": "Private calendar holds must have no attendees"
+        }
+      ]
+    },
+    {
+      "case_id": "cn-calendar",
+      "category": "chinese",
+      "query": "私人日程不添加参与者不发送邀请",
+      "expected_document_ids": [
+        "meeting:cn-calendar"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:cn-calendar",
+          "text": "私人日程不添加参与者，不发送邀请"
+        }
+      ]
+    },
+    {
+      "case_id": "en-lease",
+      "category": "exact-term",
+      "query": "stale worker lease epoch artifacts",
+      "expected_document_ids": [
+        "meeting:lease"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:lease",
+          "text": "A stale worker cannot publish artifacts after the epoch changes"
+        }
+      ]
+    },
+    {
+      "case_id": "en-worktree",
+      "category": "exact-term",
+      "query": "Git worktree operating-system sandbox",
+      "expected_document_ids": [
+        "meeting:worktree"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:worktree",
+          "text": "not an operating-system sandbox"
+        }
+      ]
+    },
+    {
+      "case_id": "en-version",
+      "category": "exact-term",
+      "query": "corrected version activate automatically",
+      "expected_document_ids": [
+        "meeting:storage"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:storage",
+          "text": "Installing a corrected version does not activate it automatically"
+        }
+      ]
+    },
+    {
+      "case_id": "en-transcript",
+      "category": "exact-term",
+      "query": "Missing keys encrypted database",
+      "expected_document_ids": [
+        "meeting:privacy"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:privacy",
+          "text": "Missing keys fail closed"
+        }
+      ]
+    },
+    {
+      "case_id": "en-retry-config",
+      "category": "repeated-term-distractor",
+      "query": "retry exponential backoff maximum four retries",
+      "expected_document_ids": [
+        "meeting:retry-config"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:retry-config",
+          "text": "maximum of four retries"
+        }
+      ]
+    },
+    {
+      "case_id": "en-long-tail",
+      "category": "long-document-tail",
+      "query": "Zephyr recovery owner Rowan",
+      "expected_document_ids": [
+        "meeting:long-en"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:long-en",
+          "text": "The Zephyr recovery owner is Rowan"
+        }
+      ]
+    },
+    {
+      "case_id": "cn-long-tail",
+      "category": "long-document-tail",
+      "query": "青岚系统切换负责人林舟",
+      "expected_document_ids": [
+        "meeting:long-cn"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:long-cn",
+          "text": "切换负责人是林舟"
+        }
+      ]
+    },
+    {
+      "case_id": "en-correction",
+      "category": "corrected-active-version",
+      "query": "corrected Neptune launch date Thursday 14:30",
+      "expected_document_ids": [
+        "meeting:neptune"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:neptune",
+          "text": "Thursday at 14:30"
+        }
+      ]
+    },
+    {
+      "case_id": "en-budget",
+      "category": "exact-term",
+      "query": "Crashes reserved attempt original runtime budget",
+      "expected_document_ids": [
+        "meeting:limits"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:limits",
+          "text": "Crashes do not refund a reserved attempt"
+        }
+      ]
+    },
+    {
+      "case_id": "cn-version",
+      "category": "chinese",
+      "query": "新版本安装操作者明确激活",
+      "expected_document_ids": [
+        "meeting:cn-version"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "meeting:cn-version",
+          "text": "新版本先安装，再由操作者明确激活"
+        }
+      ]
+    },
+    {
+      "case_id": "en-multi-source",
+      "category": "multiple-sources",
+      "query": "draft calendar never sends invitations never send email",
+      "expected_document_ids": [
+        "policy:drafts",
+        "policy:calendar"
+      ],
+      "expected_evidence": [
+        {
+          "document_id": "policy:drafts",
+          "text": "never send the email"
+        },
+        {
+          "document_id": "policy:calendar",
+          "text": "never sends invitations"
+        }
+      ]
+    },
+    {
+      "case_id": "absent-english",
+      "category": "no-answer",
+      "query": "quasarneutrino991",
+      "expected_document_ids": [],
+      "expected_evidence": []
+    },
+    {
+      "case_id": "absent-chinese",
+      "category": "no-answer",
+      "query": "鲸跃星核密语",
+      "expected_document_ids": [],
+      "expected_evidence": []
+    },
+    {
+      "case_id": "historical-inactive",
+      "category": "inactive-version-no-answer",
+      "query": "cobaltlaunch77",
+      "expected_document_ids": [],
+      "expected_evidence": []
+    },
+    {
+      "case_id": "unreviewed-inactive",
+      "category": "inactive-version-no-answer",
+      "query": "unreviewedjade88",
+      "expected_document_ids": [],
+      "expected_evidence": []
+    },
+    {
+      "case_id": "plausible-unanswered",
+      "category": "no-answer-shared-vocabulary",
+      "query": "Atlas weekend emergency pager number",
+      "expected_document_ids": [],
+      "expected_evidence": []
+    },
+    {
+      "case_id": "cn-plausible-unanswered",
+      "category": "no-answer-shared-vocabulary",
+      "query": "审批系统管理员联系电话",
+      "expected_document_ids": [],
+      "expected_evidence": []
+    }
+  ]
+}

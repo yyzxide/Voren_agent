@@ -13,9 +13,11 @@ from fastapi.responses import FileResponse
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from fastapi.staticfiles import StaticFiles
 
+from voren import __version__
 from voren.adapters.agentdojo_workspace import AgentDojoDependencyError
 from voren.actions.errors import InvalidOperationStateError
 from voren.adapters.google_workspace import GoogleWorkspaceConfigurationError
+from voren.knowledge.embeddings import EmbeddingError
 from voren.providers.openai_responses import (
     ModelConfigurationError,
     OpenAIResponsesModelAdapter,
@@ -117,7 +119,7 @@ def create_app(
     static_root = Path(__file__).with_name("static")
     app = FastAPI(
         title="Voren Agent",
-        version="0.2.0",
+        version=__version__,
         description=(
             "Local controlled email/calendar Agent with exact-effect approval."
         ),
@@ -164,6 +166,7 @@ def create_app(
             ModelConfigurationError,
             AgentDojoDependencyError,
             GoogleWorkspaceConfigurationError,
+            EmbeddingError,
             TranscriptKeyError,
         ) as error:
             raise HTTPException(status_code=503, detail=str(error)) from error

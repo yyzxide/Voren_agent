@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -53,6 +54,7 @@ class RunView(WebModel):
     memory_versions: tuple[MemoryRef, ...] = ()
     skill_routing: SkillRouteDecision | None = None
     recovery_required: bool = False
+    recovery_reason: Literal["knowledge_configuration_changed"] | None = None
     created_at: datetime
     updated_at: datetime
 

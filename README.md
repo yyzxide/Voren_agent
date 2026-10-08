@@ -4,6 +4,12 @@
 
 [![CI](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml)
 
+**0.3.0: source-bound chunk retrieval and comparative evaluation.** Local BM25
+is now the default, with the original lexical baseline and explicitly enabled
+dense retrieval/RRF fusion. MCP and local Web use the same citation contract;
+a fixed fixture measures source recall, evidence snippets, and no-answer false positives.
+See [usage and verification boundaries](docs/implementation/V03_KNOWLEDGE_RETRIEVAL.md).
+
 **0.2.0: resumable tasks with separately approved actions.** The Web interface now
 continues the original task after each verified action, presents the next proposal,
 and preserves the final summary and action history. Use `--multi-action` in the
