@@ -2,6 +2,10 @@
 
 [English](ROADMAP.md)
 
+2026-10-08 的 **0.4.0 切片**增加独立知识问答、主动拒答、逐声明原文引用校验，
+以及新 Web Run 的知识语料冻结，见 [实现与验证边界](implementation/V04_KNOWLEDGE_ANSWERS.zh-CN.md)。
+引用真实性与答案语义支持分开记录；真实模型的拒答质量仍待独立验证。
+
 2026-10-08 的 **0.3.0 切片**增加分块 BM25、显式向量索引、RRF 混合检索、
 精确片段引用和固定语料对照评测，见 [使用与验收边界](implementation/V03_KNOWLEDGE_RETRIEVAL.zh-CN.md)。
 它不改变下文 Phase 2 的历史非 Embedding 验收范围，也不补造真实模型或 Google 账号证据。

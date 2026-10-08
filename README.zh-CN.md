@@ -4,6 +4,11 @@
 
 [![CI](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml)
 
+**0.4.0：引用校验的知识问答与任务语料冻结。** `knowledge ask` 接受逐条引用的
+回答或拒答提案，核对真实来源、原文和字符位置；新 Web 任务在审批与恢复时使用同一组
+知识版本。引用真实不等于回答语义正确，结果明确保留 `semantic_support=unverified`。
+详见 [使用与验证边界](docs/implementation/V04_KNOWLEDGE_ANSWERS.zh-CN.md)。
+
 **0.3.0：带精确片段引用的知识检索与对照评测。** 默认检索升级为分块 BM25，
 保留原关键词基线，并提供显式启用的向量检索和 RRF 融合。MCP 与本地 Web
 使用同一检索契约；固定样例分别检查文档召回、证据片段和无答案误召回。

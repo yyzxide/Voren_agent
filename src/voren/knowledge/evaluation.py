@@ -19,6 +19,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from voren.knowledge.citations import CitationValidationError, validate_knowledge_hit
 from voren.knowledge.models import KnowledgeDocument, KnowledgeSearchHit, KnowledgeSourceKind
 from voren.knowledge.retrieval import CHUNK_OVERLAP, CHUNK_SIZE, RRF_K
 from voren.knowledge.store import SQLiteKnowledgeStore
@@ -404,36 +405,16 @@ def _citation_errors(hit: KnowledgeSearchHit, active: dict[str, KnowledgeDocumen
     document = active.get(hit.ref.document_id)
     if document is None:
         return ("document is not active in the evaluated corpus",)
-    errors: list[str] = []
-    if hit.ref != document.ref:
-        errors.append("source version differs from the active fixture version")
-    if hit.content_digest != document.content_digest:
-        errors.append("source content digest differs")
-    if (hit.title, hit.source_uri, hit.source_kind) != (document.title, document.source_uri, document.source_kind):
-        errors.append("source metadata differs")
-    start, end = getattr(hit, "chunk_start", None), getattr(hit, "chunk_end", None)
-    if start is not None or end is not None:
-        if not isinstance(start, int) or not isinstance(end, int) or not 0 <= start < end <= len(document.content):
-            errors.append("chunk offsets are outside the source")
-        else:
-            source_text = document.content[start:end]
-            if hit.snippet != source_text:
-                errors.append("snippet differs from exact source offsets")
-            if getattr(hit, "chunk_digest", None) != hashlib.sha256(source_text.encode("utf-8")).hexdigest():
-                errors.append("chunk content digest differs")
-            identity = {
-                "version_id": document.ref.version_id,
-                "start": start,
-                "end": end,
-                "content_digest": hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
-            }
-            if getattr(hit, "chunk_id", None) != _digest(identity):
-                errors.append("chunk identity differs from exact source metadata")
-    else:
-        source_snippet = hit.snippet.strip("…").strip()
-        if not source_snippet or source_snippet not in document.content:
-            errors.append("snippet has no actual text from source content")
-    return tuple(errors)
+    try:
+        validate_knowledge_hit(hit, document)
+    except CitationValidationError as error:
+        # Preserve the v0.3 report vocabulary while sharing production checks.
+        return tuple(
+            "source version differs from the active fixture version"
+            if label == "source version differs from the bound source version" else label
+            for label in error.errors
+        )
+    return ()
 
 
 def _case_scores(

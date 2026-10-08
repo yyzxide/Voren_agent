@@ -2,6 +2,12 @@
 
 [简体中文](ROADMAP.zh-CN.md)
 
+The **0.4.0 slice**, dated 2026-10-08, adds standalone knowledge answering,
+abstention, per-claim exact quotation checks, and frozen knowledge corpora for
+new Web Runs. See [implementation and verification boundaries](implementation/V04_KNOWLEDGE_ANSWERS.md).
+Citation authenticity is recorded separately from semantic support;
+real-model abstention quality still needs independent validation.
+
 The **0.3.0 slice**, dated 2026-10-08, adds chunked BM25, explicit embedding
 indexing, RRF hybrid retrieval, exact chunk citations, and a fixed-corpus evaluation.
 See [usage and verification boundaries](implementation/V03_KNOWLEDGE_RETRIEVAL.md).

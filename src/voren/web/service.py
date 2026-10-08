@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -34,7 +35,8 @@ from voren.knowledge.embeddings import (
     embedding_provider_from_env,
     retrieval_mode_from_env,
 )
-from voren.knowledge.store import SQLiteKnowledgeStore
+from voren.knowledge.models import KnowledgeCorpusSnapshot
+from voren.knowledge.store import KnowledgeStoreError, SQLiteKnowledgeStore
 from voren.memory.context import MemoryContextAssembler, MemoryContextSnapshot
 from voren.memory.store import SQLiteMemoryStore
 from voren.mcp_bridge.adapter import MCPKnowledgeReadAdapter
@@ -258,6 +260,7 @@ class VorenWebService:
         published = False
         try:
             knowledge_store = SQLiteKnowledgeStore(self.knowledge_database)
+            knowledge_corpus = knowledge_store.snapshot_corpus()
             ledger = SQLiteOperationLedger(self.database)
             run_store = SQLiteRunStore(self.database)
             transcript_store = SQLiteTranscriptStore.from_local_key(self.database)
@@ -276,6 +279,7 @@ class VorenWebService:
             )
             knowledge_server = create_knowledge_mcp_server(
                 knowledge_store, mode=retrieval_mode, embedder=embedder,
+                corpus=knowledge_corpus,
             )
             runtime_read_tools = CompositeReadToolAdapter(
                 workspace.read_tools,
@@ -340,6 +344,7 @@ class VorenWebService:
                         "knowledge_retrieval": self._knowledge_metadata(
                             retrieval_mode, embedder,
                         ),
+                        "knowledge_corpus": knowledge_corpus.model_dump(mode="json"),
                     },
                 ),
             )
@@ -522,7 +527,8 @@ class VorenWebService:
         self, current: RunView, *, config: RunConfig, check_retrieval: bool = True,
     ) -> WebWorkspaceRuntime:
         if check_retrieval:
-            self._knowledge_retrieval_for_run(config)
+            retrieval = self._knowledge_retrieval_for_run(config)
+            self._knowledge_corpus_for_run(config, retrieval=retrieval)
         workspace = self._pending_workspaces.get(current.run_id)
         if workspace is None:
             if not self.workspace_recoverable or current.workspace != self.workspace_name:
@@ -556,6 +562,9 @@ class VorenWebService:
         try:
             run = run_store.get_run(current.run_id)
             retrieval_mode, embedder = self._knowledge_retrieval_for_run(run.config)
+            knowledge_corpus = self._knowledge_corpus_for_run(
+                run.config, knowledge_store, retrieval=(retrieval_mode, embedder),
+            )
             memory_context = MemoryContextAssembler(memory_store).from_frozen(run.config.memory_versions)
             skill_context = (
                 SkillContextAssembler(skill_store).from_frozen(run.config.skill_versions)
@@ -568,6 +577,7 @@ class VorenWebService:
                     MCPKnowledgeReadAdapter(
                         create_knowledge_mcp_server(
                             knowledge_store, mode=retrieval_mode, embedder=embedder,
+                            corpus=knowledge_corpus,
                         ), source_id="local-knowledge",
                     ),
                 ),
@@ -685,7 +695,8 @@ class VorenWebService:
         try:
             config = store.get_run(view.run_id).config
             try:
-                self._knowledge_retrieval_for_run(config)
+                retrieval = self._knowledge_retrieval_for_run(config)
+                self._knowledge_corpus_for_run(config, retrieval=retrieval)
             except WebApprovalRecoveryRequiredError:
                 retrieval_problem = True
         finally:
@@ -757,6 +768,37 @@ class VorenWebService:
                 "(mode or embedding fingerprint); restore it before continuing"
             )
         return mode, embedder
+
+    def _knowledge_corpus_for_run(
+        self, config: RunConfig, store: SQLiteKnowledgeStore | None = None,
+        *, retrieval: tuple[str, EmbeddingProvider | None] | None = None,
+    ) -> KnowledgeCorpusSnapshot | None:
+        if "knowledge_corpus" not in config.metadata:
+            # Older Runs did not record their source versions. Keep their live
+            # retrieval semantics rather than inventing a historical snapshot.
+            return None
+        owned_store = None
+        try:
+            corpus = KnowledgeCorpusSnapshot.model_validate(config.metadata["knowledge_corpus"])
+            if store is None:
+                owned_store = SQLiteKnowledgeStore(self.knowledge_database)
+                store = owned_store
+            store.load_corpus(corpus)
+            mode, embedder = retrieval or self._knowledge_retrieval_for_run(config)
+            if mode in {"dense", "hybrid"}:
+                if embedder is None:
+                    raise KnowledgeStoreError("frozen retrieval requires an embedding provider")
+                store.validate_embedding_index(embedder, corpus=corpus)
+            return corpus
+        except (KnowledgeStoreError, ValueError, sqlite3.DatabaseError):
+            raise WebApprovalRecoveryRequiredError(
+                "knowledge evidence is unavailable or does not match the original run; "
+                "restore its frozen source versions and retrieval index before continuing; "
+                "no action was dispatched"
+            ) from None
+        finally:
+            if owned_store is not None:
+                owned_store.close()
 
     def _create_workspace(self) -> WebWorkspaceRuntime:
         workspace = self._workspace_factory()

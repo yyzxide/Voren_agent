@@ -15,6 +15,7 @@ from voren.knowledge.embeddings import (
     embedding_provider_from_env,
     retrieval_mode_from_env,
 )
+from voren.knowledge.models import KnowledgeCorpusSnapshot
 from voren.knowledge.store import KnowledgeStoreError, SQLiteKnowledgeStore
 from voren.mcp_bridge.models import KnowledgeSearchResponse
 
@@ -28,6 +29,7 @@ def create_knowledge_mcp_server(
     *,
     mode: str = "bm25",
     embedder: EmbeddingProvider | None = None,
+    corpus: KnowledgeCorpusSnapshot | None = None,
 ) -> MCPServer:
     """Expose retrieval only; no MCP prose or annotation grants authority."""
 
@@ -64,6 +66,7 @@ def create_knowledge_mcp_server(
         try:
             hits = store.search(
                 request.query, limit=request.limit, mode=mode, embedder=embedder,
+                corpus=corpus,
             )
         except (KnowledgeStoreError, ValueError) as error:
             # MCP frameworks may serialize exception text; no provider body,

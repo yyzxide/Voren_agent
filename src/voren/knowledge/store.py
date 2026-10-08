@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from voren.knowledge.models import (
+    KnowledgeCorpusSnapshot,
     KnowledgeDocument,
     KnowledgeSearchHit,
     KnowledgeSourceKind,
@@ -35,7 +36,7 @@ class KnowledgeStoreError(RuntimeError):
 
 
 class SQLiteKnowledgeStore:
-    """Keep source-bound document versions and search only active snapshots."""
+    """Keep source-bound versions and search active or explicitly pinned corpora."""
 
     def __init__(self, database: Path) -> None:
         database.parent.mkdir(parents=True, exist_ok=True)
@@ -171,6 +172,36 @@ class SQLiteKnowledgeStore:
             )
         return self._document_from_row(row)
 
+    def snapshot_corpus(self) -> KnowledgeCorpusSnapshot:
+        """Freeze active references with one SQL read, then validate their sources.
+
+        Resolving an immutable reference never reads the active pointer again,
+        so concurrent activation cannot mix versions in this manifest.
+        """
+        rows = self._connection.execute(
+            """
+            SELECT document_id, version_id FROM active_knowledge_versions
+            ORDER BY document_id
+            """
+        ).fetchall()
+        snapshot = KnowledgeCorpusSnapshot.create(
+            KnowledgeVersionRef(
+                document_id=row["document_id"], version_id=row["version_id"],
+            )
+            for row in rows
+        )
+        self.load_corpus(snapshot)
+        return snapshot
+
+    def load_corpus(
+        self, snapshot: KnowledgeCorpusSnapshot,
+    ) -> tuple[KnowledgeDocument, ...]:
+        """Resolve the exact frozen versions, failing on absent or corrupt data."""
+        # Revalidation also rejects an invalid model made with model_construct
+        # or model_copy, which intentionally bypasses Pydantic validation.
+        snapshot = KnowledgeCorpusSnapshot.model_validate(snapshot.model_dump())
+        return tuple(self.load(ref) for ref in snapshot.refs)
+
     def search(
         self,
         query: str,
@@ -178,6 +209,7 @@ class SQLiteKnowledgeStore:
         limit: int = 5,
         mode: str = "bm25",
         embedder: EmbeddingProvider | None = None,
+        corpus: KnowledgeCorpusSnapshot | None = None,
     ) -> tuple[KnowledgeSearchHit, ...]:
         if not query.strip():
             raise ValueError("knowledge query must be non-empty")
@@ -185,9 +217,9 @@ class SQLiteKnowledgeStore:
             raise ValueError("knowledge search limit must be between 1 and 20")
         if mode not in ("lexical", "bm25", "dense", "hybrid"):
             raise ValueError("unknown knowledge retrieval mode")
+        documents = self._active_documents() if corpus is None else self.load_corpus(corpus)
         if mode == "lexical":
-            return self._search_lexical(query, limit=limit)
-        documents = self._active_documents()
+            return self._search_lexical(query, limit=limit, documents=documents)
         chunks = tuple(chunk for document in documents for chunk in chunk_document(document))
         if mode == "bm25":
             ranked = rank_bm25(query, chunks)
@@ -301,7 +333,7 @@ class SQLiteKnowledgeStore:
             ).fetchone()
             if row is None:
                 if require_complete:
-                    raise KnowledgeStoreError("embedding index is incomplete for active source chunks; index explicitly")
+                    raise KnowledgeStoreError("embedding index is incomplete for selected source chunks; index explicitly")
                 continue
             if (
                 row["document_id"] != chunk.document.ref.document_id
@@ -325,18 +357,41 @@ class SQLiteKnowledgeStore:
             vectors.append(validated)
         return tuple(vectors)
 
-    def index_embeddings(self, embedder: EmbeddingProvider, *, max_new_chunks: int = 2_000) -> int:
-        """Embed only missing active chunks, committing all new vectors together.
+    def validate_embedding_index(
+        self,
+        embedder: EmbeddingProvider,
+        *,
+        corpus: KnowledgeCorpusSnapshot | None = None,
+    ) -> None:
+        """Check selected source vectors without querying or repairing them.
 
-        Search never builds or repairs an index implicitly. A changed active source
-        version or provider fingerprint requires this explicit operation again.
+        This is an offline availability check for consumers that must establish
+        their frozen evidence is usable before dispatching an external action.
+        """
+        documents = self._active_documents() if corpus is None else self.load_corpus(corpus)
+        chunks = tuple(chunk for document in documents for chunk in chunk_document(document))
+        fingerprint = self._embedding_fingerprint(embedder)
+        self._load_chunk_vectors(chunks, fingerprint, require_complete=True)
+        if self._embedding_fingerprint(embedder) != fingerprint:
+            raise KnowledgeStoreError("embedding provider fingerprint changed during index validation")
+
+    def index_embeddings(
+        self,
+        embedder: EmbeddingProvider,
+        *,
+        max_new_chunks: int = 2_000,
+        corpus: KnowledgeCorpusSnapshot | None = None,
+    ) -> int:
+        """Embed only missing selected chunks, committing new vectors together.
+
+        Search never builds or repairs an index implicitly. A changed selected
+        source version or provider fingerprint requires this operation again.
         """
         fingerprint = self._embedding_fingerprint(embedder)
         if not isinstance(max_new_chunks, int) or isinstance(max_new_chunks, bool) or not 1 <= max_new_chunks <= 2_000:
             raise ValueError("embedding indexing chunk budget must be between 1 and 2000")
-        chunks = tuple(
-            chunk for document in self._active_documents() for chunk in chunk_document(document)
-        )
+        documents = self._active_documents() if corpus is None else self.load_corpus(corpus)
+        chunks = tuple(chunk for document in documents for chunk in chunk_document(document))
         existing = self._load_chunk_vectors(chunks, fingerprint, require_complete=False)
         missing = tuple(
             chunk for chunk in chunks
@@ -348,7 +403,7 @@ class SQLiteKnowledgeStore:
         if not missing:
             return 0
         if len(missing) > max_new_chunks:
-            raise KnowledgeStoreError("missing active chunks exceed the explicit embedding indexing budget")
+            raise KnowledgeStoreError("missing selected chunks exceed the explicit embedding indexing budget")
         dimension = len(existing[0]) if existing else None
         new_vectors = []
         for start in range(0, len(missing), 32):
@@ -388,22 +443,17 @@ class SQLiteKnowledgeStore:
                 )
         return len(missing)
 
-    def _search_lexical(self, query: str, *, limit: int) -> tuple[KnowledgeSearchHit, ...]:
+    def _search_lexical(
+        self,
+        query: str,
+        *,
+        limit: int,
+        documents: tuple[KnowledgeDocument, ...],
+    ) -> tuple[KnowledgeSearchHit, ...]:
         query_terms = tuple(dict.fromkeys(self._terms(query)))
         phrase = query.casefold().strip()
-        rows = self._connection.execute(
-            """
-            SELECT v.*
-            FROM active_knowledge_versions AS a
-            JOIN knowledge_versions AS v
-              ON v.document_id = a.document_id
-             AND v.version_id = a.version_id
-            ORDER BY v.document_id
-            """
-        ).fetchall()
         scored: list[tuple[int, KnowledgeDocument]] = []
-        for row in rows:
-            document = self._document_from_row(row)
+        for document in documents:
             searchable = f"{document.title}\n{document.content}".casefold()
             counts = Counter(self._terms(searchable))
             score = sum(min(counts[term], 4) for term in query_terms)

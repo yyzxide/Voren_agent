@@ -4,6 +4,13 @@
 
 [![CI](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml)
 
+**0.4.0: citation-checked knowledge answers and frozen task corpora.** `knowledge ask`
+accepts cited claims or abstention, checking source identity, exact quotations,
+and character positions. New Web tasks retain their knowledge versions across
+approval and recovery. Genuine citations do not establish semantic correctness;
+results keep `semantic_support=unverified`.
+See [usage and verification boundaries](docs/implementation/V04_KNOWLEDGE_ANSWERS.md).
+
 **0.3.0: source-bound chunk retrieval and comparative evaluation.** Local BM25
 is now the default, with the original lexical baseline and explicitly enabled
 dense retrieval/RRF fusion. MCP and local Web use the same citation contract;

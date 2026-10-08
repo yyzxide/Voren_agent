@@ -64,6 +64,7 @@ from voren.learning.report import render_candidate_report, write_candidate_repor
 from voren.learning.service import SkillCandidateService
 from voren.learning.store import CandidateStoreError, SQLiteCandidateStore
 from voren.knowledge.embeddings import EmbeddingError, embedding_provider_from_env
+from voren.knowledge.answers import KnowledgeAnswerService
 from voren.knowledge.models import KnowledgeDocument, KnowledgeSourceKind
 from voren.knowledge.store import KnowledgeStoreError, SQLiteKnowledgeStore
 from voren.memory.context import MemoryContextAssembler
@@ -81,7 +82,8 @@ from voren.runs.models import RunConfig, RunStatus
 from voren.runs.store import SQLiteRunStore
 from voren.runtime.agent_loop import AgentLoop
 from voren.runtime.cancellation import CancellationToken
-from voren.runtime.models import RuntimeLimits, RuntimeResultStatus, RuntimeUsage
+from voren.runtime.models import ModelResponse, RuntimeLimits, RuntimeResultStatus, RuntimeUsage
+from voren.testing.scripted_model import ScriptedModelAdapter
 from voren.runtime.ports import ModelAdapter
 from voren.runtime.tools import external_action_tool
 from voren.runtime.transcripts import SQLiteTranscriptStore, TranscriptKeyError
@@ -574,6 +576,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_knowledge_storage_argument(knowledge_search)
     knowledge_search.set_defaults(handler=run_knowledge_search)
+
+    knowledge_ask = knowledge_commands.add_parser(
+        "ask", help="Answer one knowledge question with source-checked citations or abstain.",
+    )
+    knowledge_ask.add_argument("question")
+    knowledge_ask.add_argument("--limit", type=int, default=5)
+    knowledge_ask.add_argument("--mode", choices=("bm25", "dense", "hybrid"), default="bm25")
+    answer_source = knowledge_ask.add_mutually_exclusive_group(required=True)
+    answer_source.add_argument(
+        "--draft", type=Path,
+        help="Validate a local JSON answer proposal; no model API call.",
+    )
+    answer_source.add_argument(
+        "--allow-model-api", action="store_true",
+        help="Send the question and retrieved passages to the configured model; may incur cost.",
+    )
+    knowledge_ask.add_argument("--allow-embedding-api", action="store_true")
+    knowledge_ask.add_argument("--model", help="Responses model ID; alternatively set VOREN_MODEL.")
+    knowledge_ask.add_argument("--base-url")
+    knowledge_ask.add_argument(
+        "--provider-profile", choices=tuple(item.value for item in ResponsesProviderProfile),
+    )
+    knowledge_ask.add_argument("--timeout-seconds", type=float, default=60.0)
+    knowledge_ask.add_argument("--max-output-tokens", type=int, default=2_048)
+    _add_knowledge_storage_argument(knowledge_ask)
+    knowledge_ask.set_defaults(handler=run_knowledge_ask)
 
     knowledge_index = knowledge_commands.add_parser(
         "index", help="Explicitly embed active knowledge chunks; search never builds this index.",
@@ -1866,6 +1894,47 @@ def run_knowledge_search(
             )
         )
         return 0
+    finally:
+        store.close()
+
+
+def run_knowledge_ask(
+    args: argparse.Namespace,
+    *,
+    model: ModelAdapter | None = None,
+    cancellation: CancellationToken | None = None,
+    output: Output = print,
+) -> int:
+    if not args.draft and not args.allow_model_api:
+        raise ValueError("knowledge ask requires --draft or --allow-model-api")
+    if args.draft and args.allow_model_api:
+        raise ValueError("choose only one answer proposal source")
+    embedder = None
+    if args.mode in {"dense", "hybrid"}:
+        if not args.allow_embedding_api:
+            raise ValueError("dense/hybrid answering requires --allow-embedding-api")
+        embedder = embedding_provider_from_env()
+    elif args.allow_embedding_api:
+        raise ValueError("--allow-embedding-api requires dense or hybrid mode")
+    if args.draft:
+        try:
+            with args.draft.open("rb") as source:
+                raw = source.read(64_001)
+            draft_text = raw.decode("utf-8")
+        except (OSError, UnicodeError):
+            raise ValueError("cannot read a UTF-8 knowledge answer draft") from None
+        if len(raw) > 64_000:
+            raise ValueError("answer draft exceeds byte limit")
+        model = ScriptedModelAdapter((ModelResponse(text=draft_text),))
+    elif model is None:
+        model, _, _ = _resolve_run_model(args, None)
+    store = SQLiteKnowledgeStore(args.database)
+    try:
+        result = KnowledgeAnswerService(
+            store, model, mode=args.mode, embedder=embedder,
+        ).answer(args.question, limit=args.limit, cancellation=cancellation)
+        output(result.model_dump_json(indent=2))
+        return 0 if result.status in {"answered", "abstained"} else 2
     finally:
         store.close()
 

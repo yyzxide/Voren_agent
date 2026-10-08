@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterable
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal, Self
@@ -24,6 +25,45 @@ class KnowledgeSourceKind(StrEnum):
 class KnowledgeVersionRef(FrozenModel):
     document_id: str = Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._:-]*$")
     version_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class KnowledgeCorpusSnapshot(FrozenModel):
+    """A canonical set of immutable source versions, including an empty set.
+
+    A snapshot contains references only. Source text remains in the versioned
+    store and must be validated when those references are resolved.
+    """
+
+    refs: tuple[KnowledgeVersionRef, ...]
+    digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @classmethod
+    def create(cls, refs: Iterable[KnowledgeVersionRef]) -> Self:
+        ordered = tuple(sorted(refs, key=lambda ref: ref.document_id))
+        return cls(refs=ordered, digest=cls._digest(ordered))
+
+    @classmethod
+    def from_refs(cls, refs: Iterable[KnowledgeVersionRef]) -> Self:
+        return cls.create(refs)
+
+    @staticmethod
+    def _digest(refs: tuple[KnowledgeVersionRef, ...]) -> str:
+        payload = json.dumps(
+            [ref.model_dump(mode="json") for ref in refs],
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+    @model_validator(mode="after")
+    def references_and_digest_are_canonical(self) -> Self:
+        identifiers = tuple(ref.document_id for ref in self.refs)
+        if identifiers != tuple(sorted(set(identifiers))):
+            raise ValueError("knowledge corpus references must have sorted unique document IDs")
+        if self.digest != self._digest(self.refs):
+            raise ValueError("knowledge corpus digest does not match its references")
+        return self
 
 
 class KnowledgeDocument(FrozenModel):
