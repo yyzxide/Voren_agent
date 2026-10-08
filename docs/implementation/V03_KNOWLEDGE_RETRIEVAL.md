@@ -87,6 +87,13 @@ the object/process and is not the Run's unified durable paid-request budget.
 
 ## Evaluation scope
 
+All **314 local regression tests passed** (90.612 seconds, no skips); see the
+[test log](../evidence/2026-10-08-v03-tests.log). Dependency consistency, JavaScript
+syntax and 141 local documentation links passed. The installed version is 0.3.0;
+no dependencies were added. The [raw retrieval artifact](../evidence/2026-10-08-v03-retrieval.json)
+binds clean source revision `4b202bdcdf883c9767955bb49927d907e97c60d7` and passed
+artifact-integrity and per-case metric verification.
+
 The bundled controlled bilingual corpus has 20 active documents and 28 cases:
 22 answerable/evidence-labelled cases and 6 no-answer cases. It covers long-document
 tails, distractors, repeated terms, Chinese text and inactive/revised versions.
