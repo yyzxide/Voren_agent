@@ -64,6 +64,7 @@ from voren.learning.report import render_candidate_report, write_candidate_repor
 from voren.learning.service import SkillCandidateService
 from voren.learning.store import CandidateStoreError, SQLiteCandidateStore
 from voren.knowledge.embeddings import EmbeddingError, embedding_provider_from_env
+from voren import __version__
 from voren.knowledge.answers import KnowledgeAnswerService
 from voren.knowledge.models import KnowledgeDocument, KnowledgeSourceKind
 from voren.knowledge.store import KnowledgeStoreError, SQLiteKnowledgeStore
@@ -105,6 +106,7 @@ def build_parser() -> argparse.ArgumentParser:
             "versions."
         ),
     )
+    parser.add_argument("--version", action="version", version=f"Voren {__version__}")
     subcommands = parser.add_subparsers(dest="command", required=True)
     agentdojo = subcommands.add_parser(
         "agentdojo",

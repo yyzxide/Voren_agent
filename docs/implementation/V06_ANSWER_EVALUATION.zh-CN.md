@@ -41,6 +41,7 @@ schema，去除真值和人工标注；用 opaque `case_ref` 替代可能泄漏�
   unresolved，不进入正确拒答计数。空窗口拒答记录零模型请求，与模型主动拒答可逐条区分。
 - `answerable_answer_rate` 与 `no_answer_abstention_rate` 是对给定标签的决策率，不能解释为
   语义正确率。原有检索误召回率也仍是另一项测量。
+- 结果中的请求与用量属于本次离线回放，不是原始在线生成的用量或费用证明。
 - 可选 `human_support=supported/unsupported/unreviewed` 保存独立 reviewer 标识；仅经过
   复核且实际 answered 的案例进入该标注比例分母。它是提供的标注，不认证 reviewer 身份，
   不把服务结果的 `semantic_support=unverified` 改为自动通过。

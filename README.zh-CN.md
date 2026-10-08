@@ -4,6 +4,12 @@
 
 [![CI](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml)
 
+**1.0.0：本地单用户作品集交付版。** 邮件/日程的审批与恢复、候选 Skill 生命周期、
+知识检索和带引用校验的问答已形成可运行路径。Web 增加独立知识面板，恢复前核对原模型、
+动作契约与加密记录；离线问答评测保留原始提案并分别统计决策与人工语义标注。
+从 [1.0 使用、范围与验证记录](docs/implementation/V1_RELEASE.zh-CN.md)开始。
+真实账号运行与真实模型问答质量仍需独立证据；此版本不声明生产多用户能力。
+
 **0.4.0：引用校验的知识问答与任务语料冻结。** `knowledge ask` 接受逐条引用的
 回答或拒答提案，核对真实来源、原文和字符位置；新 Web 任务在审批与恢复时使用同一组
 知识版本。引用真实不等于回答语义正确，结果明确保留 `semantic_support=unverified`。

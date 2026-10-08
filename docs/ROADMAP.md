@@ -2,6 +2,13 @@
 
 [简体中文](ROADMAP.zh-CN.md)
 
+The **1.0.0 local single-operator release**, dated 2026-10-08, closes the current
+project scope. The [final usage and verification record](implementation/V1_RELEASE.md)
+lists runnable paths, version batches, evidence and external validation boundaries.
+Version 0.5 adds recovery preflight and the knowledge Web panel; 0.6 adds raw
+proposal replay and separate semantic annotations. Deferred multi-user operation,
+background automation and additional providers remain outside this release.
+
 The **0.4.0 slice**, dated 2026-10-08, adds standalone knowledge answering,
 abstention, per-claim exact quotation checks, and frozen knowledge corpora for
 new Web Runs. See [implementation and verification boundaries](implementation/V04_KNOWLEDGE_ANSWERS.md).
@@ -346,7 +353,7 @@ Reject: gateway, channel, device-node, scheduler, and plugin-ecosystem scope.
 
 ## 9. First implementation decisions
 
-The following defaults keep the first slice coherent:
+These historical first-slice defaults evolved through 0.2–1.0 and are not a current gap list:
 
 - language: Python 3.12;
 - interface: CLI;
@@ -363,8 +370,10 @@ small forever.
 
 ## 10. Open design questions
 
-The AgentDojo version and task subset are now resolved above. The remaining
-questions are:
+These are historical design questions. Version 1.0 implements encrypted provider
+transcript recovery, per-action approval UI, Profile/Skill separation and bounded
+held-out candidate gates. Deployment-specific data classification and learning
+evidence across distributions still need deployment/data evidence. Original questions:
 
 1. Which run and event fields require encrypted storage rather than redaction?
 2. What is the smallest approval UI that clearly presents multiple related

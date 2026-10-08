@@ -14,6 +14,7 @@ from voren.adapters.agentdojo_workspace import AgentDojoWorkspaceAdapter
 from voren.adapters.workspace_contracts import (
     WORKSPACE_CONTRACT_VERSION,
     create_calendar_event_definition,
+    send_email_definition,
 )
 from voren.runs.manager import RunManager
 from voren.runs.models import RunConfig
@@ -102,7 +103,7 @@ def main() -> None:
                 account_email=workspace.account_email
             )
             gateway = ActionGateway(
-                definitions=(action_definition,),
+                definitions=(action_definition, send_email_definition()),
                 adapter=workspace,
                 ledger=ledger,
                 clock=lambda: now,
@@ -123,6 +124,10 @@ def main() -> None:
                             "Propose a calendar event and invitation email; always "
                             "pause for exact-effect operator approval."
                         ),
+                    ),
+                    external_action_tool(
+                        send_email_definition(),
+                        description="Propose an email; always pause for exact-effect operator approval.",
                     ),
                 ),
                 run_manager=manager,

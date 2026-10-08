@@ -33,5 +33,13 @@ jobs:
       - name: Verify dependency consistency
         run: python -m pip check
 
+      - name: Check browser script syntax and build distribution
+        run: |
+          node --check src/voren/web/static/app.js
+          python -m pip wheel --no-deps --no-build-isolation --wheel-dir /tmp/voren-wheel .
+
       - name: Run deterministic unit and integration tests
         run: python -m unittest discover -s tests -v
+
+      - name: Replay released answer evidence
+        run: python scripts/evaluate_knowledge_answers.py verify docs/evidence/2026-10-08-v1-answers.json

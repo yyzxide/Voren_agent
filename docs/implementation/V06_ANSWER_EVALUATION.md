@@ -36,6 +36,7 @@ Answered, abstained, rejected, failed and cancelled are counted separately.
 Rejected no-answer proposals remain unresolved, not correct abstentions. Empty
 windows record zero model calls. Decision rates compare supplied answerability
 labels and are distinct from semantic accuracy or retrieval false positives.
+Result request/usage counters describe this offline replay, not original online-generation billing.
 
 Optional supported/unsupported/unreviewed labels require an identified reviewer
 for reviewed answers; only reviewed answered cases enter their denominator.

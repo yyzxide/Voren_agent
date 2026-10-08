@@ -4,6 +4,16 @@
 
 [![CI](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml)
 
+**1.0.0: local, single-operator portfolio release.** Approved email/calendar
+actions, recovery, candidate Skill lifecycle, retrieval and citation-checked
+answers now have runnable delivery paths. Web adds a separate knowledge panel;
+recovery checks original model, action contracts and encrypted checkpoints before
+dispatch. Offline answer evaluation preserves raw proposals and separates
+decisions from supplied semantic review. Start with the
+[1.0 usage, scope and verification record](docs/implementation/V1_RELEASE.md).
+Real-account use and real-model answer quality still require separate evidence;
+this release does not claim a production multi-user service.
+
 **0.4.0: citation-checked knowledge answers and frozen task corpora.** `knowledge ask`
 accepts cited claims or abstention, checking source identity, exact quotations,
 and character positions. New Web tasks retain their knowledge versions across
