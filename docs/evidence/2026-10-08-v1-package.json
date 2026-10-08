@@ -1,0 +1,20 @@
+{
+  "version": "1.0.0",
+  "wheel": "voren_agent-1.0.0-py3-none-any.whl",
+  "wheel_sha256": "cc83223f9e2d07be6b1c79a703fb2520fb8a5027fdcf22034e9884340dbe3212",
+  "required_modules_and_assets": [
+    "voren/knowledge/answer_evaluation.py",
+    "voren/web/knowledge.py",
+    "voren/web/model_context.py",
+    "voren/web/static/app.js",
+    "voren/web/static/index.html",
+    "voren/web/static/styles.css"
+  ],
+  "wheel_import_cli_smoke": "passed using existing runtime dependencies",
+  "fresh_dependency_install": "covered by GitHub CI, not this local wheel smoke",
+  "dependencies_changed": false,
+  "quickstart_cli_ingest_to_web_answer": "passed on a temporary database without online model",
+  "code_revision": "d15ce968005bf3bbc93f4f0c41a439fa5d27117a",
+  "code_dirty": false,
+  "captured_at": "2026-10-08T07:33:00.223118+00:00"
+}

@@ -59,8 +59,28 @@ model inputs use opaque references and exclude evaluation labels.
 
 Separate commits/tags publish retrieval (0.3.0), answers (0.4.0), preflight/Web
 (0.5.0), offline evaluation (0.6.0), then complete delivery (1.0.0), preserving
-history. Final full-suite, raw controlled evidence and distribution checks are
-saved with their source commit after acceptance.
+history. All **426 tests passed** locally in 122.040 seconds with no skips; see
+the [raw log](../evidence/2026-10-08-v1-tests.log). Dependency consistency, Python
+compilation, JavaScript syntax, demos and temporary-data CLI-to-Web offline
+answering passed. The [package check](../evidence/2026-10-08-v1-package.json)
+verifies version/modules/assets and imports the CLI from the built Wheel,
+reusing existing runtime dependencies locally; CI performs the locked fresh install.
+
+The [offline answer artifact](../evidence/2026-10-08-v1-answers.json) and
+[ten-case citation protocol artifact](../evidence/2026-10-08-v1-answer-protocol.json)
+bind clean source `d15ce968005bf3bbc93f4f0c41a439fa5d27117a` (`code_dirty=false`).
+Five authored proposals yield two answers, two abstentions and one rejection;
+one cited answer deliberately invents a pager number. All semantic labels stay
+unreviewed, so no semantic accuracy is calculated. Three invalid citations in
+the protocol artifact are rejected; a semantic counterexample remains accepted.
+Digests, windows, original-text replay and summaries have been rechecked.
+
+Verified batch CI runs: [0.3.0](https://github.com/yyzxide/Voren_agent/actions/runs/37740454141),
+[0.4.0](https://github.com/yyzxide/Voren_agent/actions/runs/37740547760),
+[0.5.0](https://github.com/yyzxide/Voren_agent/actions/runs/37742424013),
+[0.6.0](https://github.com/yyzxide/Voren_agent/actions/runs/37742521556).
+The final 1.0 workflow additionally builds the Wheel, checks JavaScript syntax
+and replays released evidence; see [GitHub Actions](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml) for its live result.
 
 ## Reading order
 

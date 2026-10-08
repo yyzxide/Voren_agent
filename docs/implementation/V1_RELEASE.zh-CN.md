@@ -60,7 +60,31 @@ voren-web
 
 版本按 0.3.0 检索、0.4.0 引用问答、0.5.0 恢复校验/知识 Web、0.6.0 离线评测、
 1.0.0 完整交付分批快进推送。每批保留独立提交与标签，不覆盖历史。
-最终全量测试、原始受控报告与安装包检查记录将在验收后绑定源码提交保存。
+
+本地完整回归 **426 项全部通过**，122.040 秒，无跳过，见
+[原始测试日志](../evidence/2026-10-08-v1-tests.log)。依赖一致性、Python 编译、JavaScript 语法、
+演示脚本和临时资料的 CLI 导入→真实 Web 路由→离线引用提案路径通过。
+[安装包检查](../evidence/2026-10-08-v1-package.json)核对 1.0.0 元数据、全部新模块和 Web 静态资源，
+并从构建 Wheel 导入 CLI；本地检查复用已有依赖，GitHub CI 负责锁定依赖的干净安装。
+
+[离线问答报告](../evidence/2026-10-08-v1-answers.json)与
+[10 场景引用协议报告](../evidence/2026-10-08-v1-answer-protocol.json)绑定干净源码提交
+`d15ce968005bf3bbc93f4f0c41a439fa5d27117a`，`code_dirty=false`。前者五个作者预设提案为
+answered=2、abstained=2、rejected=1；其中一个通过真实引用的号码声明是刻意编写的错误结论。
+所有语义标注保持 unreviewed，不计算语义正确率。后者 3 个非法引用均拒绝，语义反例仍被接受。
+报告摘要、窗口、原始提案重放与统计已重新核验，CI 也会重放发布的问答报告。
+
+已验证的分批远端记录：
+
+| 版本 | 提交 | GitHub CI |
+| --- | --- | --- |
+| 0.3.0 | `27bd06c` | [通过](https://github.com/yyzxide/Voren_agent/actions/runs/37740454141) |
+| 0.4.0 | `f0909ff` | [通过](https://github.com/yyzxide/Voren_agent/actions/runs/37740547760) |
+| 0.5.0 | `2f99f8d` | [通过](https://github.com/yyzxide/Voren_agent/actions/runs/37742424013) |
+| 0.6.0 | `cda98a8` | [通过](https://github.com/yyzxide/Voren_agent/actions/runs/37742521556) |
+
+最终 1.0.0 使用相同工作流，额外执行 Wheel 构建、JavaScript 语法检查与原始答案报告重放；
+实时结果见 [GitHub Actions](https://github.com/yyzxide/Voren_agent/actions/workflows/ci.yml)。
 
 ## 阅读与讲解
 
